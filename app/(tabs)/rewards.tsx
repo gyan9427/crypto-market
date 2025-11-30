@@ -1,0 +1,18 @@
+import React from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlaceholderScreen } from '@/src/screens/PlaceholderScreen';
+import { StyleSheet } from 'react-native';
+
+export default function RewardsTab() {
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <PlaceholderScreen title="Rewards" />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
