@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, ActivityIndicator, Text } from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl, Text } from 'react-native';
 import { SegmentToggle } from '../components/SegmentToggle';
 import { SearchBar } from '../components/SearchBar';
 import { NewsCard } from '../components/NewsCard';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
+import { FeaturedCarouselSkeleton } from '../components/FeaturedCarouselSkeleton';
+import { NewsCardSkeleton } from '../components/NewsCardSkeleton';
 import { useAppStore } from '../state/useAppStore';
 import { fetchNews, search } from '../services/api';
 import { NewsItem } from '../types';
@@ -161,15 +163,6 @@ export const HomeScreen: React.FC = () => {
 
   const displayData = searchResults !== null ? searchResults : newsData;
 
-  if (loading && newsData.length === 0) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary[500]} />
-        <Text style={styles.loadingText}>Loading news...</Text>
-      </View>
-    );
-  }
-
   if (error && newsData.length === 0) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -184,19 +177,24 @@ export const HomeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <FlatList
-        data={displayData}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <NewsCard
-            item={item}
-            onLike={handleLike}
-            onComment={handleComment}
-            onShare={handleShare}
-            onSave={handleSave}
-            onPress={handleNewsPress}
-            onCoinPress={handleCoinPress}
-          />
-        )}
+        data={loading && newsData.length === 0 ? Array(5).fill(null) : displayData}
+        keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
+        renderItem={({ item, index }) => {
+          if (loading && newsData.length === 0) {
+            return <NewsCardSkeleton key={`skeleton-${index}`} />;
+          }
+          return (
+            <NewsCard
+              item={item}
+              onLike={handleLike}
+              onComment={handleComment}
+              onShare={handleShare}
+              onSave={handleSave}
+              onPress={handleNewsPress}
+              onCoinPress={handleCoinPress}
+            />
+          );
+        }}
         ListHeaderComponent={
           <>
             <SearchBar
@@ -204,8 +202,12 @@ export const HomeScreen: React.FC = () => {
               onChangeText={setSearchQuery}
               placeholder="Search news, coins..."
             />
-            {featuredNews.length > 0 && (
-              <FeaturedCarousel items={featuredNews} onItemPress={handleFeaturedNewsPress} />
+            {loading && newsData.length === 0 ? (
+              <FeaturedCarouselSkeleton />
+            ) : (
+              featuredNews.length > 0 && (
+                <FeaturedCarousel items={featuredNews} onItemPress={handleFeaturedNewsPress} />
+              )
             )}
             <SegmentToggle
               options={['Following', 'Explore']}
@@ -220,7 +222,7 @@ export const HomeScreen: React.FC = () => {
           </>
         }
         ListEmptyComponent={
-          searchResults !== null && searchResults.length === 0 ? (
+          !loading && searchResults !== null && searchResults.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No results found</Text>
             </View>
@@ -244,11 +246,6 @@ const styles = StyleSheet.create({
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    color: colors.neutral[600],
-    fontSize: 16,
   },
   errorText: {
     color: colors.error[500],

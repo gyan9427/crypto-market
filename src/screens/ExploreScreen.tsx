@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { View, FlatList, StyleSheet, Text } from 'react-native';
 import { FilterPills } from '../components/FilterPills';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
+import { MarketCapSkeleton } from '../components/MarketCapSkeleton';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
+import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
 import { SearchBar } from '../components/SearchBar';
 import { useAppStore } from '../state/useAppStore';
 import { fetchTrendingCoins, search } from '../services/api';
@@ -83,16 +85,6 @@ export const ExploreScreen: React.FC = () => {
     console.log('Open coin detail:', coinId);
   };
 
-
-  if (loading && coins.length === 0) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary[500]} />
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
-  }
-
   if (error && coins.length === 0) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -149,11 +141,14 @@ export const ExploreScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <FlatList
-        data={filteredCoins}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TrendingCoinCard coin={item} onPress={handleCoinPress} />
-        )}
+        data={loading && coins.length === 0 ? Array(5).fill(null) : filteredCoins}
+        keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
+        renderItem={({ item, index }) => {
+          if (loading && coins.length === 0) {
+            return <TrendingCoinCardSkeleton key={`skeleton-${index}`} />;
+          }
+          return <TrendingCoinCard coin={item} onPress={handleCoinPress} />;
+        }}
         ListHeaderComponent={
           <>
             <SearchBar
@@ -161,7 +156,11 @@ export const ExploreScreen: React.FC = () => {
               onChangeText={setSearchQuery}
               placeholder="Search coins, tokens..."
             />
-            <MarketCapPlaceholder />
+            {loading && coins.length === 0 ? (
+              <MarketCapSkeleton />
+            ) : (
+              <MarketCapPlaceholder />
+            )}
             <FilterPills
               categories={categories}
               selectedCategory={exploreCategory}
@@ -189,11 +188,6 @@ const styles = StyleSheet.create({
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    color: colors.neutral[600],
-    fontSize: 16,
   },
   errorText: {
     color: colors.error[500],
