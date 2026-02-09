@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, TrendingUp, Briefcase, Gift } from 'lucide-react-native';
+import { Home, TrendingUp, Briefcase, Gift, User } from 'lucide-react-native';
 import { colors } from '@/src/theme/theme';
 import { FAB } from '@/src/components/FAB';
 import { View, StyleSheet } from 'react-native';
@@ -61,6 +61,13 @@ export default function TabsLayout() {
           options={{
             title: 'Rewards',
             tabBarIcon: ({ color, size }) => <Gift size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: 'Profile',
+            tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
           }}
         />
       </Tabs>

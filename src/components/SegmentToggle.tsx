@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, TouchableOpacity, Text, StyleSheet, Animated, LayoutChangeEvent } from 'react-native';
 import { colors, borderRadius } from '../theme/theme';
 
 interface SegmentToggleProps {
@@ -13,20 +13,39 @@ export const SegmentToggle: React.FC<SegmentToggleProps> = ({
   selectedIndex,
   onSelect,
 }) => {
-  const segmentWidth = 100 / options.length;
+  const [containerWidth, setContainerWidth] = useState(0);
   const translateX = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!containerWidth) return;
+
+    const segmentWidthPx = containerWidth / options.length;
+
     Animated.timing(translateX, {
-      toValue: selectedIndex * (segmentWidth / 100) * 200,
+      toValue: selectedIndex * segmentWidthPx,
       duration: 200,
       useNativeDriver: true,
     }).start();
-  }, [selectedIndex, segmentWidth, translateX]);
+  }, [selectedIndex, containerWidth, options.length, translateX]);
+
+  const handleLayout = (event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    setContainerWidth(width);
+  };
 
   return (
-    <View style={styles.container}>
-      <Animated.View style={[styles.indicator, { width: `${segmentWidth}%`, transform: [{ translateX }] }]} />
+    <View style={styles.container} onLayout={handleLayout}>
+      {containerWidth > 0 && (
+        <Animated.View
+          style={[
+            styles.indicator,
+            {
+              width: containerWidth / options.length,
+              transform: [{ translateX }],
+            },
+          ]}
+        />
+      )}
       {options.map((option, index) => (
         <TouchableOpacity
           key={option}
