@@ -1,5 +1,12 @@
+/**
+ * @deprecated This file contains mock data that is no longer used.
+ * The application now uses real API calls to the backend.
+ * This file is kept for reference only and can be removed.
+ */
+
 import { Coin, NewsItem, TrendingCoin } from '../types';
 
+// All exports are deprecated - use API services instead
 export const mockCoins: Coin[] = [
   {
     id: 'bitcoin',

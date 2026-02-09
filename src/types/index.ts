@@ -68,5 +68,6 @@ export interface AppState {
   toggleDarkMode: () => void;
   toggleLike: (newsId: string) => void;
   toggleSave: (newsId: string) => void;
-  toggleFollowCoin: (coinId: string) => void;
+  toggleFollowCoin: (coinId: string) => Promise<void>;
+  syncFollowingCoins: () => Promise<void>;
 }

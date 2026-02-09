@@ -4,12 +4,83 @@ A modern, production-ready React Native app built with Expo, implementing a cryp
 
 ## Features
 
-- **Home Feed**: Toggle between Following and Explore modes
-- **News Cards**: Interactive cards with like, comment, share, and save actions
-- **Trending Coins**: Explore trending cryptocurrencies with sparklines
-- **Search**: Search news and coins
-- **FAB Actions**: Quick actions via floating action button with bottom sheet
-- **Responsive Design**: Optimized for mobile with smooth animations
+### Navigation & Screens
+- **Bottom Tab Navigation**: 5-tab navigation (Home, Portfolio, Market, Rewards, Add)
+  - Home tab with news feed
+  - Market/Explore tab with trending coins
+  - Portfolio tab (placeholder)
+  - Rewards tab (placeholder)
+  - Add tab (hidden, used for FAB positioning)
+
+### Home Screen
+- **Following/Explore Toggle**: Animated segment toggle to switch between Following and Explore feed modes
+- **Search Bar**: Real-time search functionality for news and coins with clear button
+- **News Feed**: Scrollable list of news cards with pull-to-refresh support
+- **News Cards**: Interactive cards featuring:
+  - Hero images (16:9 aspect ratio)
+  - Coin chips showing related cryptocurrencies (up to 3 visible, with "+X more" indicator)
+  - Following badge for tracked coins
+  - Time-ago formatted timestamps
+  - Source attribution
+  - Like, Comment, Share, and Save actions with state persistence
+  - Like and Save state indicators (filled icons when active)
+  - Abbreviated engagement counts (e.g., "1.2K", "500")
+  - Touch interactions for opening news details and coin details
+
+### Market/Explore Screen
+- **Featured News Carousel**: Horizontal scrolling carousel of featured news articles
+- **Category Filters**: Filter pills for Trending, Top, NFT, and DeFi categories
+- **Trending Coin Cards**: Display cards showing:
+  - Coin symbol, name, and rank
+  - Current price with formatted currency
+  - 24h price change percentage (color-coded: green for positive, red for negative)
+  - Sparkline mini charts showing price trends
+  - Touch interactions for coin details
+
+### Floating Action Button (FAB)
+- **Quick Actions Menu**: Bottom sheet with three actions:
+  - **Add Alert**: Set price alerts for coins
+  - **Add to Watchlist**: Track favorite coins
+  - **Submit News**: Share crypto news with community
+- **Smooth Animations**: Scale and rotate animations on press
+- **Gesture Support**: Pan-down-to-close bottom sheet interaction
+
+### State Management
+- **Like/Save News**: Persistent state for liked and saved news articles
+- **Follow Coins**: Track followed cryptocurrencies
+- **Feed Filter**: Toggle between Following and Explore modes
+- **Category Filter**: Filter trending coins by category (Trending, Top, NFT, DeFi)
+- **Dark Mode**: State management ready (toggle available in store)
+
+### UI Components
+- **NewsCard**: Full-featured news article card with all interactions
+- **CoinChip**: Compact coin badge/pill component
+- **FAB**: Floating action button with bottom sheet menu
+- **FeaturedCarousel**: Horizontal scrolling featured news
+- **FilterPills**: Category filter buttons with active state
+- **SearchBar**: Search input with clear functionality
+- **SegmentToggle**: Animated tab switcher for Following/Explore
+- **Sparkline**: SVG mini price chart component
+- **TrendingCoinCard**: Coin display card with price and chart
+
+### User Experience
+- **Pull-to-Refresh**: Refresh news feed by pulling down
+- **Smooth Animations**: React Native Reanimated 2 animations throughout
+  - FadeInDown entrance animations for news cards
+  - Spring animations for segment toggle
+  - Scale and rotate animations for FAB
+- **Responsive Design**: Optimized for mobile with proper spacing and touch targets
+- **Accessibility**: Full accessibility support with:
+  - Proper accessibility roles and labels
+  - Minimum 44x44px touch targets
+  - Screen reader support
+  - Proper contrast ratios
+
+### Data Formatting
+- **Time Formatting**: Relative time display (e.g., "2h ago", "3d ago")
+- **Price Formatting**: Currency formatting with proper decimal places
+- **Percentage Formatting**: Formatted percentage changes with +/- indicators
+- **Number Abbreviation**: Large numbers abbreviated (e.g., "1.2K", "5.3M")
 
 ## Tech Stack
 
@@ -48,11 +119,12 @@ A modern, production-ready React Native app built with Expo, implementing a cryp
 ```
 ├── app/
 │   ├── (tabs)/               # Tab-based navigation
-│   │   ├── _layout.tsx       # Tab bar configuration
-│   │   ├── index.tsx         # Home tab
-│   │   ├── portfolio.tsx     # Portfolio tab (placeholder)
-│   │   ├── market.tsx        # Market/Explore tab
-│   │   └── rewards.tsx       # Rewards tab (placeholder)
+│   │   ├── _layout.tsx       # Tab bar configuration with FAB
+│   │   ├── index.tsx         # Home tab (HomeScreen)
+│   │   ├── portfolio.tsx     # Portfolio tab (PlaceholderScreen)
+│   │   ├── add.tsx           # Add tab (hidden, for FAB positioning)
+│   │   ├── market.tsx        # Market/Explore tab (ExploreScreen)
+│   │   └── rewards.tsx       # Rewards tab (PlaceholderScreen)
 │   └── _layout.tsx           # Root layout with gesture handler
 ├── src/
 │   ├── components/           # Reusable UI components
@@ -78,6 +150,8 @@ A modern, production-ready React Native app built with Expo, implementing a cryp
 │   │   └── index.ts
 │   ├── utils/                # Utility functions
 │   │   └── format.ts         # Date, price, number formatting
+│   ├── services/             # API integration
+│   │   └── api.ts            # API service functions (ready for integration)
 │   └── mock/                 # Mock data
 │       └── mockData.ts       # Sample news and coins
 ├── __tests__/                # Unit tests
@@ -106,34 +180,47 @@ This app uses placeholder images from Pexels. To replace them with your own scre
 
 ## Replacing Mock Data with Real APIs
 
-The app currently uses mock data. To integrate real APIs:
+The app currently uses mock data from `src/mock/mockData.ts`. To integrate real APIs:
 
-1. **Create API service file**:
+1. **Update API service file** (`src/services/api.ts`):
    ```typescript
    // src/services/api.ts
    export const fetchNews = async () => {
      const response = await fetch('YOUR_API_ENDPOINT');
      return response.json();
    };
+
+   export const fetchTrendingCoins = async () => {
+     const response = await fetch('YOUR_COINS_API_ENDPOINT');
+     return response.json();
+   };
    ```
 
-2. **Update screens** to use API:
+2. **Update screens** to use API instead of mock data:
    ```typescript
    // In HomeScreen.tsx or ExploreScreen.tsx
    import { fetchNews } from '@/src/services/api';
+   import { useAppStore } from '@/src/state/useAppStore';
+
+   const [news, setNews] = useState([]);
+   const [loading, setLoading] = useState(false);
 
    useEffect(() => {
      const loadNews = async () => {
+       setLoading(true);
        const data = await fetchNews();
-       // Update state with real data
+       setNews(data);
+       setLoading(false);
      };
      loadNews();
    }, []);
    ```
 
 3. **Replace mock data imports** in:
-   - `src/screens/HomeScreen.tsx`
-   - `src/screens/ExploreScreen.tsx`
+   - `src/screens/HomeScreen.tsx` - Replace `mockNews` import
+   - `src/screens/ExploreScreen.tsx` - Replace `mockTrendingCoins` and `mockFeaturedNews` imports
+
+4. **Update state management** if needed to handle API responses and errors
 
 ## Available Scripts
 
@@ -189,9 +276,47 @@ All interactive elements include:
 - Minimum touch target size of 44x44 points
 - Proper contrast ratios for text and backgrounds
 
+## State Management
+
+The app uses **Zustand** for lightweight, performant state management. The global store (`useAppStore`) manages:
+
+### State Properties
+- `feedFilter`: Current feed mode ('following' | 'explore')
+- `exploreCategory`: Active category filter ('trending' | 'top' | 'nft' | 'defi')
+- `isDarkMode`: Dark mode toggle state
+- `likedNews`: Array of liked news article IDs
+- `savedNews`: Array of saved news article IDs
+- `followingCoins`: Array of followed coin IDs
+
+### State Actions
+- `setFeedFilter(filter)`: Switch between Following/Explore modes
+- `setExploreCategory(category)`: Change category filter
+- `toggleDarkMode()`: Toggle dark mode on/off
+- `toggleLike(newsId)`: Add/remove news from liked list
+- `toggleSave(newsId)`: Add/remove news from saved list
+- `toggleFollowCoin(coinId)`: Add/remove coin from following list
+
+### Usage Example
+
+```typescript
+import { useAppStore } from '@/src/state/useAppStore';
+
+// Read state
+const likedNews = useAppStore((state) => state.likedNews);
+const feedFilter = useAppStore((state) => state.feedFilter);
+
+// Update state
+const toggleLike = useAppStore((state) => state.toggleLike);
+const setFeedFilter = useAppStore((state) => state.setFeedFilter);
+
+// Use in component
+toggleLike('news-id-123');
+setFeedFilter('explore');
+```
+
 ## Dark Mode Support
 
-Dark mode tokens are defined in `theme.ts`. To enable dark mode:
+Dark mode tokens are defined in `theme.ts`. The state management is ready, but full UI implementation is pending. To enable dark mode:
 
 ```typescript
 import { useAppStore } from '@/src/state/useAppStore';
@@ -212,20 +337,53 @@ const toggleDarkMode = useAppStore((state) => state.toggleDarkMode);
 - **Card padding**: 16px
 - **Border radius**: 12px
 - **Shadow**: Medium elevation
+- **Following badge**: Primary color background with rounded corners
 
 ### CoinChip
 
 - **Container**: 12px padding, 8px border radius
-- **Avatar**: 20px circle
+- **Avatar**: 20px circle with coin symbol initial
 - **Symbol**: 13px semibold
+- **Background**: Neutral-100
 
 ### FAB
 
 - **Size**: 56x56 px
 - **Border radius**: 28px (perfect circle)
-- **Position**: Bottom 80px (above tab bar)
+- **Position**: Bottom 80px (above tab bar), centered
 - **Icon size**: 28px
+- **Background**: Primary-500
 - **Animation**: Scale 0.9 on press, rotate 45deg when active
+- **Bottom Sheet**: 35% snap point, pan-down-to-close enabled
+
+### TrendingCoinCard
+
+- **Container**: Card with medium shadow, 12px border radius
+- **Price**: 18px bold, neutral-900
+- **Change**: 14px semibold, color-coded (success/danger)
+- **Sparkline**: 100x30px SVG chart
+- **Rank**: 14px semibold, neutral-400
+
+### FeaturedCarousel
+
+- **Card width**: 280px
+- **Image height**: 140px
+- **Title**: 15px semibold, max 2 lines
+- **Meta**: 12px, neutral-500
+- **Horizontal scroll**: Smooth scrolling with no indicators
+
+### FilterPills
+
+- **Pill**: 16px horizontal padding, 8px vertical, 8px border radius
+- **Active state**: Primary-500 background, white text
+- **Inactive state**: Neutral-100 background, neutral-600 text
+- **Minimum height**: 44px for accessibility
+
+### SegmentToggle
+
+- **Options**: Following, Explore
+- **Animated indicator**: Spring animation with primary color
+- **Text**: 16px semibold
 
 ## Troubleshooting
 
