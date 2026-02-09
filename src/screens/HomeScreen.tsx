@@ -3,6 +3,7 @@ import { View, FlatList, StyleSheet, RefreshControl, ActivityIndicator, Text } f
 import { SegmentToggle } from '../components/SegmentToggle';
 import { SearchBar } from '../components/SearchBar';
 import { NewsCard } from '../components/NewsCard';
+import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { useAppStore } from '../state/useAppStore';
 import { fetchNews, search } from '../services/api';
 import { NewsItem } from '../types';
@@ -15,6 +16,7 @@ export const HomeScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [newsData, setNewsData] = useState<NewsItem[]>([]);
   const [searchResults, setSearchResults] = useState<NewsItem[] | null>(null);
+  const [featuredNews, setFeaturedNews] = useState<NewsItem[]>([]);
 
   const feedFilter = useAppStore((state) => state.feedFilter);
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
@@ -26,6 +28,7 @@ export const HomeScreen: React.FC = () => {
   // Fetch news when filter changes
   useEffect(() => {
     loadNews();
+    loadFeaturedNews();
   }, [feedFilter]);
 
   // Handle search
@@ -60,6 +63,15 @@ export const HomeScreen: React.FC = () => {
       console.error('Error loading news:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadFeaturedNews = async () => {
+    try {
+      const news = await fetchNews('explore', 1, 3); // Get 3 featured news items
+      setFeaturedNews(news.slice(0, 3));
+    } catch (err: any) {
+      console.error('Error loading featured news:', err);
     }
   };
 
@@ -137,6 +149,11 @@ export const HomeScreen: React.FC = () => {
     console.log('Open news detail:', newsId);
   };
 
+  const handleFeaturedNewsPress = (newsId: string) => {
+    // TODO: Implement navigation to news detail
+    console.log('Open featured news detail:', newsId);
+  };
+
   const handleCoinPress = (coinId: string) => {
     // TODO: Implement navigation to coin detail
     console.log('Open coin detail:', coinId);
@@ -182,15 +199,18 @@ export const HomeScreen: React.FC = () => {
         )}
         ListHeaderComponent={
           <>
-            <SegmentToggle
-              options={['Following', 'Explore']}
-              selectedIndex={feedFilter === 'following' ? 0 : 1}
-              onSelect={handleSegmentChange}
-            />
             <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search news, coins..."
+            />
+            {featuredNews.length > 0 && (
+              <FeaturedCarousel items={featuredNews} onItemPress={handleFeaturedNewsPress} />
+            )}
+            <SegmentToggle
+              options={['Following', 'Explore']}
+              selectedIndex={feedFilter === 'following' ? 0 : 1}
+              onSelect={handleSegmentChange}
             />
             {error && newsData.length > 0 && (
               <View style={styles.errorBanner}>

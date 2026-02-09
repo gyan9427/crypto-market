@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, FlatList, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { FilterPills } from '../components/FilterPills';
-import { FeaturedCarousel } from '../components/FeaturedCarousel';
+import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { SearchBar } from '../components/SearchBar';
 import { useAppStore } from '../state/useAppStore';
-import { fetchTrendingCoins, fetchNews, search } from '../services/api';
-import { ExploreCategory, TrendingCoin, NewsItem } from '../types';
+import { fetchTrendingCoins, search } from '../services/api';
+import { ExploreCategory, TrendingCoin } from '../types';
 import { colors } from '../theme/theme';
 
 export const ExploreScreen: React.FC = () => {
@@ -14,8 +14,7 @@ export const ExploreScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState<TrendingCoin[]>([]);
-  const [featuredNews, setFeaturedNews] = useState<NewsItem[]>([]);
-  const [searchResults, setSearchResults] = useState<{ coins: TrendingCoin[]; news: NewsItem[] } | null>(null);
+  const [searchResults, setSearchResults] = useState<{ coins: TrendingCoin[] } | null>(null);
 
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
@@ -53,13 +52,8 @@ export const ExploreScreen: React.FC = () => {
         defi: 'trending', // Use trending as fallback
       };
 
-      const [trendingCoins, news] = await Promise.all([
-        fetchTrendingCoins(categoryMap[exploreCategory]),
-        fetchNews('explore', 1, 3), // Get 3 featured news items
-      ]);
-
+      const trendingCoins = await fetchTrendingCoins(categoryMap[exploreCategory]);
       setCoins(trendingCoins);
-      setFeaturedNews(news.slice(0, 3));
     } catch (err: any) {
       setError(err.message || 'Failed to load data');
       console.error('Error loading explore data:', err);
@@ -77,11 +71,10 @@ export const ExploreScreen: React.FC = () => {
           rank: 0, // Search results don't have rank
           category: exploreCategory,
         })) as TrendingCoin[],
-        news: results.news,
       });
     } catch (err: any) {
       console.error('Search error:', err);
-      setSearchResults({ coins: [], news: [] });
+      setSearchResults({ coins: [] });
     }
   };
 
@@ -90,10 +83,6 @@ export const ExploreScreen: React.FC = () => {
     console.log('Open coin detail:', coinId);
   };
 
-  const handleNewsPress = (newsId: string) => {
-    // TODO: Implement navigation to news detail
-    console.log('Open news detail:', newsId);
-  };
 
   if (loading && coins.length === 0) {
     return (
@@ -132,9 +121,7 @@ export const ExploreScreen: React.FC = () => {
           )}
           ListHeaderComponent={
             <>
-              {searchResults.news.length > 0 && (
-                <FeaturedCarousel items={searchResults.news} onItemPress={handleNewsPress} />
-              )}
+              <MarketCapPlaceholder />
               {error && (
                 <View style={styles.errorBanner}>
                   <Text style={styles.errorBannerText}>{error}</Text>
@@ -174,9 +161,7 @@ export const ExploreScreen: React.FC = () => {
               onChangeText={setSearchQuery}
               placeholder="Search coins, tokens..."
             />
-            {featuredNews.length > 0 && (
-              <FeaturedCarousel items={featuredNews} onItemPress={handleNewsPress} />
-            )}
+            <MarketCapPlaceholder />
             <FilterPills
               categories={categories}
               selectedCategory={exploreCategory}
