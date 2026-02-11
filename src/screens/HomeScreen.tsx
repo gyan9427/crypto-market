@@ -50,7 +50,8 @@ export const HomeScreen: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const news = await fetchNews(feedFilter);
+      // Fetch a full page of news items from the backend (up to 50)
+      const news = await fetchNews(feedFilter, 1, 50);
       
       // Merge with app store state for likes/saves
       const newsWithState = news.map((item) => ({
@@ -229,6 +230,7 @@ export const HomeScreen: React.FC = () => {
           ) : null
         }
         contentContainerStyle={styles.listContent}
+        initialNumToRender={50}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
