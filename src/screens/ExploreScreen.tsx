@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, Text } from 'react-native';
+import { View, FlatList, StyleSheet, Text, ScrollView } from 'react-native';
 import { FilterPills } from '../components/FilterPills';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { MarketCapSkeleton } from '../components/MarketCapSkeleton';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
+import { CoinTableView } from '../components/CoinTableView';
+import { ViewToggle } from '../components/ViewToggle';
 import { SearchBar } from '../components/SearchBar';
 import { useAppStore } from '../state/useAppStore';
 import { fetchTrendingCoins, search } from '../services/api';
@@ -17,6 +19,7 @@ export const ExploreScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState<TrendingCoin[]>([]);
   const [searchResults, setSearchResults] = useState<{ coins: TrendingCoin[] } | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
 
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
@@ -100,35 +103,40 @@ export const ExploreScreen: React.FC = () => {
   if (searchResults !== null) {
     return (
       <View style={styles.container}>
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search coins, tokens..."
-        />
-        <FlatList
-          data={searchResults.coins}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TrendingCoinCard coin={item} onPress={handleCoinPress} />
-          )}
-          ListHeaderComponent={
-            <>
-              <MarketCapPlaceholder />
-              {error && (
-                <View style={styles.errorBanner}>
-                  <Text style={styles.errorBannerText}>{error}</Text>
-                </View>
-              )}
-            </>
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No results found</Text>
+        <View style={styles.headerSection}>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search coins, tokens..."
+          />
+          <MarketCapPlaceholder />
+          <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
+          {error && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>{error}</Text>
             </View>
-          }
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+          )}
+        </View>
+        {viewMode === 'table' ? (
+          <ScrollView style={styles.tableContainer}>
+            <CoinTableView coins={searchResults.coins} onCoinPress={handleCoinPress} />
+          </ScrollView>
+        ) : (
+          <FlatList
+            data={searchResults.coins}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TrendingCoinCard coin={item} onPress={handleCoinPress} />
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No results found</Text>
+              </View>
+            }
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
       </View>
     );
   }
@@ -138,8 +146,24 @@ export const ExploreScreen: React.FC = () => {
     ? coins
     : coins; // For nft/defi, show all coins (could be enhanced later)
 
-  return (
-    <View style={styles.container}>
+  const renderContent = () => {
+    if (viewMode === 'table') {
+      return (
+        <ScrollView style={styles.tableContainer}>
+          {loading && coins.length === 0 ? (
+            <View style={styles.skeletonContainer}>
+              {Array(5).fill(null).map((_, index) => (
+                <TrendingCoinCardSkeleton key={`skeleton-${index}`} />
+              ))}
+            </View>
+          ) : (
+            <CoinTableView coins={filteredCoins} onCoinPress={handleCoinPress} />
+          )}
+        </ScrollView>
+      );
+    }
+
+    return (
       <FlatList
         data={loading && coins.length === 0 ? Array(5).fill(null) : filteredCoins}
         keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
@@ -149,33 +173,38 @@ export const ExploreScreen: React.FC = () => {
           }
           return <TrendingCoinCard coin={item} onPress={handleCoinPress} />;
         }}
-        ListHeaderComponent={
-          <>
-            <SearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search coins, tokens..."
-            />
-            {loading && coins.length === 0 ? (
-              <MarketCapSkeleton />
-            ) : (
-              <MarketCapPlaceholder />
-            )}
-            <FilterPills
-              categories={categories}
-              selectedCategory={exploreCategory}
-              onSelect={setExploreCategory}
-            />
-            {error && (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorBannerText}>{error}</Text>
-              </View>
-            )}
-          </>
-        }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.headerSection}>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search coins, tokens..."
+        />
+        {loading && coins.length === 0 ? (
+          <MarketCapSkeleton />
+        ) : (
+          <MarketCapPlaceholder />
+        )}
+        <FilterPills
+          categories={categories}
+          selectedCategory={exploreCategory}
+          onSelect={setExploreCategory}
+        />
+        <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{error}</Text>
+          </View>
+        )}
+      </View>
+      {renderContent()}
     </View>
   );
 };
@@ -184,6 +213,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.neutral[50],
+  },
+  headerSection: {
+    zIndex: 10,
   },
   centerContent: {
     justifyContent: 'center',
@@ -220,8 +252,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   listContent: {
-    paddingTop: 16,
+    paddingTop: 8,
     paddingBottom: 100,
     paddingHorizontal: 16,
+  },
+  tableContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  skeletonContainer: {
+    paddingTop: 8,
+    paddingBottom: 100,
   },
 });
