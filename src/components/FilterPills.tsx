@@ -51,23 +51,24 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     flexDirection: 'row',
   },
   pill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: borderRadius.button,
     backgroundColor: colors.neutral[100],
-    marginRight: spacing.sm,
-    minHeight: 44,
+    marginRight: spacing.xs,
+    minHeight: 32,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   pillActive: {
     backgroundColor: colors.primary[500],
   },
   pillText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.neutral[600],
   },
