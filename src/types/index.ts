@@ -39,7 +39,7 @@ export interface NewsItem {
 
 export interface FeedCardProps {
   item: NewsItem;
-  variant?: 'compact' | 'expanded';
+  variant?: 'compact' | 'expanded' | 'grid';
   onLike?: (id: string) => void;
   onComment?: (id: string) => void;
   onShare?: (id: string) => void;

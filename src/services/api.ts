@@ -32,6 +32,7 @@ interface BackendCoin {
   percentChange24h: number;
   marketCap?: number;
   volume24h?: number;
+  image?: string;
 }
 
 interface BackendUser {
@@ -116,6 +117,7 @@ function transformBackendCoin(backendCoin: BackendCoin, isFollowing: boolean = f
     change24h: backendCoin.percentChange24h,
     marketCap: backendCoin.marketCap,
     volume24h: backendCoin.volume24h,
+    logo: backendCoin.image,
     isFollowing,
     sparklineData: undefined, // Backend doesn't provide sparkline data
   };
@@ -255,6 +257,18 @@ export const fetchCoinDetails = async (coinId: string): Promise<Coin> => {
     return transformBackendCoin(response.coin, isFollowing);
   } catch (error: any) {
     throw new Error(`Failed to fetch coin details: ${error.message}`);
+  }
+};
+
+/**
+ * Fetch news articles related to a coin
+ */
+export const fetchCoinNews = async (coinId: string): Promise<NewsItem[]> => {
+  try {
+    const response = await apiRequest<{ news: BackendNews[] }>(`/coins/${coinId}/news`);
+    return response.news.map((news) => transformBackendNews(news, []));
+  } catch (error: any) {
+    throw new Error(`Failed to fetch coin news: ${error.message}`);
   }
 };
 

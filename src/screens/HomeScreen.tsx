@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, Text, Modal } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SegmentToggle } from '../components/SegmentToggle';
 import { SearchBar } from '../components/SearchBar';
 import { NewsCard } from '../components/NewsCard';
@@ -13,6 +14,7 @@ import { NewsDetailModal } from './NewsDetailModal';
 import { colors } from '../theme/theme';
 
 export const HomeScreen: React.FC = () => {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -202,8 +204,7 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleCoinPress = (coinId: string) => {
-    // TODO: Implement navigation to coin detail
-    console.log('Open coin detail:', coinId);
+    router.push(`/coin/${coinId}` as never);
   };
 
   const displayData = searchResults !== null ? searchResults : newsData;

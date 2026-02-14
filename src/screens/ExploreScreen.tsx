@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, FlatList, StyleSheet, Text, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
 import { FilterPills } from '../components/FilterPills';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { MarketCapSkeleton } from '../components/MarketCapSkeleton';
@@ -14,6 +15,7 @@ import { ExploreCategory, TrendingCoin } from '../types';
 import { colors } from '../theme/theme';
 
 export const ExploreScreen: React.FC = () => {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,8 +86,7 @@ export const ExploreScreen: React.FC = () => {
   };
 
   const handleCoinPress = (coinId: string) => {
-    // TODO: Implement navigation to coin detail
-    console.log('Open coin detail:', coinId);
+    router.push(`/coin/${coinId}` as never);
   };
 
   if (error && coins.length === 0) {

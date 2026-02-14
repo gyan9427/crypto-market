@@ -37,6 +37,7 @@ export const NewsCard: React.FC<FeedCardProps> = ({
   const [isAnimatingCollapse, setIsAnimatingCollapse] = useState(false);
   const isLiked = item.isLiked || false;
   const isSaved = item.isSaved || false;
+  const isGrid = variant === 'grid';
 
   const fullText = item.content || item.snippet;
   const isTruncatable = fullText.length > COLLAPSED_MAX_LENGTH;
@@ -85,6 +86,20 @@ export const NewsCard: React.FC<FeedCardProps> = ({
     overflow: 'hidden' as const,
     maxHeight: contentHeight.value,
   }));
+
+  if (isGrid) {
+    return (
+      <View style={[styles.container, styles.gridContainer]}>
+        <Text style={styles.gridSource}>{item.source}</Text>
+        <Text style={styles.gridTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
+        <Text style={styles.gridSnippet} numberOfLines={3}>
+          {item.snippet || item.content || ''}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -216,6 +231,30 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     ...shadows.md,
     overflow: 'hidden',
+  },
+  gridContainer: {
+    marginHorizontal: 0,
+    marginBottom: 0,
+    padding: spacing.sm,
+    ...shadows.sm,
+  },
+  gridSource: {
+    fontSize: 11,
+    color: colors.neutral[500],
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  gridTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.neutral[900],
+    lineHeight: 18,
+    marginBottom: spacing.xs,
+  },
+  gridSnippet: {
+    fontSize: 12,
+    color: colors.neutral[600],
+    lineHeight: 16,
   },
   header: {
     flexDirection: 'row',
