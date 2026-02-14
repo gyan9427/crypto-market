@@ -1,10 +1,27 @@
-import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  type LayoutChangeEvent,
+} from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
 import { Heart, MessageCircle, Share2, Bookmark } from 'lucide-react-native';
 import { FeedCardProps } from '../types';
 import { CoinChip } from './CoinChip';
 import { formatTimeAgo, abbreviateNumber } from '../utils/format';
 import { colors, borderRadius, shadows, spacing } from '../theme/theme';
+
+const COLLAPSED_MAX_LENGTH = 120;
+const COLLAPSED_HEIGHT = 140;
+const SPRING_CONFIG = { damping: 22, stiffness: 90 };
 
 export const NewsCard: React.FC<FeedCardProps> = ({
   item,
@@ -13,20 +30,64 @@ export const NewsCard: React.FC<FeedCardProps> = ({
   onComment,
   onShare,
   onSave,
-  onPress,
   onCoinPress,
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedHeight, setExpandedHeight] = useState(0);
+  const [isAnimatingCollapse, setIsAnimatingCollapse] = useState(false);
   const isLiked = item.isLiked || false;
   const isSaved = item.isSaved || false;
 
+  const fullText = item.content || item.snippet;
+  const isTruncatable = fullText.length > COLLAPSED_MAX_LENGTH;
+  const contentHeight = useSharedValue(COLLAPSED_HEIGHT);
+
+  const displayText = isExpanded || isAnimatingCollapse
+    ? fullText
+    : isTruncatable
+      ? fullText.slice(0, COLLAPSED_MAX_LENGTH).trim() + '...'
+      : fullText;
+
+  const finishCollapse = useCallback(() => {
+    setIsExpanded(false);
+    setIsAnimatingCollapse(false);
+  }, []);
+
+  const toggleExpand = () => {
+    if (isExpanded) {
+      setIsAnimatingCollapse(true);
+      contentHeight.value = withSpring(
+        COLLAPSED_HEIGHT,
+        SPRING_CONFIG,
+        (finished) => {
+          if (finished === true) {
+            runOnJS(finishCollapse)();
+          }
+        }
+      );
+    } else {
+      setIsExpanded(true);
+    }
+  };
+
+  const handleContentLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const h = event.nativeEvent.layout.height;
+      if (isExpanded && h > COLLAPSED_HEIGHT) {
+        setExpandedHeight(h);
+        contentHeight.value = withSpring(h, SPRING_CONFIG);
+      }
+    },
+    [isExpanded]
+  );
+
+  const animatedContentStyle = useAnimatedStyle(() => ({
+    overflow: 'hidden' as const,
+    maxHeight: contentHeight.value,
+  }));
+
   return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={() => onPress?.(item.id)}
-      accessibilityRole="button"
-      accessibilityLabel={`News article: ${item.title}`}
-      activeOpacity={0.9}
-    >
+    <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.coinAvatarPlaceholder}>
@@ -66,15 +127,26 @@ export const NewsCard: React.FC<FeedCardProps> = ({
         />
       )}
 
-      <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={3}>
-          {item.title}
-        </Text>
-        <Text style={styles.snippet} numberOfLines={2}>
-          {item.snippet}
-        </Text>
-        <Text style={styles.source}>{item.source}</Text>
-      </View>
+      <Animated.View style={[styles.content, animatedContentStyle]}>
+        <View onLayout={handleContentLayout}>
+          <Text style={styles.title} numberOfLines={3}>
+            {item.title}
+          </Text>
+          <Text style={styles.snippet}>{displayText}</Text>
+          {isTruncatable && (
+            <TouchableOpacity
+              onPress={toggleExpand}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.showMoreTouchable}
+            >
+              <Text style={styles.showMoreText}>
+                {isExpanded || isAnimatingCollapse ? 'show less' : 'show more'}
+              </Text>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.source}>{item.source}</Text>
+        </View>
+      </Animated.View>
 
       <View style={styles.actionsRow}>
         <TouchableOpacity
@@ -132,7 +204,7 @@ export const NewsCard: React.FC<FeedCardProps> = ({
           />
         </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -222,7 +294,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.neutral[600],
     lineHeight: 18,
+    marginBottom: spacing.xs,
+  },
+  showMoreTouchable: {
+    alignSelf: 'flex-start',
     marginBottom: spacing.sm,
+  },
+  showMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary[500],
   },
   source: {
     fontSize: 12,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Text } from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl, Text, Modal } from 'react-native';
 import { SegmentToggle } from '../components/SegmentToggle';
 import { SearchBar } from '../components/SearchBar';
 import { NewsCard } from '../components/NewsCard';
@@ -9,6 +9,7 @@ import { NewsCardSkeleton } from '../components/NewsCardSkeleton';
 import { useAppStore } from '../state/useAppStore';
 import { fetchNews, search } from '../services/api';
 import { NewsItem } from '../types';
+import { NewsDetailModal } from './NewsDetailModal';
 import { colors } from '../theme/theme';
 
 export const HomeScreen: React.FC = () => {
@@ -19,6 +20,9 @@ export const HomeScreen: React.FC = () => {
   const [newsData, setNewsData] = useState<NewsItem[]>([]);
   const [searchResults, setSearchResults] = useState<NewsItem[] | null>(null);
   const [featuredNews, setFeaturedNews] = useState<NewsItem[]>([]);
+  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const [isDetailVisible, setIsDetailVisible] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const feedFilter = useAppStore((state) => state.feedFilter);
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
@@ -27,9 +31,13 @@ export const HomeScreen: React.FC = () => {
   const likedNews = useAppStore((state) => state.likedNews);
   const savedNews = useAppStore((state) => state.savedNews);
 
-  // Fetch news when filter changes
+  // Fetch news when filter or categories change
   useEffect(() => {
     loadNews();
+  }, [feedFilter, selectedCategories]);
+
+  // Featured section only depends on feed filter
+  useEffect(() => {
     loadFeaturedNews();
   }, [feedFilter]);
 
@@ -50,7 +58,8 @@ export const HomeScreen: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const news = await fetchNews(feedFilter);
+      // Fetch a full page of news items from the backend (up to 50)
+      const news = await fetchNews(feedFilter, 1, 50, selectedCategories);
       
       // Merge with app store state for likes/saves
       const newsWithState = news.map((item) => ({
@@ -102,6 +111,14 @@ export const HomeScreen: React.FC = () => {
     setFeedFilter(index === 0 ? 'following' : 'explore');
   };
 
+  const toggleCategory = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
+  };
+
   const handleLike = (newsId: string) => {
     toggleLike(newsId);
     // Update local state
@@ -146,14 +163,42 @@ export const HomeScreen: React.FC = () => {
     console.log('Share:', newsId);
   };
 
+  const openNewsDetailById = (newsId: string) => {
+    const allNewsSources: NewsItem[] = [
+      ...newsData,
+      ...(searchResults || []),
+      ...featuredNews,
+    ];
+
+    const newsItem = allNewsSources.find((item) => item.id === newsId);
+    if (!newsItem) {
+      return;
+    }
+
+    const dummyBody =
+      'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum at magna euismod, consectetur nibh at, sollicitudin tortor. ' +
+      'Integer finibus, nibh vel tempor placerat, nunc sem pretium sapien, vel pulvinar nisi justo non urna.\n\n' +
+      'Suspendisse potenti. Morbi non magna eget elit gravida hendrerit. Donec aliquam, nisl in dictum sagittis, ' +
+      'lectus lorem pulvinar enim, quis hendrerit dui nunc sit amet metus. This is placeholder copy used while the full article integration is in progress.';
+
+    setSelectedNews({
+      ...newsItem,
+      content: newsItem.content || `${newsItem.snippet}\n\n${dummyBody}`,
+    });
+    setIsDetailVisible(true);
+  };
+
   const handleNewsPress = (newsId: string) => {
-    // TODO: Implement navigation to news detail
-    console.log('Open news detail:', newsId);
+    openNewsDetailById(newsId);
   };
 
   const handleFeaturedNewsPress = (newsId: string) => {
-    // TODO: Implement navigation to news detail
-    console.log('Open featured news detail:', newsId);
+    openNewsDetailById(newsId);
+  };
+
+  const handleCloseDetail = () => {
+    setIsDetailVisible(false);
+    setSelectedNews(null);
   };
 
   const handleCoinPress = (coinId: string) => {
@@ -190,7 +235,6 @@ export const HomeScreen: React.FC = () => {
               onComment={handleComment}
               onShare={handleShare}
               onSave={handleSave}
-              onPress={handleNewsPress}
               onCoinPress={handleCoinPress}
             />
           );
@@ -214,6 +258,23 @@ export const HomeScreen: React.FC = () => {
               selectedIndex={feedFilter === 'following' ? 0 : 1}
               onSelect={handleSegmentChange}
             />
+            <View style={styles.categoryFilterRow}>
+              {['BTC', 'ETH', 'FIAT', 'MARKET', 'CRYPTOCURRENCY'].map((cat) => {
+                const isActive = selectedCategories.includes(cat);
+                return (
+                  <Text
+                    key={cat}
+                    onPress={() => toggleCategory(cat)}
+                    style={[
+                      styles.categoryPill,
+                      isActive && styles.categoryPillActive,
+                    ]}
+                  >
+                    {cat}
+                  </Text>
+                );
+              })}
+            </View>
             {error && newsData.length > 0 && (
               <View style={styles.errorBanner}>
                 <Text style={styles.errorBannerText}>{error}</Text>
@@ -229,11 +290,22 @@ export const HomeScreen: React.FC = () => {
           ) : null
         }
         contentContainerStyle={styles.listContent}
+        initialNumToRender={50}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       />
+
+      {selectedNews && (
+        <Modal
+          visible={isDetailVisible}
+          animationType="slide"
+          onRequestClose={handleCloseDetail}
+        >
+          <NewsDetailModal newsItem={selectedNews} onClose={handleCloseDetail} />
+        </Modal>
+      )}
     </View>
   );
 };
@@ -280,5 +352,27 @@ const styles = StyleSheet.create({
   listContent: {
     paddingTop: 16,
     paddingBottom: 100,
+  },
+  categoryFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+    gap: 8,
+  },
+  categoryPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.neutral[300],
+    fontSize: 12,
+    color: colors.neutral[700],
+  },
+  categoryPillActive: {
+    backgroundColor: colors.primary[50],
+    borderColor: colors.primary[500],
+    color: colors.primary[700],
   },
 });
