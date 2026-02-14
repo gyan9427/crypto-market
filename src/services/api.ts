@@ -150,12 +150,19 @@ function transformBackendUser(backendUser: BackendUser): User {
 export const fetchNews = async (
   filter: 'following' | 'explore',
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
+  categories?: string[]
 ): Promise<NewsItem[]> => {
   try {
-    const endpoint = filter === 'following' 
-      ? `/news/following?page=${page}&limit=${limit}`
-      : `/news?page=${page}&limit=${limit}`;
+    const categoryParam =
+      categories && categories.length
+        ? `&categories=${encodeURIComponent(categories.join(','))}`
+        : '';
+
+    const endpoint =
+      filter === 'following'
+        ? `/news/following?page=${page}&limit=${limit}${categoryParam}`
+        : `/news?page=${page}&limit=${limit}${categoryParam}`;
     
     const response = await apiRequest<{ news: BackendNews[] }>(endpoint);
     

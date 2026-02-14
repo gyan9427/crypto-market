@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X, Heart, Share2, Bookmark } from 'lucide-react-native';
 import { NewsItem } from '../types';
 import { CoinChip } from '../components/CoinChip';
 import { formatDateTime } from '../utils/format';
@@ -45,6 +45,42 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
         )}
 
         <View style={styles.content}>
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              accessibilityRole="button"
+              accessibilityLabel="Like article"
+              onPress={() => {
+                // Placeholder like handler for mock detail view
+                console.log('Like article:', newsItem.id);
+              }}
+            >
+              <Heart size={20} color={colors.neutral[500]} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              accessibilityRole="button"
+              accessibilityLabel="Share article"
+              onPress={() => {
+                console.log('Share article:', newsItem.id);
+              }}
+            >
+              <Share2 size={20} color={colors.neutral[500]} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              accessibilityRole="button"
+              accessibilityLabel="Save article"
+              onPress={() => {
+                console.log('Save article:', newsItem.id);
+              }}
+            >
+              <Bookmark size={20} color={colors.neutral[500]} />
+            </TouchableOpacity>
+          </View>
+
           <Text style={styles.title}>{newsItem.title}</Text>
 
           <View style={styles.meta}>
@@ -103,6 +139,20 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: spacing.md,
+  },
+  actionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: spacing.sm,
+    backgroundColor: colors.neutral[100],
   },
   title: {
     fontSize: 24,
