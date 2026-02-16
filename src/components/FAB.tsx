@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
-import { Plus, Bell, PlusCircle, FileText } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Plus, Bell, PlusCircle, FileText, Gift } from 'lucide-react-native';
 import { colors, shadows } from '../theme/theme';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 
@@ -10,6 +11,7 @@ interface FABProps {
 
 export const FAB: React.FC<FABProps> = ({ onPress }) => {
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const router = useRouter();
 
   const handlePress = () => {
     bottomSheetRef.current?.expand();
@@ -21,8 +23,12 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
   };
 
   const handleAction = (action: string) => {
-    console.log(`Action: ${action}`);
     bottomSheetRef.current?.close();
+    if (action === 'rewards') {
+      router.push('/rewards');
+    } else {
+      console.log(`Action: ${action}`);
+    }
   };
 
   return (
@@ -42,7 +48,7 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
       <BottomSheet
         ref={bottomSheetRef}
         index={-1}
-        snapPoints={['35%']}
+        snapPoints={['45%']}
         enablePanDownToClose
         onClose={handleSheetClose}
         backgroundStyle={styles.bottomSheetBackground}
@@ -94,6 +100,21 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
               <Text style={styles.sheetActionSubtitle}>Share crypto news with community</Text>
             </View>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.sheetAction}
+            onPress={() => handleAction('rewards')}
+            accessibilityRole="button"
+            accessibilityLabel="Rewards"
+          >
+            <View style={styles.sheetIconContainer}>
+              <Gift size={24} color={colors.primary[500]} />
+            </View>
+            <View style={styles.sheetActionText}>
+              <Text style={styles.sheetActionTitle}>Rewards</Text>
+              <Text style={styles.sheetActionSubtitle}>View and claim your rewards</Text>
+            </View>
+          </TouchableOpacity>
         </BottomSheetView>
       </BottomSheet>
     </>
@@ -103,7 +124,7 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
 const styles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 42, // Sits on navbar: bar height 70 - half FAB (28) = center at bar top
     alignSelf: 'center',
     zIndex: 1000,
   },

@@ -1,9 +1,9 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, TrendingUp, Briefcase, Gift, User } from 'lucide-react-native';
+import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
 import { colors } from '@/src/theme/theme';
 import { FAB } from '@/src/components/FAB';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 
 export default function TabsLayout() {
   return (
@@ -19,6 +19,10 @@ export default function TabsLayout() {
             paddingBottom: 8,
             paddingTop: 8,
             height: 70,
+            paddingRight: 0,
+          },
+          tabBarItemStyle: {
+            flex: 1,
           },
           tabBarLabelStyle: {
             fontSize: 12,
@@ -46,7 +50,7 @@ export default function TabsLayout() {
           options={{
             title: '',
             tabBarIcon: () => null,
-            tabBarButton: () => null,
+            tabBarButton: () => <View style={{ flex: 1 }} />,
           }}
         />
         <Tabs.Screen
@@ -57,17 +61,16 @@ export default function TabsLayout() {
           }}
         />
         <Tabs.Screen
-          name="rewards"
-          options={{
-            title: 'Rewards',
-            tabBarIcon: ({ color, size }) => <Gift size={size} color={color} />,
-          }}
-        />
-        <Tabs.Screen
           name="profile"
           options={{
             title: 'Profile',
             tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="rewards"
+          options={{
+            href: null,
           }}
         />
         <Tabs.Screen
