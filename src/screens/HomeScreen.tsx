@@ -8,6 +8,7 @@ import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { FeaturedCarouselSkeleton } from '../components/FeaturedCarouselSkeleton';
 import { NewsCardSkeleton } from '../components/NewsCardSkeleton';
 import { SaveToBoardModal } from '../components/SaveToBoardModal';
+import { CommentTray } from '../components/CommentTray';
 import { useAppStore } from '../state/useAppStore';
 import { fetchNews, search } from '../services/api';
 import { NewsItem } from '../types';
@@ -27,6 +28,7 @@ export const HomeScreen: React.FC = () => {
   const [isDetailVisible, setIsDetailVisible] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [savingNewsId, setSavingNewsId] = useState<string | null>(null);
+  const [commentingNewsId, setCommentingNewsId] = useState<string | null>(null);
 
   const feedFilter = useAppStore((state) => state.feedFilter);
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
@@ -152,8 +154,14 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleComment = (newsId: string) => {
-    // TODO: Implement navigation to comments
-    console.log('Comment on:', newsId);
+    setCommentingNewsId(newsId);
+  };
+
+  const handleCommentCountChange = (newsId: string, count: number) => {
+    const update = (item: NewsItem) =>
+      item.id === newsId ? { ...item, comments: count } : item;
+    setNewsData((prev) => prev.map(update));
+    setSearchResults((prev) => prev?.map(update) || null);
   };
 
   const handleShare = (newsId: string) => {
@@ -309,6 +317,18 @@ export const HomeScreen: React.FC = () => {
         newsId={savingNewsId}
         onClose={() => setSavingNewsId(null)}
         onSaved={handleSaved}
+      />
+
+      <CommentTray
+        visible={commentingNewsId !== null}
+        newsId={commentingNewsId}
+        commentCount={
+          commentingNewsId
+            ? (displayData.find((n) => n?.id === commentingNewsId)?.comments ?? 0)
+            : 0
+        }
+        onClose={() => setCommentingNewsId(null)}
+        onCountChange={handleCommentCountChange}
       />
     </View>
   );

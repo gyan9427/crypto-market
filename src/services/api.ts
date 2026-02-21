@@ -1,4 +1,4 @@
-import { Coin, NewsItem, TrendingCoin, User, NewsBoard } from '../types';
+import { Coin, NewsItem, TrendingCoin, User, NewsBoard, Comment } from '../types';
 import { useAuthStore } from '../state/useAuthStore';
 import Constants from 'expo-constants';
 
@@ -46,6 +46,7 @@ interface BackendNews {
   categories?: BackendNewsCategory[];
   publishedAt: string | Date;
   saveCount?: number;
+  comments?: number;
 }
 
 interface BackendCoin {
@@ -131,7 +132,7 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
     coins: relatedCoins,
     categories: backendNews.categories || [],
     likes: 0,
-    comments: 0,
+    comments: backendNews.comments ?? 0,
     shares: 0,
     saveCount: backendNews.saveCount ?? 0,
     url: sourceUrl,
@@ -571,4 +572,53 @@ export const getCurrentUser = async (): Promise<User> => {
   } catch (error: any) {
     throw new Error(`Failed to get current user: ${error.message}`);
   }
+};
+
+// ── Comments ────────────────────────────────────────────────────────
+
+export const fetchComments = async (
+  newsId: string,
+  page: number = 1,
+  limit: number = 20
+): Promise<Comment[]> => {
+  const response = await apiRequest<{ comments: Comment[] }>(
+    `/news/${newsId}/comments?page=${page}&limit=${limit}`
+  );
+  return response.comments;
+};
+
+export const fetchReplies = async (
+  newsId: string,
+  commentId: string,
+  page: number = 1,
+  limit: number = 10
+): Promise<Comment[]> => {
+  const response = await apiRequest<{ replies: Comment[] }>(
+    `/news/${newsId}/comments/${commentId}/replies?page=${page}&limit=${limit}`
+  );
+  return response.replies;
+};
+
+export const postComment = async (
+  newsId: string,
+  body: string,
+  parentId?: string | null
+): Promise<{ comment: Comment; commentCount: number }> => {
+  return apiRequest<{ comment: Comment; commentCount: number }>(
+    `/news/${newsId}/comments`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ body, parentId: parentId || undefined }),
+    }
+  );
+};
+
+export const deleteComment = async (
+  newsId: string,
+  commentId: string
+): Promise<{ commentCount: number }> => {
+  return apiRequest<{ commentCount: number }>(
+    `/news/${newsId}/comments/${commentId}`,
+    { method: 'DELETE' }
+  );
 };

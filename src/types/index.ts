@@ -64,6 +64,17 @@ export interface FeedCardProps {
   onCoinPress?: (coinId: string) => void;
 }
 
+export interface Comment {
+  id: string;
+  newsId: string;
+  userId: string;
+  username: string;
+  parentId: string | null;
+  body: string;
+  replyCount: number;
+  createdAt: string;
+}
+
 export interface TrendingCoin extends Coin {
   rank: number;
   category?: 'trending' | 'top' | 'nft' | 'defi';
