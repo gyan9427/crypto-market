@@ -64,6 +64,13 @@ export interface FeedCardProps {
   onCoinPress?: (coinId: string) => void;
 }
 
+export interface Mention {
+  userId: string;
+  username: string;
+  offset: number;
+  length: number;
+}
+
 export interface Comment {
   id: string;
   newsId: string;
@@ -71,6 +78,7 @@ export interface Comment {
   username: string;
   parentId: string | null;
   body: string;
+  mentions: Mention[];
   replyCount: number;
   createdAt: string;
 }

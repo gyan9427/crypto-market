@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { X, Send, ArrowUpRight } from 'lucide-react-native';
 import { Comment } from '../types';
 import { fetchComments, postComment, deleteComment } from '../services/api';
 import { CommentItem } from './CommentItem';
+import { MentionAutocomplete } from './MentionAutocomplete';
 import { useAuthStore } from '../state/useAuthStore';
 import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 
@@ -25,6 +26,11 @@ interface CommentTrayProps {
   commentCount: number;
   onClose: () => void;
   onCountChange: (newsId: string, count: number) => void;
+}
+
+function extractMentionQuery(text: string): string | null {
+  const match = text.match(/@(\w*)$/);
+  return match ? match[1] : null;
 }
 
 export const CommentTray: React.FC<CommentTrayProps> = ({
@@ -45,9 +51,22 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
     username: string;
   } | null>(null);
   const [localCount, setLocalCount] = useState(commentCount);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
 
   const inputRef = useRef<TextInput>(null);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  const localCandidates = useMemo(() => {
+    const seen = new Set<string>();
+    const candidates: { id: string; username: string }[] = [];
+    for (const c of comments) {
+      if (!seen.has(c.userId)) {
+        seen.add(c.userId);
+        candidates.push({ id: c.userId, username: c.username });
+      }
+    }
+    return candidates;
+  }, [comments]);
 
   useEffect(() => {
     setLocalCount(commentCount);
@@ -63,6 +82,7 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
       setHasMore(true);
       setReplyingTo(null);
       setInputText('');
+      setMentionQuery(null);
     }
   }, [visible, newsId]);
 
@@ -89,6 +109,20 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
     if (!loading && hasMore) {
       loadComments(page + 1);
     }
+  };
+
+  const handleTextChange = (text: string) => {
+    setInputText(text);
+    setMentionQuery(extractMentionQuery(text));
+  };
+
+  const handleMentionSelect = (user: { id: string; username: string }) => {
+    const atIdx = inputText.lastIndexOf('@');
+    if (atIdx === -1) return;
+    const before = inputText.slice(0, atIdx);
+    const newText = `${before}@${user.username} `;
+    setInputText(newText);
+    setMentionQuery(null);
   };
 
   const handleSend = async () => {
@@ -122,6 +156,7 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
       onCountChange(newsId, result.commentCount);
       setInputText('');
       setReplyingTo(null);
+      setMentionQuery(null);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to post comment');
     } finally {
@@ -213,6 +248,7 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
             showsVerticalScrollIndicator={false}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.4}
+            keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               !loading ? (
                 <View style={styles.emptyContainer}>
@@ -246,6 +282,15 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
             </View>
           )}
 
+          {/* Mention autocomplete */}
+          {mentionQuery !== null && (
+            <MentionAutocomplete
+              query={mentionQuery}
+              localCandidates={localCandidates}
+              onSelect={handleMentionSelect}
+            />
+          )}
+
           {/* Input bar */}
           <View style={styles.inputBar}>
             <TextInput
@@ -256,7 +301,7 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
               }
               placeholderTextColor={colors.neutral[400]}
               value={inputText}
-              onChangeText={setInputText}
+              onChangeText={handleTextChange}
               maxLength={500}
               multiline
             />

@@ -622,3 +622,13 @@ export const deleteComment = async (
     { method: 'DELETE' }
   );
 };
+
+export const searchUsers = async (
+  query: string,
+  limit: number = 5
+): Promise<{ id: string; username: string }[]> => {
+  const response = await apiRequest<{ users: { id: string; username: string }[] }>(
+    `/user/search?q=${encodeURIComponent(query)}&limit=${limit}`
+  );
+  return response.users;
+};

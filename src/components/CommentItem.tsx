@@ -7,11 +7,47 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { MessageCircle, Trash2 } from 'lucide-react-native';
-import { Comment } from '../types';
+import { Comment, Mention } from '../types';
 import { fetchReplies } from '../services/api';
 import { formatTimeAgo } from '../utils/format';
 import { useAuthStore } from '../state/useAuthStore';
 import { colors, spacing } from '../theme/theme';
+
+function RichCommentBody({ body, mentions }: { body: string; mentions: Mention[] }) {
+  if (!mentions || mentions.length === 0) {
+    return <Text style={styles.text}>{body}</Text>;
+  }
+
+  const sorted = [...mentions].sort((a, b) => a.offset - b.offset);
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+
+  sorted.forEach((m, i) => {
+    if (m.offset > cursor) {
+      parts.push(
+        <Text key={`t${i}`} style={styles.text}>
+          {body.slice(cursor, m.offset)}
+        </Text>
+      );
+    }
+    parts.push(
+      <Text key={`m${i}`} style={styles.mentionText}>
+        {body.slice(m.offset, m.offset + m.length)}
+      </Text>
+    );
+    cursor = m.offset + m.length;
+  });
+
+  if (cursor < body.length) {
+    parts.push(
+      <Text key="tail" style={styles.text}>
+        {body.slice(cursor)}
+      </Text>
+    );
+  }
+
+  return <Text style={styles.text}>{parts}</Text>;
+}
 
 interface CommentItemProps {
   comment: Comment;
@@ -110,9 +146,13 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             </Text>
           </View>
 
-          <Text style={[styles.text, isDeleted && styles.deletedText]}>
-            {comment.body}
-          </Text>
+          {isDeleted ? (
+            <Text style={[styles.text, styles.deletedText]}>
+              {comment.body}
+            </Text>
+          ) : (
+            <RichCommentBody body={comment.body} mentions={comment.mentions} />
+          )}
 
           {!isDeleted && (
             <View style={styles.actions}>
@@ -225,6 +265,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.neutral[700],
     lineHeight: 20,
+  },
+  mentionText: {
+    color: colors.primary[500],
+    fontWeight: '600',
   },
   deletedText: {
     fontStyle: 'italic',
