@@ -36,18 +36,32 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   const storeSetReaction = useAppStore((s) => s.setReaction);
 
   const handleReact = async (type: ReactionType) => {
-    const prev = userReaction;
-    const optimistic = prev === type ? null : type;
-    setUserReaction(optimistic);
-    storeSetReaction(newsItem.id, optimistic);
+    const prevReaction = userReaction;
+    const nextReaction = prevReaction === type ? null : type;
+    const prevCounts = reactions;
+
+    const optimisticCounts = { ...(reactions ?? { appreciate: 0, insightful: 0, bullish: 0, risk: 0, deepDive: 0, debatable: 0, total: 0 }) };
+    if (prevReaction) {
+      optimisticCounts[prevReaction] = Math.max(0, (optimisticCounts[prevReaction] ?? 0) - 1);
+      optimisticCounts.total = Math.max(0, optimisticCounts.total - 1);
+    }
+    if (nextReaction) {
+      optimisticCounts[nextReaction] = (optimisticCounts[nextReaction] ?? 0) + 1;
+      optimisticCounts.total = optimisticCounts.total + 1;
+    }
+
+    setUserReaction(nextReaction);
+    setReactions(optimisticCounts);
+    storeSetReaction(newsItem.id, nextReaction);
     try {
       const result = await toggleReaction(newsItem.id, type);
       setUserReaction(result.userReaction);
       setReactions(result.reactions);
       storeSetReaction(newsItem.id, result.userReaction);
     } catch {
-      setUserReaction(prev);
-      storeSetReaction(newsItem.id, prev);
+      setUserReaction(prevReaction);
+      setReactions(prevCounts);
+      storeSetReaction(newsItem.id, prevReaction);
     }
   };
 

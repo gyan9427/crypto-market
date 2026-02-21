@@ -22,23 +22,20 @@ const TOOLTIP_PADDING_H = 4;
 const TOOLTIP_WIDTH = TOOLTIP_PADDING_H * 2 + REACTIONS.length * EMOJI_HIT;
 const GAP = 2;
 
+const CHIP_SIZE = 20;
+const CHIP_OVERLAP = -6;
+
 interface ReactionPickerProps {
   reactions?: ReactionCounts;
   userReaction?: ReactionType | null;
   onReact: (type: ReactionType) => void;
 }
 
-function getTopReactions(
-  reactions: ReactionCounts | undefined
-): string[] {
+function getActiveReactionEmojis(reactions: ReactionCounts | undefined): string[] {
   if (!reactions) return [];
-  return REACTIONS.map((r) => ({
-    emoji: r.emoji,
-    count: reactions[r.type] ?? 0,
-  }))
-    .filter((r) => r.count > 0)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3)
+  return REACTIONS
+    .filter((r) => (reactions[r.type] ?? 0) > 0)
+    .sort((a, b) => (reactions[b.type] ?? 0) - (reactions[a.type] ?? 0))
     .map((r) => r.emoji);
 }
 
@@ -54,7 +51,7 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
   const glowAnim = useRef(new Animated.Value(0)).current;
 
   const total = reactions?.total ?? 0;
-  const topEmojis = getTopReactions(reactions);
+  const activeEmojis = getActiveReactionEmojis(reactions);
   const activeConfig = userReaction
     ? REACTIONS.find((r) => r.type === userReaction)
     : null;
@@ -126,6 +123,8 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
     }),
   };
 
+  const showChips = activeEmojis.length > 0;
+
   return (
     <>
       <Animated.View style={[styles.triggerWrap, visible && triggerGlow]}>
@@ -136,18 +135,35 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          {activeConfig ? (
-            <Text style={styles.triggerEmoji}>{activeConfig.emoji}</Text>
-          ) : topEmojis.length > 0 ? (
-            <View style={styles.emojiStack}>
-              {topEmojis.map((emoji, i) => (
-                <Text key={i} style={styles.stackEmoji}>{emoji}</Text>
+          {showChips ? (
+            <View style={styles.chipRow}>
+              {activeEmojis.map((emoji, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.chip,
+                    i > 0 && { marginLeft: CHIP_OVERLAP },
+                    { zIndex: activeEmojis.length - i },
+                  ]}
+                >
+                  <Text style={styles.chipEmoji}>{emoji}</Text>
+                </View>
               ))}
             </View>
+          ) : activeConfig ? (
+            <View style={styles.chipRow}>
+              <View style={styles.chip}>
+                <Text style={styles.chipEmoji}>{activeConfig.emoji}</Text>
+              </View>
+            </View>
           ) : (
-            <Text style={styles.triggerEmoji}>{REACTIONS[0].emoji}</Text>
+            <View style={styles.chipRow}>
+              <View style={[styles.chip, styles.chipEmpty]}>
+                <Text style={styles.chipEmoji}>{REACTIONS[0].emoji}</Text>
+              </View>
+            </View>
           )}
-          <Text style={[styles.count, activeConfig && styles.countActive]}>
+          <Text style={[styles.count, (activeConfig || total > 0) && styles.countActive]}>
             {abbreviateNumber(total)}
           </Text>
         </TouchableOpacity>
@@ -210,24 +226,39 @@ const styles = StyleSheet.create({
   triggerOpen: {
     backgroundColor: colors.primary[50],
   },
-  triggerEmoji: {
-    fontSize: 18,
-  },
-  emojiStack: {
+  chipRow: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
-  stackEmoji: {
-    fontSize: 14,
-    marginRight: -2,
+  chip: {
+    width: CHIP_SIZE,
+    height: CHIP_SIZE,
+    borderRadius: CHIP_SIZE / 2,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  chipEmpty: {
+    borderColor: colors.neutral[200],
+  },
+  chipEmoji: {
+    fontSize: 11,
   },
   count: {
     fontSize: 13,
     color: colors.neutral[500],
-    marginLeft: 6,
+    marginLeft: 5,
     fontWeight: '500',
   },
   countActive: {
-    color: colors.primary[600],
+    color: colors.neutral[700],
     fontWeight: '600',
   },
   backdrop: {

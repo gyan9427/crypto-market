@@ -128,13 +128,23 @@ export const HomeScreen: React.FC = () => {
     const newReaction = currentReaction === type ? null : type;
     setReaction(newsId, newReaction);
 
-    const updateItems = (items: NewsItem[]) =>
-      items.map((item) =>
-        item.id === newsId ? { ...item, userReaction: newReaction } : item
-      );
-    setNewsData((prev) => updateItems(prev));
+    const optimisticUpdate = (item: NewsItem): NewsItem => {
+      if (item.id !== newsId) return item;
+      const prev = { ...(item.reactions ?? { appreciate: 0, insightful: 0, bullish: 0, risk: 0, deepDive: 0, debatable: 0, total: 0 }) };
+      if (currentReaction) {
+        prev[currentReaction] = Math.max(0, (prev[currentReaction] ?? 0) - 1);
+        prev.total = Math.max(0, prev.total - 1);
+      }
+      if (newReaction) {
+        prev[newReaction] = (prev[newReaction] ?? 0) + 1;
+        prev.total = prev.total + 1;
+      }
+      return { ...item, userReaction: newReaction, reactions: prev };
+    };
+
+    setNewsData((prev) => prev.map(optimisticUpdate));
     if (searchResults) {
-      setSearchResults((prev) => prev ? updateItems(prev) : null);
+      setSearchResults((prev) => prev ? prev.map(optimisticUpdate) : null);
     }
 
     try {
