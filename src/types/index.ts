@@ -19,16 +19,24 @@ export interface Coin {
   isFollowing?: boolean;
 }
 
+export interface NewsCategory {
+  key: string;
+  name: string;
+}
+
 export interface NewsItem {
   id: string;
   title: string;
   snippet: string;
   content?: string;
+  subtitle?: string;
   imageUrl?: string;
   source: string;
+  sourceUrl?: string;
   author?: string;
   publishedAt: Date;
   coins: Coin[];
+  categories?: NewsCategory[];
   likes: number;
   comments: number;
   shares: number;

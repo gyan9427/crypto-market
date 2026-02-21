@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Linking,
 } from 'react-native';
 import { X, Heart, Share2, Bookmark } from 'lucide-react-native';
 import { NewsItem } from '../types';
@@ -92,6 +93,16 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             )}
           </View>
 
+          {newsItem.categories && newsItem.categories.length > 0 && (
+            <View style={styles.categoriesRow}>
+              {newsItem.categories.map((cat) => (
+                <View key={cat.key} style={styles.categoryBadge}>
+                  <Text style={styles.categoryBadgeText}>{cat.name}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
           {newsItem.coins.length > 0 && (
             <View style={styles.coinsSection}>
               <Text style={styles.sectionTitle}>Related Coins</Text>
@@ -103,7 +114,18 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             </View>
           )}
 
-          <Text style={styles.bodyText}>{newsItem.content || newsItem.snippet}</Text>
+          <Text style={styles.bodyText}>
+            {newsItem.subtitle || newsItem.content || newsItem.snippet}
+          </Text>
+
+          {(newsItem.url || newsItem.sourceUrl) && (
+            <TouchableOpacity
+              style={styles.readFullButton}
+              onPress={() => Linking.openURL(newsItem.url || newsItem.sourceUrl!)}
+            >
+              <Text style={styles.readFullButtonText}>Read full article</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -169,6 +191,23 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
     marginBottom: 4,
   },
+  categoriesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: spacing.lg,
+  },
+  categoryBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.primary[100],
+  },
+  categoryBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary[700],
+  },
   coinsSection: {
     marginBottom: spacing.lg,
   },
@@ -186,5 +225,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 26,
     color: colors.neutral[700],
+    marginBottom: spacing.lg,
+  },
+  readFullButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primary[500],
+  },
+  readFullButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
