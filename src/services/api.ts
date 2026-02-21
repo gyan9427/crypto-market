@@ -45,6 +45,7 @@ interface BackendNews {
   relatedCoins: string[];
   categories?: BackendNewsCategory[];
   publishedAt: string | Date;
+  saveCount?: number;
 }
 
 interface BackendCoin {
@@ -129,9 +130,10 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
     publishedAt,
     coins: relatedCoins,
     categories: backendNews.categories || [],
-    likes: 0, // Backend doesn't track likes
-    comments: 0, // Backend doesn't track comments
-    shares: 0, // Backend doesn't track shares
+    likes: 0,
+    comments: 0,
+    shares: 0,
+    saveCount: backendNews.saveCount ?? 0,
     url: sourceUrl,
     isLiked: false, // Will be set by app store
     isSaved: false, // Will be set by app store
