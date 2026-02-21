@@ -24,6 +24,37 @@ export interface NewsCategory {
   name: string;
 }
 
+export type ReactionType =
+  | 'appreciate'
+  | 'insightful'
+  | 'bullish'
+  | 'risk'
+  | 'deepDive'
+  | 'debatable';
+
+export interface ReactionCounts {
+  appreciate: number;
+  insightful: number;
+  bullish: number;
+  risk: number;
+  deepDive: number;
+  debatable: number;
+  total: number;
+}
+
+export const REACTIONS: ReadonlyArray<{
+  type: ReactionType;
+  emoji: string;
+  label: string;
+}> = [
+  { type: 'appreciate', emoji: '\u{1F44D}', label: 'Appreciate' },
+  { type: 'insightful', emoji: '\u{1F4CA}', label: 'Insightful' },
+  { type: 'bullish', emoji: '\u{1F680}', label: 'Bullish' },
+  { type: 'risk', emoji: '\u{1F4C9}', label: 'Risk' },
+  { type: 'deepDive', emoji: '\u{1F50D}', label: 'Deep Dive' },
+  { type: 'debatable', emoji: '\u{1F504}', label: 'Debatable' },
+];
+
 export interface NewsItem {
   id: string;
   title: string;
@@ -44,6 +75,8 @@ export interface NewsItem {
   isLiked?: boolean;
   isSaved?: boolean;
   url?: string;
+  reactions?: ReactionCounts;
+  userReaction?: ReactionType | null;
 }
 
 export interface NewsBoard {
@@ -57,6 +90,7 @@ export interface FeedCardProps {
   item: NewsItem;
   variant?: 'compact' | 'expanded' | 'grid';
   onLike?: (id: string) => void;
+  onReact?: (id: string, type: ReactionType) => void;
   onComment?: (id: string) => void;
   onShare?: (id: string) => void;
   onSave?: (id: string) => void;
@@ -99,6 +133,7 @@ export interface AppState {
   savedNews: string[];
   followingCoins: string[];
   boards: NewsBoard[];
+  newsReactions: Record<string, ReactionType>;
   setFeedFilter: (filter: FeedFilter) => void;
   setExploreCategory: (category: ExploreCategory) => void;
   toggleDarkMode: () => void;
@@ -110,4 +145,5 @@ export interface AppState {
   addBoard: (board: NewsBoard) => void;
   markSaved: (newsId: string) => void;
   isSavedToAnyBoard: (newsId: string) => boolean;
+  setReaction: (newsId: string, type: ReactionType | null) => void;
 }

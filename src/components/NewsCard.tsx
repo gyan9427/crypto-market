@@ -7,9 +7,10 @@ import {
   StyleSheet,
 } from 'react-native';
 import { openInAppBrowser } from '../utils/browser';
-import { Heart, MessageCircle, Share2, Bookmark } from 'lucide-react-native';
+import { MessageCircle, Share2, Bookmark } from 'lucide-react-native';
 import { FeedCardProps } from '../types';
 import { CoinChip } from './CoinChip';
+import { ReactionPicker } from './ReactionPicker';
 import { formatTimeAgo, abbreviateNumber } from '../utils/format';
 import { colors, borderRadius, shadows, spacing } from '../theme/theme';
 
@@ -18,14 +19,13 @@ const COLLAPSED_LINES = 3;
 export const NewsCard: React.FC<FeedCardProps> = ({
   item,
   variant = 'compact',
-  onLike,
+  onReact,
   onComment,
   onShare,
   onSave,
   onCoinPress,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const isLiked = item.isLiked || false;
   const isSaved = item.isSaved || false;
   const isGrid = variant === 'grid';
   const articleSaveCount = item.saveCount ?? 0;
@@ -135,22 +135,11 @@ export const NewsCard: React.FC<FeedCardProps> = ({
       </View>
 
       <View style={styles.actionsRow}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => onLike?.(item.id)}
-          accessibilityRole="button"
-          accessibilityLabel={isLiked ? 'Unlike' : 'Like'}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Heart
-            size={20}
-            color={isLiked ? colors.danger[500] : colors.neutral[500]}
-            fill={isLiked ? colors.danger[500] : 'none'}
-          />
-          <Text style={[styles.actionText, isLiked && styles.actionTextActive]}>
-            {abbreviateNumber(item.likes)}
-          </Text>
-        </TouchableOpacity>
+        <ReactionPicker
+          reactions={item.reactions}
+          userReaction={item.userReaction}
+          onReact={(type) => onReact?.(item.id, type)}
+        />
 
         <TouchableOpacity
           style={styles.actionButton}
@@ -378,9 +367,6 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
     marginLeft: 6,
     fontWeight: '500',
-  },
-  actionTextActive: {
-    color: colors.danger[500],
   },
   actionTextSaved: {
     color: colors.primary[500],

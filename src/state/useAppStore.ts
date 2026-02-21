@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppState, FeedFilter, ExploreCategory, NewsBoard } from '../types';
+import { AppState, FeedFilter, ExploreCategory, NewsBoard, ReactionType } from '../types';
 import { getWishlist } from '../services/api';
 import { useAuthStore } from './useAuthStore';
 
@@ -11,6 +11,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   savedNews: [],
   followingCoins: [],
   boards: [],
+  newsReactions: {},
 
   setFeedFilter: (filter: FeedFilter) => set({ feedFilter: filter }),
 
@@ -23,6 +24,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       ? state.likedNews.filter(id => id !== newsId)
       : [...state.likedNews, newsId],
   })),
+
+  setReaction: (newsId: string, type: ReactionType | null) =>
+    set((state) => {
+      const next = { ...state.newsReactions };
+      if (type) {
+        next[newsId] = type;
+      } else {
+        delete next[newsId];
+      }
+      return { newsReactions: next };
+    }),
 
   toggleSave: (newsId: string) => set((state) => ({
     savedNews: state.savedNews.includes(newsId)

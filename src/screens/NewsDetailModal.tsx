@@ -8,11 +8,13 @@ import {
   StyleSheet,
 } from 'react-native';
 import { openInAppBrowser } from '../utils/browser';
-import { X, Heart, Share2, Bookmark, BookmarkCheck } from 'lucide-react-native';
-import { NewsItem } from '../types';
+import { X, Share2, Bookmark, BookmarkCheck } from 'lucide-react-native';
+import { NewsItem, ReactionType } from '../types';
 import { CoinChip } from '../components/CoinChip';
+import { ReactionPicker } from '../components/ReactionPicker';
 import { SaveToBoardModal } from '../components/SaveToBoardModal';
 import { formatDateTime } from '../utils/format';
+import { toggleReaction } from '../services/api';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAppStore } from '../state/useAppStore';
 
@@ -28,7 +30,26 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   const [isSaved, setIsSaved] = useState(newsItem.isSaved ?? false);
   const [saveCount, setSaveCount] = useState(newsItem.saveCount ?? 0);
   const [saveBoardOpen, setSaveBoardOpen] = useState(false);
+  const [reactions, setReactions] = useState(newsItem.reactions);
+  const [userReaction, setUserReaction] = useState(newsItem.userReaction ?? null);
   const isSavedToAnyBoard = useAppStore((s) => s.isSavedToAnyBoard);
+  const storeSetReaction = useAppStore((s) => s.setReaction);
+
+  const handleReact = async (type: ReactionType) => {
+    const prev = userReaction;
+    const optimistic = prev === type ? null : type;
+    setUserReaction(optimistic);
+    storeSetReaction(newsItem.id, optimistic);
+    try {
+      const result = await toggleReaction(newsItem.id, type);
+      setUserReaction(result.userReaction);
+      setReactions(result.reactions);
+      storeSetReaction(newsItem.id, result.userReaction);
+    } catch {
+      setUserReaction(prev);
+      storeSetReaction(newsItem.id, prev);
+    }
+  };
 
   const handleSaved = (_newsId: string, count: number) => {
     setIsSaved(true);
@@ -59,17 +80,11 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
 
         <View style={styles.content}>
           <View style={styles.actionsRow}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              accessibilityRole="button"
-              accessibilityLabel="Like article"
-              onPress={() => {
-                // Placeholder like handler for mock detail view
-                console.log('Like article:', newsItem.id);
-              }}
-            >
-              <Heart size={20} color={colors.neutral[500]} />
-            </TouchableOpacity>
+            <ReactionPicker
+              reactions={reactions}
+              userReaction={userReaction}
+              onReact={handleReact}
+            />
 
             <TouchableOpacity
               style={styles.actionButton}
