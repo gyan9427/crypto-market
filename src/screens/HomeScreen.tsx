@@ -10,8 +10,8 @@ import { NewsCardSkeleton } from '../components/NewsCardSkeleton';
 import { SaveToBoardModal } from '../components/SaveToBoardModal';
 import { CommentTray } from '../components/CommentTray';
 import { useAppStore } from '../state/useAppStore';
-import { fetchNews, search } from '../services/api';
-import { NewsItem } from '../types';
+import { fetchNews, search, toggleReaction } from '../services/api';
+import { NewsItem, ReactionType } from '../types';
 import { NewsDetailModal } from './NewsDetailModal';
 import { colors } from '../theme/theme';
 
@@ -32,8 +32,8 @@ export const HomeScreen: React.FC = () => {
 
   const feedFilter = useAppStore((state) => state.feedFilter);
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
-  const toggleLike = useAppStore((state) => state.toggleLike);
-  const likedNews = useAppStore((state) => state.likedNews);
+  const setReaction = useAppStore((state) => state.setReaction);
+  const newsReactions = useAppStore((state) => state.newsReactions);
   const isSavedToAnyBoard = useAppStore((state) => state.isSavedToAnyBoard);
 
   // Fetch news when filter or categories change
@@ -66,10 +66,9 @@ export const HomeScreen: React.FC = () => {
       // Fetch a full page of news items from the backend (up to 50)
       const news = await fetchNews(feedFilter, 1, 50, selectedCategories);
       
-      // Merge with app store state for likes/saves
       const newsWithState = news.map((item) => ({
         ...item,
-        isLiked: likedNews.includes(item.id),
+        userReaction: newsReactions[item.id] ?? item.userReaction ?? null,
         isSaved: isSavedToAnyBoard(item.id),
       }));
       
@@ -96,7 +95,7 @@ export const HomeScreen: React.FC = () => {
       const results = await search(query);
       const newsWithState = results.news.map((item) => ({
         ...item,
-        isLiked: likedNews.includes(item.id),
+        userReaction: newsReactions[item.id] ?? item.userReaction ?? null,
         isSaved: isSavedToAnyBoard(item.id),
       }));
       setSearchResults(newsWithState);
@@ -124,20 +123,51 @@ export const HomeScreen: React.FC = () => {
     );
   };
 
-  const handleLike = (newsId: string) => {
-    toggleLike(newsId);
-    // Update local state
-    setNewsData((prev) =>
-      prev.map((item) =>
-        item.id === newsId ? { ...item, isLiked: !item.isLiked } : item
-      )
-    );
+  const handleReact = async (newsId: string, type: ReactionType) => {
+    const currentReaction = newsReactions[newsId] ?? null;
+    const newReaction = currentReaction === type ? null : type;
+    setReaction(newsId, newReaction);
+
+    const optimisticUpdate = (item: NewsItem): NewsItem => {
+      if (item.id !== newsId) return item;
+      const prev = { ...(item.reactions ?? { appreciate: 0, insightful: 0, bullish: 0, risk: 0, deepDive: 0, debatable: 0, total: 0 }) };
+      if (currentReaction) {
+        prev[currentReaction] = Math.max(0, (prev[currentReaction] ?? 0) - 1);
+        prev.total = Math.max(0, prev.total - 1);
+      }
+      if (newReaction) {
+        prev[newReaction] = (prev[newReaction] ?? 0) + 1;
+        prev.total = prev.total + 1;
+      }
+      return { ...item, userReaction: newReaction, reactions: prev };
+    };
+
+    setNewsData((prev) => prev.map(optimisticUpdate));
     if (searchResults) {
-      setSearchResults((prev) =>
-        prev?.map((item) =>
-          item.id === newsId ? { ...item, isLiked: !item.isLiked } : item
-        ) || null
+      setSearchResults((prev) => prev ? prev.map(optimisticUpdate) : null);
+    }
+
+    try {
+      const result = await toggleReaction(newsId, type);
+      setReaction(newsId, result.userReaction);
+      const applyServer = (items: NewsItem[]) =>
+        items.map((item) =>
+          item.id === newsId
+            ? { ...item, reactions: result.reactions, userReaction: result.userReaction }
+            : item
+        );
+      setNewsData((prev) => applyServer(prev));
+      if (searchResults) {
+        setSearchResults((prev) => prev ? applyServer(prev) : null);
+      }
+    } catch (error) {
+      setReaction(newsId, currentReaction);
+      setNewsData((prev) =>
+        prev.map((item) =>
+          item.id === newsId ? { ...item, userReaction: currentReaction } : item
+        )
       );
+      console.error('Failed to toggle reaction:', error);
     }
   };
 
@@ -236,7 +266,7 @@ export const HomeScreen: React.FC = () => {
           return (
             <NewsCard
               item={item}
-              onLike={handleLike}
+              onReact={handleReact}
               onComment={handleComment}
               onShare={handleShare}
               onSave={handleSave}

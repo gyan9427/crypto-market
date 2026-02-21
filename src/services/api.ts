@@ -1,4 +1,4 @@
-import { Coin, NewsItem, TrendingCoin, User, NewsBoard, Comment } from '../types';
+import { Coin, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts } from '../types';
 import { useAuthStore } from '../state/useAuthStore';
 import Constants from 'expo-constants';
 
@@ -47,6 +47,8 @@ interface BackendNews {
   publishedAt: string | Date;
   saveCount?: number;
   comments?: number;
+  reactions?: ReactionCounts;
+  userReaction?: ReactionType | null;
 }
 
 interface BackendCoin {
@@ -119,6 +121,11 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
   const sourceUrl = backendNews.sourceUrl || backendNews.url;
   const description = backendNews.subtitle || backendNews.summary;
 
+  const defaultReactions: ReactionCounts = {
+    appreciate: 0, insightful: 0, bullish: 0,
+    risk: 0, deepDive: 0, debatable: 0, total: 0,
+  };
+
   return {
     id: backendNews.id,
     title: backendNews.title,
@@ -131,13 +138,15 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
     publishedAt,
     coins: relatedCoins,
     categories: backendNews.categories || [],
-    likes: 0,
+    likes: backendNews.reactions?.total ?? 0,
     comments: backendNews.comments ?? 0,
     shares: 0,
     saveCount: backendNews.saveCount ?? 0,
     url: sourceUrl,
-    isLiked: false, // Will be set by app store
-    isSaved: false, // Will be set by app store
+    isLiked: false,
+    isSaved: false,
+    reactions: backendNews.reactions ?? defaultReactions,
+    userReaction: backendNews.userReaction ?? null,
   };
 }
 
@@ -332,12 +341,31 @@ export const fetchNewsDetails = async (newsId: string): Promise<NewsItem> => {
 };
 
 /**
- * Like a news article (client-side only, backend doesn't support this)
+ * Toggle a reaction on a news article. Returns the updated reaction state.
  */
-export const likeNews = async (newsId: string): Promise<void> => {
-  // Backend doesn't have like endpoint, so this is a no-op
-  // The like state is managed client-side in the app store
-  return Promise.resolve();
+export const toggleReaction = async (
+  newsId: string,
+  type: ReactionType
+): Promise<{ userReaction: ReactionType | null; reactions: ReactionCounts }> => {
+  return apiRequest<{ userReaction: ReactionType | null; reactions: ReactionCounts }>(
+    `/news/${newsId}/reactions`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ type }),
+    }
+  );
+};
+
+/**
+ * Remove the current user's reaction from a news article.
+ */
+export const removeReaction = async (
+  newsId: string
+): Promise<{ userReaction: null; reactions: ReactionCounts }> => {
+  return apiRequest<{ userReaction: null; reactions: ReactionCounts }>(
+    `/news/${newsId}/reactions`,
+    { method: 'DELETE' }
+  );
 };
 
 /**
