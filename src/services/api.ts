@@ -1,8 +1,24 @@
 import { Coin, NewsItem, TrendingCoin, User } from '../types';
 import { useAuthStore } from '../state/useAuthStore';
+import Constants from 'expo-constants';
 
 // API Configuration
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:4001/api';
+// In Expo Go on a physical device, "localhost" refers to the device itself, not the dev machine.
+// We read the dev server host from Expo's runtime config and replace the port with the backend port.
+// Priority: explicit env var → dynamic Expo host → localhost fallback (web/simulator only)
+function resolveApiBaseUrl(): string {
+  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
+    return process.env.EXPO_PUBLIC_API_BASE_URL;
+  }
+  const hostUri = Constants.expoConfig?.hostUri; // e.g. "192.168.0.9:8081"
+  if (hostUri) {
+    const host = hostUri.split(':')[0]; // strip the Metro port
+    return `http://${host}:4001/api`;
+  }
+  return 'http://localhost:4001/api';
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 // Backend response format
 interface ApiResponse<T> {
@@ -59,9 +75,9 @@ async function apiRequest<T>(
 ): Promise<T> {
   const token = useAuthStore.getState().token;
   
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
 
   if (token) {

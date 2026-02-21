@@ -6,8 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Linking,
 } from 'react-native';
+import { openInAppBrowser } from '../utils/browser';
 import { X, Heart, Share2, Bookmark } from 'lucide-react-native';
 import { NewsItem } from '../types';
 import { CoinChip } from '../components/CoinChip';
@@ -121,7 +121,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
           {(newsItem.url || newsItem.sourceUrl) && (
             <TouchableOpacity
               style={styles.readFullButton}
-              onPress={() => Linking.openURL(newsItem.url || newsItem.sourceUrl!)}
+              onPress={() => openInAppBrowser(newsItem.url || newsItem.sourceUrl!)}
             >
               <Text style={styles.readFullButtonText}>Read full article</Text>
             </TouchableOpacity>

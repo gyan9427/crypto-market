@@ -1,34 +1,52 @@
-import React, { useRef } from 'react';
-import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
+import React, { useRef, useState } from 'react';
+import {
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  StyleSheet,
+  View,
+  Text,
+  Modal,
+  Animated,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus, Bell, PlusCircle, FileText, Gift } from 'lucide-react-native';
 import { colors, shadows } from '../theme/theme';
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 
 interface FABProps {
   onPress?: () => void;
 }
 
 export const FAB: React.FC<FABProps> = ({ onPress }) => {
-  const bottomSheetRef = useRef<BottomSheet>(null);
+  const [visible, setVisible] = useState(false);
+  const slideAnim = useRef(new Animated.Value(400)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
   const router = useRouter();
 
-  const handlePress = () => {
-    bottomSheetRef.current?.expand();
+  const openSheet = () => {
+    setVisible(true);
     onPress?.();
+    Animated.parallel([
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, bounciness: 4 }),
+      Animated.timing(backdropAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
   };
 
-  const handleSheetClose = () => {
-    // Sheet closed
+  const closeSheet = (callback?: () => void) => {
+    Animated.parallel([
+      Animated.timing(slideAnim, { toValue: 400, duration: 220, useNativeDriver: true }),
+      Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => {
+      setVisible(false);
+      callback?.();
+    });
   };
 
   const handleAction = (action: string) => {
-    bottomSheetRef.current?.close();
-    if (action === 'rewards') {
-      router.push('/rewards');
-    } else {
-      console.log(`Action: ${action}`);
-    }
+    closeSheet(() => {
+      if (action === 'rewards') {
+        router.push('/rewards');
+      }
+    });
   };
 
   return (
@@ -36,7 +54,7 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
       <View style={styles.fabContainer}>
         <TouchableOpacity
           style={styles.fab}
-          onPress={handlePress}
+          onPress={openSheet}
           accessibilityRole="button"
           accessibilityLabel="Add action"
           activeOpacity={0.9}
@@ -45,78 +63,80 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
         </TouchableOpacity>
       </View>
 
-      <BottomSheet
-        ref={bottomSheetRef}
-        index={-1}
-        snapPoints={['45%']}
-        enablePanDownToClose
-        onClose={handleSheetClose}
-        backgroundStyle={styles.bottomSheetBackground}
-      >
-        <BottomSheetView style={styles.bottomSheetContent}>
-          <Text style={styles.sheetTitle}>Quick Actions</Text>
+      <Modal transparent visible={visible} animationType="none" onRequestClose={() => closeSheet()}>
+        <TouchableWithoutFeedback onPress={() => closeSheet()}>
+          <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
+        </TouchableWithoutFeedback>
 
-          <TouchableOpacity
-            style={styles.sheetAction}
-            onPress={() => handleAction('alert')}
-            accessibilityRole="button"
-            accessibilityLabel="Add Alert"
-          >
-            <View style={styles.sheetIconContainer}>
-              <Bell size={24} color={colors.primary[500]} />
-            </View>
-            <View style={styles.sheetActionText}>
-              <Text style={styles.sheetActionTitle}>Add Alert</Text>
-              <Text style={styles.sheetActionSubtitle}>Set price alerts for coins</Text>
-            </View>
-          </TouchableOpacity>
+        <Animated.View
+          style={[styles.bottomSheetBackground, { transform: [{ translateY: slideAnim }] }]}
+        >
+          <View style={styles.handleBar} />
+          <View style={styles.bottomSheetContent}>
+            <Text style={styles.sheetTitle}>Quick Actions</Text>
 
-          <TouchableOpacity
-            style={styles.sheetAction}
-            onPress={() => handleAction('watchlist')}
-            accessibilityRole="button"
-            accessibilityLabel="Add to Watchlist"
-          >
-            <View style={styles.sheetIconContainer}>
-              <PlusCircle size={24} color={colors.accent[500]} />
-            </View>
-            <View style={styles.sheetActionText}>
-              <Text style={styles.sheetActionTitle}>Add to Watchlist</Text>
-              <Text style={styles.sheetActionSubtitle}>Track your favorite coins</Text>
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sheetAction}
+              onPress={() => handleAction('alert')}
+              accessibilityRole="button"
+              accessibilityLabel="Add Alert"
+            >
+              <View style={styles.sheetIconContainer}>
+                <Bell size={24} color={colors.primary[500]} />
+              </View>
+              <View style={styles.sheetActionText}>
+                <Text style={styles.sheetActionTitle}>Add Alert</Text>
+                <Text style={styles.sheetActionSubtitle}>Set price alerts for coins</Text>
+              </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.sheetAction}
-            onPress={() => handleAction('submit')}
-            accessibilityRole="button"
-            accessibilityLabel="Submit News"
-          >
-            <View style={styles.sheetIconContainer}>
-              <FileText size={24} color={colors.success[500]} />
-            </View>
-            <View style={styles.sheetActionText}>
-              <Text style={styles.sheetActionTitle}>Submit News</Text>
-              <Text style={styles.sheetActionSubtitle}>Share crypto news with community</Text>
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sheetAction}
+              onPress={() => handleAction('watchlist')}
+              accessibilityRole="button"
+              accessibilityLabel="Add to Watchlist"
+            >
+              <View style={styles.sheetIconContainer}>
+                <PlusCircle size={24} color={colors.accent[500]} />
+              </View>
+              <View style={styles.sheetActionText}>
+                <Text style={styles.sheetActionTitle}>Add to Watchlist</Text>
+                <Text style={styles.sheetActionSubtitle}>Track your favorite coins</Text>
+              </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.sheetAction}
-            onPress={() => handleAction('rewards')}
-            accessibilityRole="button"
-            accessibilityLabel="Rewards"
-          >
-            <View style={styles.sheetIconContainer}>
-              <Gift size={24} color={colors.primary[500]} />
-            </View>
-            <View style={styles.sheetActionText}>
-              <Text style={styles.sheetActionTitle}>Rewards</Text>
-              <Text style={styles.sheetActionSubtitle}>View and claim your rewards</Text>
-            </View>
-          </TouchableOpacity>
-        </BottomSheetView>
-      </BottomSheet>
+            <TouchableOpacity
+              style={styles.sheetAction}
+              onPress={() => handleAction('submit')}
+              accessibilityRole="button"
+              accessibilityLabel="Submit News"
+            >
+              <View style={styles.sheetIconContainer}>
+                <FileText size={24} color={colors.success[500]} />
+              </View>
+              <View style={styles.sheetActionText}>
+                <Text style={styles.sheetActionTitle}>Submit News</Text>
+                <Text style={styles.sheetActionSubtitle}>Share crypto news with community</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.sheetAction}
+              onPress={() => handleAction('rewards')}
+              accessibilityRole="button"
+              accessibilityLabel="Rewards"
+            >
+              <View style={styles.sheetIconContainer}>
+                <Gift size={24} color={colors.primary[500]} />
+              </View>
+              <View style={styles.sheetActionText}>
+                <Text style={styles.sheetActionTitle}>Rewards</Text>
+                <Text style={styles.sheetActionSubtitle}>View and claim your rewards</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </Modal>
     </>
   );
 };
@@ -124,7 +144,7 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
 const styles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
-    bottom: 42, // Sits on navbar: bar height 70 - half FAB (28) = center at bar top
+    bottom: 42,
     alignSelf: 'center',
     zIndex: 1000,
   },
@@ -137,14 +157,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...shadows.lg,
   },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
   bottomSheetBackground: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    ...shadows.lg,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.neutral[300],
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 4,
   },
   bottomSheetContent: {
-    flex: 1,
     padding: 24,
+    paddingTop: 12,
   },
   sheetTitle: {
     fontSize: 20,

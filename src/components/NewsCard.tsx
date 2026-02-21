@@ -5,8 +5,8 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
-  Linking,
 } from 'react-native';
+import { openInAppBrowser } from '../utils/browser';
 import { Heart, MessageCircle, Share2, Bookmark } from 'lucide-react-native';
 import { FeedCardProps } from '../types';
 import { CoinChip } from './CoinChip';
@@ -124,7 +124,7 @@ export const NewsCard: React.FC<FeedCardProps> = ({
         </Text>
         {(item.url || item.sourceUrl) && (
           <TouchableOpacity
-            onPress={() => Linking.openURL(item.url || item.sourceUrl!)}
+            onPress={() => openInAppBrowser(item.url || item.sourceUrl!)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.readFullTouchable}
           >
