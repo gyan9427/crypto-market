@@ -79,6 +79,18 @@ export default function TabsLayout() {
             href: null,
           }}
         />
+        <Tabs.Screen
+          name="news-boards/index"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="news-boards/[boardId]"
+          options={{
+            href: null,
+          }}
+        />
       </Tabs>
       <FAB />
     </View>

@@ -1,4 +1,4 @@
-import { Coin, NewsItem, TrendingCoin, User } from '../types';
+import { Coin, NewsItem, TrendingCoin, User, NewsBoard, Comment } from '../types';
 import { useAuthStore } from '../state/useAuthStore';
 import Constants from 'expo-constants';
 
@@ -45,6 +45,8 @@ interface BackendNews {
   relatedCoins: string[];
   categories?: BackendNewsCategory[];
   publishedAt: string | Date;
+  saveCount?: number;
+  comments?: number;
 }
 
 interface BackendCoin {
@@ -129,9 +131,10 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
     publishedAt,
     coins: relatedCoins,
     categories: backendNews.categories || [],
-    likes: 0, // Backend doesn't track likes
-    comments: 0, // Backend doesn't track comments
-    shares: 0, // Backend doesn't track shares
+    likes: 0,
+    comments: backendNews.comments ?? 0,
+    shares: 0,
+    saveCount: backendNews.saveCount ?? 0,
     url: sourceUrl,
     isLiked: false, // Will be set by app store
     isSaved: false, // Will be set by app store
@@ -338,12 +341,79 @@ export const likeNews = async (newsId: string): Promise<void> => {
 };
 
 /**
- * Save a news article (client-side only, backend doesn't support this)
+ * Get user's news boards
  */
-export const saveNews = async (newsId: string): Promise<void> => {
-  // Backend doesn't have save endpoint, so this is a no-op
-  // The save state is managed client-side in the app store
-  return Promise.resolve();
+export const getNewsBoards = async (): Promise<NewsBoard[]> => {
+  try {
+    const response = await apiRequest<{ boards: Array<{ id: string; name: string; newsIds: string[]; createdAt: string }> }>('/newsboards');
+    return response.boards.map((b) => ({
+      id: b.id,
+      name: b.name,
+      newsIds: b.newsIds,
+      createdAt: b.createdAt,
+    }));
+  } catch (error: any) {
+    throw new Error(`Failed to fetch news boards: ${error.message}`);
+  }
+};
+
+/**
+ * Create a new news board
+ */
+export const createNewsBoard = async (name: string): Promise<NewsBoard> => {
+  try {
+    const response = await apiRequest<{ board: { id: string; name: string; newsIds: string[]; createdAt: string } }>('/newsboards', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+    return {
+      id: response.board.id,
+      name: response.board.name,
+      newsIds: response.board.newsIds,
+      createdAt: response.board.createdAt,
+    };
+  } catch (error: any) {
+    throw new Error(`Failed to create news board: ${error.message}`);
+  }
+};
+
+/**
+ * Save a news article to a board — increments global save count on first save
+ */
+export const saveNewsToBoard = async (
+  newsId: string,
+  boardId: string
+): Promise<{ saveCount: number; boardId: string }> => {
+  try {
+    const response = await apiRequest<{ saveCount: number; boardId: string }>(
+      `/newsboards/${boardId}/items`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ newsId }),
+      }
+    );
+    return response;
+  } catch (error: any) {
+    throw new Error(`Failed to save news to board: ${error.message}`);
+  }
+};
+
+/**
+ * Remove a news article from a board — decrements global save count if last board
+ */
+export const unsaveNewsFromBoard = async (
+  newsId: string,
+  boardId: string
+): Promise<{ saveCount: number }> => {
+  try {
+    const response = await apiRequest<{ saveCount: number }>(
+      `/newsboards/${boardId}/items/${newsId}`,
+      { method: 'DELETE' }
+    );
+    return response;
+  } catch (error: any) {
+    throw new Error(`Failed to unsave news from board: ${error.message}`);
+  }
 };
 
 /**
@@ -441,6 +511,56 @@ export const signup = async (
 };
 
 /**
+ * Fetch all news articles saved in a specific news board
+ */
+export const getBoardNews = async (boardId: string): Promise<NewsItem[]> => {
+  try {
+    const response = await apiRequest<{
+      news: Array<{
+        id: string;
+        title: string;
+        subtitle?: string;
+        imageUrl?: string;
+        sourceUrl: string;
+        source: string;
+        publishedAt: string;
+        categories: Array<{ key: string; name: string }>;
+        coins: Array<{ symbol: string; name: string }>;
+        metrics: { views: number; likes: number; saves: number };
+      }>;
+    }>(`/newsboards/${boardId}/news`);
+
+    return response.news.map((a) => ({
+      id: a.id,
+      title: a.title,
+      snippet: a.subtitle || '',
+      subtitle: a.subtitle,
+      content: a.subtitle,
+      imageUrl: a.imageUrl,
+      source: a.source,
+      sourceUrl: a.sourceUrl,
+      url: a.sourceUrl,
+      publishedAt: new Date(a.publishedAt),
+      categories: a.categories,
+      coins: a.coins.map((c) => ({
+        id: c.symbol.toLowerCase(),
+        symbol: c.symbol,
+        name: c.name,
+        price: 0,
+        change24h: 0,
+      })),
+      likes: a.metrics.likes,
+      comments: 0,
+      shares: 0,
+      saveCount: a.metrics.saves,
+      isSaved: true,
+    }));
+  } catch (error: any) {
+    throw new Error(`Failed to fetch board news: ${error.message}`);
+  }
+};
+
+/**
  * Get current user
  */
 export const getCurrentUser = async (): Promise<User> => {
@@ -452,4 +572,63 @@ export const getCurrentUser = async (): Promise<User> => {
   } catch (error: any) {
     throw new Error(`Failed to get current user: ${error.message}`);
   }
+};
+
+// ── Comments ────────────────────────────────────────────────────────
+
+export const fetchComments = async (
+  newsId: string,
+  page: number = 1,
+  limit: number = 20
+): Promise<Comment[]> => {
+  const response = await apiRequest<{ comments: Comment[] }>(
+    `/news/${newsId}/comments?page=${page}&limit=${limit}`
+  );
+  return response.comments;
+};
+
+export const fetchReplies = async (
+  newsId: string,
+  commentId: string,
+  page: number = 1,
+  limit: number = 10
+): Promise<Comment[]> => {
+  const response = await apiRequest<{ replies: Comment[] }>(
+    `/news/${newsId}/comments/${commentId}/replies?page=${page}&limit=${limit}`
+  );
+  return response.replies;
+};
+
+export const postComment = async (
+  newsId: string,
+  body: string,
+  parentId?: string | null
+): Promise<{ comment: Comment; commentCount: number }> => {
+  return apiRequest<{ comment: Comment; commentCount: number }>(
+    `/news/${newsId}/comments`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ body, parentId: parentId || undefined }),
+    }
+  );
+};
+
+export const deleteComment = async (
+  newsId: string,
+  commentId: string
+): Promise<{ commentCount: number }> => {
+  return apiRequest<{ commentCount: number }>(
+    `/news/${newsId}/comments/${commentId}`,
+    { method: 'DELETE' }
+  );
+};
+
+export const searchUsers = async (
+  query: string,
+  limit: number = 5
+): Promise<{ id: string; username: string }[]> => {
+  const response = await apiRequest<{ users: { id: string; username: string }[] }>(
+    `/user/search?q=${encodeURIComponent(query)}&limit=${limit}`
+  );
+  return response.users;
 };

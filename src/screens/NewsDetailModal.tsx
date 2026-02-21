@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,13 @@ import {
   StyleSheet,
 } from 'react-native';
 import { openInAppBrowser } from '../utils/browser';
-import { X, Heart, Share2, Bookmark } from 'lucide-react-native';
+import { X, Heart, Share2, Bookmark, BookmarkCheck } from 'lucide-react-native';
 import { NewsItem } from '../types';
 import { CoinChip } from '../components/CoinChip';
+import { SaveToBoardModal } from '../components/SaveToBoardModal';
 import { formatDateTime } from '../utils/format';
 import { colors, spacing, borderRadius } from '../theme/theme';
+import { useAppStore } from '../state/useAppStore';
 
 interface NewsDetailModalProps {
   newsItem: NewsItem;
@@ -23,6 +25,16 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   newsItem,
   onClose,
 }) => {
+  const [isSaved, setIsSaved] = useState(newsItem.isSaved ?? false);
+  const [saveCount, setSaveCount] = useState(newsItem.saveCount ?? 0);
+  const [saveBoardOpen, setSaveBoardOpen] = useState(false);
+  const isSavedToAnyBoard = useAppStore((s) => s.isSavedToAnyBoard);
+
+  const handleSaved = (_newsId: string, count: number) => {
+    setIsSaved(true);
+    setSaveCount(count);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -73,12 +85,14 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             <TouchableOpacity
               style={styles.actionButton}
               accessibilityRole="button"
-              accessibilityLabel="Save article"
-              onPress={() => {
-                console.log('Save article:', newsItem.id);
-              }}
+              accessibilityLabel={isSaved ? 'Saved' : 'Save article'}
+              onPress={() => setSaveBoardOpen(true)}
             >
-              <Bookmark size={20} color={colors.neutral[500]} />
+              {isSaved || isSavedToAnyBoard(newsItem.id) ? (
+                <BookmarkCheck size={20} color={colors.primary[500]} />
+              ) : (
+                <Bookmark size={20} color={colors.neutral[500]} />
+              )}
             </TouchableOpacity>
           </View>
 
@@ -126,8 +140,21 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
               <Text style={styles.readFullButtonText}>Read full article</Text>
             </TouchableOpacity>
           )}
+
+          {saveCount > 0 && (
+            <Text style={styles.saveCountText}>
+              {saveCount} {saveCount === 1 ? 'person has' : 'people have'} saved this article
+            </Text>
+          )}
         </View>
       </ScrollView>
+
+      <SaveToBoardModal
+        visible={saveBoardOpen}
+        newsId={newsItem.id}
+        onClose={() => setSaveBoardOpen(false)}
+        onSaved={handleSaved}
+      />
     </View>
   );
 };
@@ -238,5 +265,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
+  },
+  saveCountText: {
+    marginTop: spacing.md,
+    fontSize: 13,
+    color: colors.neutral[500],
+    textAlign: 'center',
   },
 });

@@ -28,6 +28,7 @@ export const NewsCard: React.FC<FeedCardProps> = ({
   const isLiked = item.isLiked || false;
   const isSaved = item.isSaved || false;
   const isGrid = variant === 'grid';
+  const articleSaveCount = item.saveCount ?? 0;
 
   const fullText = item.subtitle || item.content || item.snippet;
 
@@ -187,6 +188,9 @@ export const NewsCard: React.FC<FeedCardProps> = ({
             color={isSaved ? colors.primary[500] : colors.neutral[500]}
             fill={isSaved ? colors.primary[500] : 'none'}
           />
+          <Text style={[styles.actionText, isSaved && styles.actionTextSaved]}>
+            {abbreviateNumber(articleSaveCount)}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -377,6 +381,9 @@ const styles = StyleSheet.create({
   },
   actionTextActive: {
     color: colors.danger[500],
+  },
+  actionTextSaved: {
+    color: colors.primary[500],
   },
   spacer: {
     flex: 1,

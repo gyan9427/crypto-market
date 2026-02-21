@@ -7,6 +7,8 @@ import { NewsCard } from '../components/NewsCard';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { FeaturedCarouselSkeleton } from '../components/FeaturedCarouselSkeleton';
 import { NewsCardSkeleton } from '../components/NewsCardSkeleton';
+import { SaveToBoardModal } from '../components/SaveToBoardModal';
+import { CommentTray } from '../components/CommentTray';
 import { useAppStore } from '../state/useAppStore';
 import { fetchNews, search } from '../services/api';
 import { NewsItem } from '../types';
@@ -25,13 +27,14 @@ export const HomeScreen: React.FC = () => {
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [isDetailVisible, setIsDetailVisible] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [savingNewsId, setSavingNewsId] = useState<string | null>(null);
+  const [commentingNewsId, setCommentingNewsId] = useState<string | null>(null);
 
   const feedFilter = useAppStore((state) => state.feedFilter);
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
   const toggleLike = useAppStore((state) => state.toggleLike);
-  const toggleSave = useAppStore((state) => state.toggleSave);
   const likedNews = useAppStore((state) => state.likedNews);
-  const savedNews = useAppStore((state) => state.savedNews);
+  const isSavedToAnyBoard = useAppStore((state) => state.isSavedToAnyBoard);
 
   // Fetch news when filter or categories change
   useEffect(() => {
@@ -67,7 +70,7 @@ export const HomeScreen: React.FC = () => {
       const newsWithState = news.map((item) => ({
         ...item,
         isLiked: likedNews.includes(item.id),
-        isSaved: savedNews.includes(item.id),
+        isSaved: isSavedToAnyBoard(item.id),
       }));
       
       setNewsData(newsWithState);
@@ -94,7 +97,7 @@ export const HomeScreen: React.FC = () => {
       const newsWithState = results.news.map((item) => ({
         ...item,
         isLiked: likedNews.includes(item.id),
-        isSaved: savedNews.includes(item.id),
+        isSaved: isSavedToAnyBoard(item.id),
       }));
       setSearchResults(newsWithState);
     } catch (err: any) {
@@ -139,25 +142,26 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleSave = (newsId: string) => {
-    toggleSave(newsId);
-    // Update local state
-    setNewsData((prev) =>
-      prev.map((item) =>
-        item.id === newsId ? { ...item, isSaved: !item.isSaved } : item
-      )
-    );
-    if (searchResults) {
-      setSearchResults((prev) =>
-        prev?.map((item) =>
-          item.id === newsId ? { ...item, isSaved: !item.isSaved } : item
-        ) || null
-      );
-    }
+    setSavingNewsId(newsId);
+  };
+
+  const handleSaved = (newsId: string, saveCount: number) => {
+    const update = (item: NewsItem) =>
+      item.id === newsId ? { ...item, isSaved: true, saveCount } : item;
+    setNewsData((prev) => prev.map(update));
+    setSearchResults((prev) => prev?.map(update) || null);
+    setSavingNewsId(null);
   };
 
   const handleComment = (newsId: string) => {
-    // TODO: Implement navigation to comments
-    console.log('Comment on:', newsId);
+    setCommentingNewsId(newsId);
+  };
+
+  const handleCommentCountChange = (newsId: string, count: number) => {
+    const update = (item: NewsItem) =>
+      item.id === newsId ? { ...item, comments: count } : item;
+    setNewsData((prev) => prev.map(update));
+    setSearchResults((prev) => prev?.map(update) || null);
   };
 
   const handleShare = (newsId: string) => {
@@ -307,6 +311,25 @@ export const HomeScreen: React.FC = () => {
           <NewsDetailModal newsItem={selectedNews} onClose={handleCloseDetail} />
         </Modal>
       )}
+
+      <SaveToBoardModal
+        visible={savingNewsId !== null}
+        newsId={savingNewsId}
+        onClose={() => setSavingNewsId(null)}
+        onSaved={handleSaved}
+      />
+
+      <CommentTray
+        visible={commentingNewsId !== null}
+        newsId={commentingNewsId}
+        commentCount={
+          commentingNewsId
+            ? (displayData.find((n) => n?.id === commentingNewsId)?.comments ?? 0)
+            : 0
+        }
+        onClose={() => setCommentingNewsId(null)}
+        onCountChange={handleCommentCountChange}
+      />
     </View>
   );
 };

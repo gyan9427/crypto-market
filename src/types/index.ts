@@ -40,9 +40,17 @@ export interface NewsItem {
   likes: number;
   comments: number;
   shares: number;
+  saveCount?: number;
   isLiked?: boolean;
   isSaved?: boolean;
   url?: string;
+}
+
+export interface NewsBoard {
+  id: string;
+  name: string;
+  newsIds: string[];
+  createdAt: string;
 }
 
 export interface FeedCardProps {
@@ -54,6 +62,25 @@ export interface FeedCardProps {
   onSave?: (id: string) => void;
   onPress?: (id: string) => void;
   onCoinPress?: (coinId: string) => void;
+}
+
+export interface Mention {
+  userId: string;
+  username: string;
+  offset: number;
+  length: number;
+}
+
+export interface Comment {
+  id: string;
+  newsId: string;
+  userId: string;
+  username: string;
+  parentId: string | null;
+  body: string;
+  mentions: Mention[];
+  replyCount: number;
+  createdAt: string;
 }
 
 export interface TrendingCoin extends Coin {
@@ -71,6 +98,7 @@ export interface AppState {
   likedNews: string[];
   savedNews: string[];
   followingCoins: string[];
+  boards: NewsBoard[];
   setFeedFilter: (filter: FeedFilter) => void;
   setExploreCategory: (category: ExploreCategory) => void;
   toggleDarkMode: () => void;
@@ -78,4 +106,8 @@ export interface AppState {
   toggleSave: (newsId: string) => void;
   toggleFollowCoin: (coinId: string) => Promise<void>;
   syncFollowingCoins: () => Promise<void>;
+  setBoards: (boards: NewsBoard[]) => void;
+  addBoard: (board: NewsBoard) => void;
+  markSaved: (newsId: string) => void;
+  isSavedToAnyBoard: (newsId: string) => boolean;
 }
