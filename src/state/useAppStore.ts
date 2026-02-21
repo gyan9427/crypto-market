@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppState, FeedFilter, ExploreCategory } from '../types';
+import { AppState, FeedFilter, ExploreCategory, NewsBoard } from '../types';
 import { getWishlist } from '../services/api';
 import { useAuthStore } from './useAuthStore';
 
@@ -9,7 +9,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isDarkMode: false,
   likedNews: [],
   savedNews: [],
-  followingCoins: [], // Initialize empty, will be synced from backend
+  followingCoins: [],
+  boards: [],
 
   setFeedFilter: (filter: FeedFilter) => set({ feedFilter: filter }),
 
@@ -29,18 +30,33 @@ export const useAppStore = create<AppState>((set, get) => ({
       : [...state.savedNews, newsId],
   })),
 
+  // Board-aware save state helpers
+  setBoards: (boards: NewsBoard[]) => set({ boards }),
+
+  addBoard: (board: NewsBoard) =>
+    set((state) => ({ boards: [board, ...state.boards] })),
+
+  markSaved: (newsId: string) =>
+    set((state) => ({
+      savedNews: state.savedNews.includes(newsId)
+        ? state.savedNews
+        : [...state.savedNews, newsId],
+    })),
+
+  isSavedToAnyBoard: (newsId: string): boolean => {
+    return get().boards.some((board) => board.newsIds.includes(newsId));
+  },
+
   toggleFollowCoin: async (coinId: string) => {
     const { followingCoins } = get();
     const isFollowing = followingCoins.includes(coinId);
-    
-    // Optimistically update UI
+
     set({
       followingCoins: isFollowing
         ? followingCoins.filter(id => id !== coinId)
         : [...followingCoins, coinId],
     });
 
-    // Sync with backend if authenticated
     if (useAuthStore.getState().isAuthenticated) {
       try {
         if (isFollowing) {
@@ -51,14 +67,12 @@ export const useAppStore = create<AppState>((set, get) => ({
           await followCoin(coinId);
         }
       } catch (error) {
-        // Revert on error
         set({ followingCoins });
         console.error('Failed to sync follow status:', error);
       }
     }
   },
 
-  // Helper method to sync following coins from backend
   syncFollowingCoins: async () => {
     if (!useAuthStore.getState().isAuthenticated) {
       set({ followingCoins: [] });
@@ -70,7 +84,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ followingCoins: wishlist.map(coin => coin.id) });
     } catch (error) {
       console.error('Failed to sync following coins:', error);
-      // Keep existing state on error
     }
   },
 }));

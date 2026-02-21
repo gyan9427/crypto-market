@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { colors, spacing, borderRadius, typography, shadows } from '@/src/theme/theme';
-import { LogOut, Shield, Info, User as UserIcon } from 'lucide-react-native';
+import { LogOut, Shield, Info, User as UserIcon, Bookmark } from 'lucide-react-native';
 
 const getInitials = (name?: string | null) => {
   if (!name) return '?';
@@ -85,6 +85,16 @@ export default function ProfileScreen() {
               // TODO: navigate to security settings
               console.log('Security pressed');
             }}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Collections</Text>
+          <ProfileMenuItem
+            label="News Boards"
+            description="Your saved article collections"
+            icon={<Bookmark size={18} color={colors.neutral[600]} />}
+            onPress={() => router.push('/news-boards' as never)}
           />
         </View>
 
