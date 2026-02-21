@@ -1,4 +1,26 @@
-# Release Notes - v1.0.0
+# Release Notes
+
+---
+
+## v1.1.0
+
+**Release Date:** February 21, 2026
+
+### What's New
+
+#### Reactions
+- **ReactionPicker** – LinkedIn-style stacked emoji chips showing reaction types used on each article
+- **Tooltip Popup** – Floating bubble with 6 reaction icons (no labels) on tap
+- **Total Count** – Displays total reactions with optimistic updates
+- **Replaces** – Previous client-only like button; reactions now persist to backend
+
+### Breaking Changes
+
+None. Fully backward compatible with v1.0.0.
+
+---
+
+## v1.0.0
 
 **Release Date:** February 14, 2026
 
@@ -97,5 +119,4 @@ None. This is the initial v1.0 release.
 ## Known Limitations
 
 - Portfolio and Rewards tabs are placeholders
-- Like/save state is client-only (not persisted to backend)
 - Dark mode state is prepared but not fully implemented
