@@ -1,27 +1,19 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   Image,
   TouchableOpacity,
   StyleSheet,
-  type LayoutChangeEvent,
+  Linking,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  runOnJS,
-} from 'react-native-reanimated';
 import { Heart, MessageCircle, Share2, Bookmark } from 'lucide-react-native';
 import { FeedCardProps } from '../types';
 import { CoinChip } from './CoinChip';
 import { formatTimeAgo, abbreviateNumber } from '../utils/format';
 import { colors, borderRadius, shadows, spacing } from '../theme/theme';
 
-const COLLAPSED_MAX_LENGTH = 120;
-const COLLAPSED_HEIGHT = 140;
-const SPRING_CONFIG = { damping: 22, stiffness: 90 };
+const COLLAPSED_LINES = 3;
 
 export const NewsCard: React.FC<FeedCardProps> = ({
   item,
@@ -33,59 +25,11 @@ export const NewsCard: React.FC<FeedCardProps> = ({
   onCoinPress,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [expandedHeight, setExpandedHeight] = useState(0);
-  const [isAnimatingCollapse, setIsAnimatingCollapse] = useState(false);
   const isLiked = item.isLiked || false;
   const isSaved = item.isSaved || false;
   const isGrid = variant === 'grid';
 
-  const fullText = item.content || item.snippet;
-  const isTruncatable = fullText.length > COLLAPSED_MAX_LENGTH;
-  const contentHeight = useSharedValue(COLLAPSED_HEIGHT);
-
-  const displayText = isExpanded || isAnimatingCollapse
-    ? fullText
-    : isTruncatable
-      ? fullText.slice(0, COLLAPSED_MAX_LENGTH).trim() + '...'
-      : fullText;
-
-  const finishCollapse = useCallback(() => {
-    setIsExpanded(false);
-    setIsAnimatingCollapse(false);
-  }, []);
-
-  const toggleExpand = () => {
-    if (isExpanded) {
-      setIsAnimatingCollapse(true);
-      contentHeight.value = withSpring(
-        COLLAPSED_HEIGHT,
-        SPRING_CONFIG,
-        (finished) => {
-          if (finished === true) {
-            runOnJS(finishCollapse)();
-          }
-        }
-      );
-    } else {
-      setIsExpanded(true);
-    }
-  };
-
-  const handleContentLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      const h = event.nativeEvent.layout.height;
-      if (isExpanded && h > COLLAPSED_HEIGHT) {
-        setExpandedHeight(h);
-        contentHeight.value = withSpring(h, SPRING_CONFIG);
-      }
-    },
-    [isExpanded]
-  );
-
-  const animatedContentStyle = useAnimatedStyle(() => ({
-    overflow: 'hidden' as const,
-    maxHeight: contentHeight.value,
-  }));
+  const fullText = item.subtitle || item.content || item.snippet;
 
   if (isGrid) {
     return (
@@ -95,7 +39,7 @@ export const NewsCard: React.FC<FeedCardProps> = ({
           {item.title}
         </Text>
         <Text style={styles.gridSnippet} numberOfLines={3}>
-          {item.snippet || item.content || ''}
+          {item.subtitle || item.snippet || item.content || ''}
         </Text>
       </View>
     );
@@ -142,26 +86,52 @@ export const NewsCard: React.FC<FeedCardProps> = ({
         />
       )}
 
-      <Animated.View style={[styles.content, animatedContentStyle]}>
-        <View onLayout={handleContentLayout}>
-          <Text style={styles.title} numberOfLines={3}>
-            {item.title}
-          </Text>
-          <Text style={styles.snippet}>{displayText}</Text>
-          {isTruncatable && (
-            <TouchableOpacity
-              onPress={toggleExpand}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.showMoreTouchable}
-            >
-              <Text style={styles.showMoreText}>
-                {isExpanded || isAnimatingCollapse ? 'show less' : 'show more'}
-              </Text>
-            </TouchableOpacity>
-          )}
-          <Text style={styles.source}>{item.source}</Text>
-        </View>
-      </Animated.View>
+      <View style={styles.content}>
+        <Text style={styles.title} numberOfLines={3}>
+          {item.title}
+        </Text>
+        {item.categories && item.categories.length > 0 && (
+          <View style={styles.categoriesRow}>
+            {item.categories.map((cat) => (
+              <View key={cat.key} style={styles.categoryBadge}>
+                <Text style={styles.categoryBadgeText}>{cat.name}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+        <Text
+          style={styles.snippet}
+          numberOfLines={isExpanded ? 0 : COLLAPSED_LINES}
+        >
+          {fullText}
+        </Text>
+        {fullText.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setIsExpanded((v) => !v)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.showMoreTouchable}
+          >
+            <Text style={styles.showMoreText}>
+              {isExpanded ? 'show less' : 'show more'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={styles.footerRow}>
+        <Text style={styles.source} numberOfLines={1}>
+          {item.source}
+        </Text>
+        {(item.url || item.sourceUrl) && (
+          <TouchableOpacity
+            onPress={() => Linking.openURL(item.url || item.sourceUrl!)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.readFullTouchable}
+          >
+            <Text style={styles.readFullLink}>Read full article</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       <View style={styles.actionsRow}>
         <TouchableOpacity
@@ -344,10 +314,46 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary[500],
   },
+  categoriesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: spacing.sm,
+  },
+  categoryBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: colors.primary[100],
+  },
+  categoryBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary[700],
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    gap: spacing.sm,
+    minHeight: 0,
+  },
   source: {
+    flex: 1,
     fontSize: 12,
     color: colors.neutral[500],
     fontWeight: '500',
+  },
+  readFullTouchable: {
+    flexShrink: 0,
+  },
+  readFullLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary[500],
   },
   actionsRow: {
     flexDirection: 'row',

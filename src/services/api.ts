@@ -12,14 +12,22 @@ interface ApiResponse<T> {
 }
 
 // Backend types
+interface BackendNewsCategory {
+  key: string;
+  name: string;
+}
+
 interface BackendNews {
   id: string;
   title: string;
   summary: string;
+  subtitle?: string;
   source: string;
   url: string;
+  sourceUrl?: string;
   image?: string;
   relatedCoins: string[];
+  categories?: BackendNewsCategory[];
   publishedAt: string | Date;
 }
 
@@ -90,19 +98,25 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
     .map((coinId) => coins.find((c) => c.id === coinId))
     .filter((coin): coin is Coin => coin !== undefined);
 
+  const sourceUrl = backendNews.sourceUrl || backendNews.url;
+  const description = backendNews.subtitle || backendNews.summary;
+
   return {
     id: backendNews.id,
     title: backendNews.title,
-    snippet: backendNews.summary,
-    content: backendNews.summary, // Backend doesn't have separate content field
+    snippet: description,
+    content: description,
+    subtitle: description,
     imageUrl: backendNews.image,
     source: backendNews.source,
+    sourceUrl,
     publishedAt,
     coins: relatedCoins,
+    categories: backendNews.categories || [],
     likes: 0, // Backend doesn't track likes
     comments: 0, // Backend doesn't track comments
     shares: 0, // Backend doesn't track shares
-    url: backendNews.url,
+    url: sourceUrl,
     isLiked: false, // Will be set by app store
     isSaved: false, // Will be set by app store
   };
