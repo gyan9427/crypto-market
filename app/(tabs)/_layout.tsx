@@ -80,6 +80,12 @@ export default function TabsLayout() {
           }}
         />
         <Tabs.Screen
+          name="coins/[coinId]"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
           name="news-boards/index"
           options={{
             href: null,
