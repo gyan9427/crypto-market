@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "266356691230",
+    "project_id": "nayft-7beac",
+    "storage_bucket": "nayft-7beac.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:266356691230:android:e437d728b2857531ad390f",
+        "android_client_info": {
+          "package_name": "nayft.test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDEvHakvvVlK2kbjkq-UBPgkmBpf635rKI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
