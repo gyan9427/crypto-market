@@ -137,6 +137,7 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
     sourceUrl,
     publishedAt,
     coins: relatedCoins,
+    relatedCoins: backendNews.relatedCoins || [],
     categories: backendNews.categories || [],
     likes: backendNews.reactions?.total ?? 0,
     comments: backendNews.comments ?? 0,
