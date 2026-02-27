@@ -67,6 +67,7 @@ export interface NewsItem {
   author?: string;
   publishedAt: Date;
   coins: Coin[];
+  relatedCoins?: string[];
   categories?: NewsCategory[];
   likes: number;
   comments: number;

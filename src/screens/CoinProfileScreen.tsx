@@ -4,7 +4,7 @@ import {
   Text,
   Image,
   TouchableOpacity,
-  FlatList,
+  ScrollView,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
@@ -12,8 +12,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { fetchCoinDetails, fetchCoinNews } from '../services/api';
 import { Coin, NewsItem } from '../types';
-import { NewsCard } from '../components/NewsCard';
-import { colors, spacing } from '../theme/theme';
+import { openInAppBrowser } from '../utils/browser';
+import { formatTimeAgo } from '../utils/format';
+import { colors, borderRadius, shadows, spacing } from '../theme/theme';
 
 export const CoinProfileScreen: React.FC = () => {
   const { coinId } = useLocalSearchParams<{ coinId: string }>();
@@ -44,8 +45,9 @@ export const CoinProfileScreen: React.FC = () => {
     load();
   }, [coinId]);
 
-  const handleCoinPress = (id: string) => {
-    router.push(`/coin/${id}` as never);
+  const handleNewsPress = (item: NewsItem) => {
+    const url = item.url || item.sourceUrl;
+    if (url) openInAppBrowser(url);
   };
 
   if (loading && !coin) {
@@ -108,22 +110,41 @@ export const CoinProfileScreen: React.FC = () => {
         {news.length === 0 ? (
           <Text style={styles.emptyText}>No related news for this coin.</Text>
         ) : (
-          <FlatList
-            data={news}
-            keyExtractor={(item) => item.id}
-            numColumns={2}
-            columnWrapperStyle={styles.gridRow}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.newsList}
-            renderItem={({ item }) => (
-              <View style={styles.gridItem}>
-                <NewsCard
-                  item={item}
-                  variant="grid"
-                  onCoinPress={handleCoinPress}
-            />
-              </View>
-            )}
-          />
+          >
+            {news.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.newsCard}
+                onPress={() => handleNewsPress(item)}
+                activeOpacity={0.9}
+                accessibilityRole="button"
+                accessibilityLabel={`Read: ${item.title}`}
+              >
+                <View style={styles.newsCardImageContainer}>
+                  {item.imageUrl ? (
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={styles.newsCardImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.newsCardImagePlaceholder} />
+                  )}
+                </View>
+                <View style={styles.newsCardContent}>
+                  <Text style={styles.newsCardTitle} numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.newsCardMeta}>
+                    {item.source} • {formatTimeAgo(item.publishedAt)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         )}
       </View>
     </View>
@@ -206,14 +227,39 @@ const styles = StyleSheet.create({
   newsList: {
     paddingBottom: spacing.xxl,
   },
-  gridRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.xs,
-  },
-  gridItem: {
-    flex: 1,
-    marginHorizontal: spacing.xs,
+  newsCard: {
+    backgroundColor: '#fff',
+    borderRadius: borderRadius.card,
     marginBottom: spacing.md,
+    ...shadows.md,
+    overflow: 'hidden',
+  },
+  newsCardImageContainer: {
+    width: '100%',
+    height: 140,
+  },
+  newsCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  newsCardImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.neutral[200],
+  },
+  newsCardContent: {
+    padding: spacing.md,
+  },
+  newsCardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.neutral[900],
+    lineHeight: 20,
+    marginBottom: spacing.sm,
+  },
+  newsCardMeta: {
+    fontSize: 12,
+    color: colors.neutral[500],
   },
   errorText: {
     color: colors.error[500],

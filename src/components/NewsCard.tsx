@@ -100,6 +100,23 @@ export const NewsCard: React.FC<FeedCardProps> = ({
             ))}
           </View>
         )}
+        {item.relatedCoins && item.relatedCoins.length > 0 && (
+          <View style={styles.relatedCoinsSection}>
+            <Text style={styles.relatedCoinsHeader}>Related Coins</Text>
+            <View style={styles.relatedCoinsRow}>
+              {item.relatedCoins.map((coinId) => (
+                <TouchableOpacity
+                  key={coinId}
+                  style={styles.relatedCoinBadge}
+                  onPress={() => onCoinPress?.(coinId)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.relatedCoinBadgeText}>{coinId}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
         <Text
           style={styles.snippet}
           numberOfLines={isExpanded ? 0 : COLLAPSED_LINES}
@@ -323,6 +340,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: colors.primary[700],
+  },
+  relatedCoinsSection: {
+    marginBottom: spacing.sm,
+  },
+  relatedCoinsHeader: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.neutral[600],
+    marginBottom: 6,
+  },
+  relatedCoinsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  relatedCoinBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#FEF08A',
+  },
+  relatedCoinBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#854D0E',
   },
   footerRow: {
     flexDirection: 'row',

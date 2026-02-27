@@ -238,7 +238,7 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleCoinPress = (coinId: string) => {
-    router.push(`/coin/${coinId}` as never);
+    router.push(`/coins/${coinId}` as never);
   };
 
   const displayData = searchResults !== null ? searchResults : newsData;
