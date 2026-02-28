@@ -28,6 +28,23 @@ export const formatMarketCap = (value: number): string => {
   return `$${value.toLocaleString()}`;
 };
 
+export const formatSupply = (value: number | null | undefined): string => {
+  if (value == null || Number.isNaN(value)) return '—';
+  if (value >= 1e12) return `${(value / 1e12).toFixed(2)}T`;
+  if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
+  return value.toLocaleString();
+};
+
+export const formatSupplyWithSymbol = (
+  value: number | null | undefined,
+  symbol: string
+): string => {
+  const formatted = formatSupply(value);
+  return formatted === '—' ? '—' : `${formatted} ${symbol}`;
+};
+
 export const formatTimeAgo = (date: Date): string => {
   return formatDistanceToNow(date, { addSuffix: true });
 };
