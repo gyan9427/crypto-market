@@ -5,6 +5,7 @@ import { FilterPills } from '../components/FilterPills';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { MarketCapSkeleton } from '../components/MarketCapSkeleton';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
+import { LivePriceTrendingCoinCard } from '../components/LivePriceTrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
 import { CoinTableView } from '../components/CoinTableView';
 import { ViewToggle } from '../components/ViewToggle';
@@ -50,11 +51,6 @@ export const ExploreScreen: React.FC = () => {
       return coin;
     },
     [livePrices]
-  );
-
-  const coinsWithLivePrices = useMemo(
-    () => coins.map(mergeLivePrices),
-    [coins, mergeLivePrices]
   );
 
   const categoryMap: Record<ExploreCategory, 'trending' | 'top' | 'nft' | 'defi'> = {
@@ -203,10 +199,8 @@ export const ExploreScreen: React.FC = () => {
     );
   }
 
-  // Filter coins based on category (for nft/defi, we use all coins since backend doesn't have specific endpoints)
-  const filteredCoins = exploreCategory === 'trending' || exploreCategory === 'top'
-    ? coinsWithLivePrices
-    : coinsWithLivePrices; // For nft/defi, show all coins (could be enhanced later)
+  // Table and list use base coins; LivePriceCell/LiveChangeCell and LivePriceTrendingCoinCard read from store for granular updates
+  const displayCoins = useMemo(() => coins, [coins]);
 
   const renderContent = () => {
     if (viewMode === 'table') {
@@ -219,7 +213,14 @@ export const ExploreScreen: React.FC = () => {
               ))}
             </View>
           ) : (
-            <CoinTableView coins={filteredCoins} onCoinPress={handleCoinPress} />
+            <CoinTableView
+              coins={displayCoins}
+              onCoinPress={handleCoinPress}
+              onEndReached={loadMore}
+              onEndReachedThreshold={0.5}
+              hasMore={nextCursor != null}
+              loadingMore={loadingMore}
+            />
           )}
         </ScrollView>
       );
@@ -227,13 +228,13 @@ export const ExploreScreen: React.FC = () => {
 
     return (
       <FlatList
-        data={loading && coins.length === 0 ? Array(5).fill(null) : filteredCoins}
+        data={loading && coins.length === 0 ? Array(5).fill(null) : displayCoins}
         keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
         renderItem={({ item, index }) => {
           if (loading && coins.length === 0) {
             return <TrendingCoinCardSkeleton key={`skeleton-${index}`} />;
           }
-          return <TrendingCoinCard coin={item} onPress={handleCoinPress} />;
+          return <LivePriceTrendingCoinCard coin={item} onPress={handleCoinPress} />;
         }}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}

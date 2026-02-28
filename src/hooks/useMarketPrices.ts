@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { resolveWsUrl } from '../services/api';
+import { useLivePricesStore } from '../state/useLivePricesStore';
 
 export interface PriceData {
   price: number;
@@ -34,7 +35,9 @@ export function useMarketPrices(symbols?: string[]): {
       try {
         const msg = JSON.parse(event.data as string);
         if (msg.type === 'snapshot' && msg.prices) {
-          setPrices(new Map(Object.entries(msg.prices)));
+          const map = new Map(Object.entries(msg.prices));
+          setPrices(map);
+          useLivePricesStore.getState().setPrices(Object.fromEntries(map));
         } else if (msg.type === 'price' && Array.isArray(msg.updates)) {
           setPrices((prev) => {
             const next = new Map(prev);
@@ -48,6 +51,7 @@ export function useMarketPrices(symbols?: string[]): {
             }
             return next;
           });
+          useLivePricesStore.getState().updatePrices(msg.updates);
         }
       } catch {
         // ignore parse errors

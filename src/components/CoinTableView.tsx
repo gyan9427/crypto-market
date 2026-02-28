@@ -1,10 +1,13 @@
-import React, { useMemo } from 'react';
-import { Platform, View, StyleSheet, Text } from 'react-native';
+import React, { useMemo, useRef, useCallback, useEffect } from 'react';
+import { Platform, View, StyleSheet, Text, ActivityIndicator } from 'react-native';
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
+import type { GridReadyEvent } from 'ag-grid-community';
 import { TrendingCoin } from '../types';
-import { formatPrice, formatPercentage, formatMarketCap } from '../utils/format';
+import { formatMarketCap } from '../utils/format';
 import { colors } from '../theme/theme';
+import { LivePriceCell } from './LivePriceCell';
+import { LiveChangeCell } from './LiveChangeCell';
 
 // Only import CSS on web platform
 if (Platform.OS === 'web') {
@@ -22,9 +25,35 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 interface CoinTableViewProps {
   coins: TrendingCoin[];
   onCoinPress?: (coinId: string) => void;
+  onEndReached?: () => void;
+  onEndReachedThreshold?: number;
+  hasMore?: boolean;
+  loadingMore?: boolean;
 }
 
-export const CoinTableView: React.FC<CoinTableViewProps> = ({ coins, onCoinPress }) => {
+const ROW_HEIGHT = 60;
+
+export const CoinTableView: React.FC<CoinTableViewProps> = ({
+  coins,
+  onCoinPress,
+  onEndReached,
+  onEndReachedThreshold = 0.5,
+  hasMore = false,
+  loadingMore = false,
+}) => {
+  const gridRef = useRef<AgGridReact>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const lastLoadRef = useRef(false);
+  const viewportRef = useRef<HTMLElement | null>(null);
+  const scrollHandlerRef = useRef<(() => void) | null>(null);
+  const onEndReachedRef = useRef(onEndReached);
+  const hasMoreRef = useRef(hasMore);
+  const loadingMoreRef = useRef(loadingMore);
+  const thresholdRef = useRef(onEndReachedThreshold);
+  onEndReachedRef.current = onEndReached;
+  hasMoreRef.current = hasMore;
+  loadingMoreRef.current = loadingMore;
+  thresholdRef.current = onEndReachedThreshold;
   // Only render on web platform
   if (Platform.OS !== 'web') {
     return (
@@ -85,7 +114,8 @@ export const CoinTableView: React.FC<CoinTableViewProps> = ({ coins, onCoinPress
         headerName: 'Price',
         width: 130,
         cellRenderer: (params: any) => {
-          return <span style={{ fontWeight: '600' }}>{formatPrice(params.value)}</span>;
+          const coin = params.data as TrendingCoin;
+          return <LivePriceCell symbol={coin.symbol} basePrice={params.value ?? 0} />;
         },
         sortable: true,
         filter: 'agNumberColumnFilter',
@@ -96,18 +126,8 @@ export const CoinTableView: React.FC<CoinTableViewProps> = ({ coins, onCoinPress
         headerName: '24h Change',
         width: 130,
         cellRenderer: (params: any) => {
-          const value = params.value as number;
-          const isPositive = value >= 0;
-          return (
-            <span
-              style={{
-                color: isPositive ? colors.success[500] : colors.danger[500],
-                fontWeight: '600',
-              }}
-            >
-              {formatPercentage(value)}
-            </span>
-          );
+          const coin = params.data as TrendingCoin;
+          return <LiveChangeCell symbol={coin.symbol} baseChange24h={params.value ?? 0} />;
         },
         sortable: true,
         filter: 'agNumberColumnFilter',
@@ -158,27 +178,76 @@ export const CoinTableView: React.FC<CoinTableViewProps> = ({ coins, onCoinPress
     }
   };
 
+  const onGridReady = useCallback(
+    (_event: GridReadyEvent) => {
+      if (!onEndReached || Platform.OS !== 'web') return;
+      const container = containerRef.current;
+      if (!container) return;
+      const viewport = container.querySelector('.ag-body-viewport') as HTMLElement | null;
+      if (!viewport) return;
+      viewportRef.current = viewport;
+      const checkScroll = () => {
+        if (!hasMoreRef.current || loadingMoreRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = viewport;
+        const threshold = clientHeight * thresholdRef.current;
+        if (scrollTop + clientHeight >= scrollHeight - threshold) {
+          if (lastLoadRef.current) return;
+          lastLoadRef.current = true;
+          onEndReachedRef.current?.();
+          setTimeout(() => {
+            lastLoadRef.current = false;
+          }, 500);
+        }
+      };
+      scrollHandlerRef.current = checkScroll;
+      viewport.addEventListener('scroll', checkScroll, { passive: true });
+    },
+    [onEndReached]
+  );
+
+  useEffect(() => {
+    return () => {
+      const viewport = viewportRef.current;
+      const handler = scrollHandlerRef.current;
+      if (viewport && handler) {
+        viewport.removeEventListener('scroll', handler);
+        viewportRef.current = null;
+        scrollHandlerRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <View style={styles.container}>
       {Platform.OS === 'web' ? (
-        <View
-          // @ts-ignore - className is valid for web
+        <div
+          ref={containerRef}
           className="ag-theme-alpine"
-          style={styles.gridWrapper}
+          style={{
+            height: 500,
+            width: '100%',
+            minHeight: 400,
+          } as React.CSSProperties}
         >
           <AgGridReact
+            ref={gridRef}
             rowData={rowData}
             columnDefs={columnDefs}
             defaultColDef={defaultColDef}
             onRowClicked={onRowClicked}
-            rowHeight={60}
+            onGridReady={onGridReady}
+            rowHeight={ROW_HEIGHT}
             headerHeight={50}
             suppressCellFocus={true}
             animateRows={true}
-            pagination={true}
-            paginationPageSize={20}
+            pagination={false}
           />
-        </View>
+          {loadingMore && (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator size="small" color={colors.primary[500]} />
+            </View>
+          )}
+        </div>
       ) : (
         <View style={styles.fallbackContainer}>
           <Text style={styles.fallbackText}>
@@ -210,5 +279,9 @@ const styles = StyleSheet.create({
     color: colors.neutral[600],
     fontSize: 14,
     textAlign: 'center',
+  },
+  footerLoader: {
+    paddingVertical: 16,
+    alignItems: 'center',
   },
 });
