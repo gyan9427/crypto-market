@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, FlatList, StyleSheet, Text, ScrollView } from 'react-native';
+import { View, FlatList, StyleSheet, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FilterPills } from '../components/FilterPills';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
@@ -10,7 +10,7 @@ import { CoinTableView } from '../components/CoinTableView';
 import { ViewToggle } from '../components/ViewToggle';
 import { SearchBar } from '../components/SearchBar';
 import { useAppStore } from '../state/useAppStore';
-import { fetchTrendingCoins, search } from '../services/api';
+import { fetchActiveCoinsPage, search } from '../services/api';
 import { useMarketPrices } from '../hooks/useMarketPrices';
 import { ExploreCategory, TrendingCoin } from '../types';
 import { colors } from '../theme/theme';
@@ -19,21 +19,31 @@ export const ExploreScreen: React.FC = () => {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState<TrendingCoin[]>([]);
+  const [nextCursor, setNextCursor] = useState<number | null | undefined>(undefined);
   const [searchResults, setSearchResults] = useState<{ coins: TrendingCoin[] } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
 
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
-  const { prices: livePrices, isConnected } = useMarketPrices();
-  void isConnected; // consumed to avoid unused var; connection status not displayed
+  const visibleSymbols = useMemo(() => {
+    const fromCoins = coins.map((c) => c.symbol).filter(Boolean);
+    if (searchResults?.coins?.length) {
+      const fromSearch = searchResults.coins.map((c) => c.symbol).filter(Boolean);
+      return [...new Set([...fromCoins, ...fromSearch])];
+    }
+    return fromCoins;
+  }, [coins, searchResults]);
+  const { prices: livePrices } = useMarketPrices(visibleSymbols);
 
   const categories: ExploreCategory[] = ['trending', 'top', 'nft', 'defi'];
 
   const mergeLivePrices = useCallback(
     (coin: TrendingCoin): TrendingCoin => {
-      const live = livePrices.get(coin.symbol);
+      const key = coin.symbol?.toUpperCase();
+      const live = key ? livePrices.get(key) : undefined;
       if (live) {
         return { ...coin, price: live.price, change24h: live.percentChange24h };
       }
@@ -47,10 +57,55 @@ export const ExploreScreen: React.FC = () => {
     [coins, mergeLivePrices]
   );
 
-  // Load data when category changes
-  useEffect(() => {
-    loadData();
+  const categoryMap: Record<ExploreCategory, 'trending' | 'top' | 'nft' | 'defi'> = {
+    trending: 'trending',
+    top: 'top',
+    nft: 'trending',
+    defi: 'trending',
+  };
+
+  const loadInitialPage = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setCoins([]);
+      setNextCursor(undefined);
+      const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
+        undefined,
+        20,
+        categoryMap[exploreCategory]
+      );
+      setCoins(pageCoins);
+      setNextCursor(cursor);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load data');
+      console.error('Error loading explore data:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [exploreCategory]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || nextCursor === null || nextCursor === undefined) return;
+    try {
+      setLoadingMore(true);
+      const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
+        nextCursor,
+        20,
+        categoryMap[exploreCategory]
+      );
+      setCoins((prev) => [...prev, ...pageCoins]);
+      setNextCursor(cursor);
+    } catch (err: any) {
+      console.error('Error loading more:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, nextCursor, exploreCategory]);
+
+  useEffect(() => {
+    loadInitialPage();
+  }, [loadInitialPage]);
 
   // Handle search
   useEffect(() => {
@@ -64,29 +119,6 @@ export const ExploreScreen: React.FC = () => {
       setSearchResults(null);
     }
   }, [searchQuery]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Fetch trending coins based on category
-      const categoryMap: Record<ExploreCategory, 'trending' | 'top' | 'nft' | 'defi'> = {
-        trending: 'trending',
-        top: 'top',
-        nft: 'trending', // Use trending as fallback
-        defi: 'trending', // Use trending as fallback
-      };
-
-      const trendingCoins = await fetchTrendingCoins(categoryMap[exploreCategory]);
-      setCoins(trendingCoins);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load data');
-      console.error('Error loading explore data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSearch = async (query: string) => {
     try {
@@ -112,7 +144,7 @@ export const ExploreScreen: React.FC = () => {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.retryText} onPress={loadData}>
+        <Text style={styles.retryText} onPress={loadInitialPage}>
           Tap to retry
         </Text>
       </View>
@@ -203,6 +235,15 @@ export const ExploreScreen: React.FC = () => {
           }
           return <TrendingCoinCard coin={item} onPress={handleCoinPress} />;
         }}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator size="small" color={colors.primary[500]} />
+            </View>
+          ) : null
+        }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
@@ -300,5 +341,9 @@ const styles = StyleSheet.create({
   skeletonContainer: {
     paddingTop: 8,
     paddingBottom: 100,
+  },
+  footerLoader: {
+    paddingVertical: 16,
+    alignItems: 'center',
   },
 });

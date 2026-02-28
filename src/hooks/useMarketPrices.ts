@@ -6,7 +6,7 @@ export interface PriceData {
   percentChange24h: number;
 }
 
-export function useMarketPrices(): {
+export function useMarketPrices(symbols?: string[]): {
   prices: Map<string, PriceData>;
   isConnected: boolean;
 } {
@@ -15,6 +15,7 @@ export function useMarketPrices(): {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
+  const symbolsRef = useRef<string[]>([]);
 
   const connect = useCallback(() => {
     const url = resolveWsUrl();
@@ -24,6 +25,9 @@ export function useMarketPrices(): {
     ws.onopen = () => {
       setIsConnected(true);
       reconnectAttemptRef.current = 0;
+      if (symbolsRef.current.length > 0) {
+        ws.send(JSON.stringify({ type: 'subscribe', symbols: symbolsRef.current }));
+      }
     };
 
     ws.onmessage = (event) => {
@@ -73,6 +77,14 @@ export function useMarketPrices(): {
       wsRef.current = null;
     };
   }, [connect]);
+
+  useEffect(() => {
+    const syms = symbols ?? [];
+    symbolsRef.current = syms;
+    if (wsRef.current?.readyState === WebSocket.OPEN && syms.length > 0) {
+      wsRef.current.send(JSON.stringify({ type: 'subscribe', symbols: syms }));
+    }
+  }, [symbols]);
 
   return { prices, isConnected };
 }

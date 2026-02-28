@@ -284,6 +284,42 @@ export const fetchTrendingCoins = async (
   }
 };
 
+export interface ActiveCoinsPageResponse {
+  coins: TrendingCoin[];
+  nextCursor: number | null;
+}
+
+/**
+ * Fetch paginated active coins from labeled_active_coins (cursor-based infinite scroll)
+ */
+export const fetchActiveCoinsPage = async (
+  cursor?: number,
+  limit: number = 20,
+  category: 'trending' | 'top' | 'nft' | 'defi' = 'trending'
+): Promise<ActiveCoinsPageResponse> => {
+  const params = new URLSearchParams();
+  if (cursor != null) params.set('cursor', String(cursor));
+  params.set('limit', String(limit));
+  const query = params.toString();
+  const endpoint = `/market/active-coins${query ? `?${query}` : ''}`;
+  const response = await apiRequest<{ coins: BackendCoin[]; nextCursor: number | null }>(endpoint);
+
+  const followingCoins: string[] = [];
+  if (useAuthStore.getState().isAuthenticated) {
+    try {
+      const wishlist = await getWishlist();
+      followingCoins.push(...wishlist.map((coin) => coin.id));
+    } catch {
+      // ignore
+    }
+  }
+
+  const coins = response.coins.map((c) =>
+    transformBackendTrendingCoin(c, category, followingCoins.includes(c.coinId))
+  );
+  return { coins, nextCursor: response.nextCursor };
+};
+
 /**
  * Fetch coin details by ID
  */
