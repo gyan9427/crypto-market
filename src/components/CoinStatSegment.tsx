@@ -5,6 +5,7 @@ import {
   formatMarketCap,
   formatPrice,
   formatSupplyWithSymbol,
+  formatDate,
 } from '../utils/format';
 import { colors, borderRadius, shadows, spacing, typography } from '../theme/theme';
 
@@ -59,11 +60,21 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
     },
     {
       label: 'All Time High',
-      value: stats.ath != null ? formatPrice(stats.ath) : '—',
+      value:
+        stats.ath != null
+          ? (stats.ath_date
+              ? `(${formatDate(new Date(stats.ath_date))}) `
+              : '') + formatPrice(stats.ath)
+          : '—',
     },
     {
       label: 'All Time Low',
-      value: stats.atl != null ? formatPrice(stats.atl) : '—',
+      value:
+        stats.atl != null
+          ? (stats.atl_date
+              ? `(${formatDate(new Date(stats.atl_date))}) `
+              : '') + formatPrice(stats.atl)
+          : '—',
     },
   ];
 
