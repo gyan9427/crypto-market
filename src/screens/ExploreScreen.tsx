@@ -2,8 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FilterPills } from '../components/FilterPills';
-import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
-import { MarketCapSkeleton } from '../components/MarketCapSkeleton';
+import { MarketCapChart } from '../charts';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { LivePriceTrendingCoinCard } from '../components/LivePriceTrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
@@ -166,7 +165,7 @@ export const ExploreScreen: React.FC = () => {
             placeholder="Search coins, tokens..."
           />
           <View style={styles.headerRow}>
-            <MarketCapPlaceholder />
+            <MarketCapChart />
         </View>
         <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
           {error && (
@@ -260,11 +259,7 @@ export const ExploreScreen: React.FC = () => {
           placeholder="Search coins, tokens..."
         />
         <View style={styles.headerRow}>
-          {loading && coins.length === 0 ? (
-            <MarketCapSkeleton />
-          ) : (
-            <MarketCapPlaceholder />
-          )}
+          <MarketCapChart />
         </View>
         <FilterPills
           categories={categories}

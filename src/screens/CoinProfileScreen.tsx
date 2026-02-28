@@ -13,6 +13,7 @@ import { ChevronLeft, Trophy } from 'lucide-react-native';
 import { fetchCoinDetails, fetchCoinNews, fetchCoinStats } from '../services/api';
 import { Coin, CoinStats, NewsItem } from '../types';
 import { CoinStatSegment } from '../components/CoinStatSegment';
+import { CoinPriceChart } from '../charts';
 import { openInAppBrowser } from '../utils/browser';
 import { formatTimeAgo } from '../utils/format';
 import { colors, borderRadius, shadows, spacing } from '../theme/theme';
@@ -126,6 +127,7 @@ export const CoinProfileScreen: React.FC = () => {
       >
         <View style={styles.newsSection}>
           <CoinStatSegment stats={stats} coinSymbol={coin.symbol} />
+          <CoinPriceChart symbol={coin.symbol} interval="1h" variant="area" />
           <Text style={styles.sectionTitle}>Related news</Text>
           {news.length === 0 ? (
             <Text style={styles.emptyText}>No related news for this coin.</Text>

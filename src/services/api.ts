@@ -6,7 +6,7 @@ import Constants from 'expo-constants';
 // In Expo Go on a physical device, "localhost" refers to the device itself, not the dev machine.
 // We read the dev server host from Expo's runtime config and replace the port with the backend port.
 // Priority: explicit env var → dynamic Expo host → localhost fallback (web/simulator only)
-function resolveApiBaseUrl(): string {
+export function resolveApiBaseUrl(): string {
   if (process.env.EXPO_PUBLIC_API_BASE_URL) {
     return process.env.EXPO_PUBLIC_API_BASE_URL;
   }
