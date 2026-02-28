@@ -1,4 +1,4 @@
-import { Coin, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts } from '../types';
+import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts } from '../types';
 import { useAuthStore } from '../state/useAuthStore';
 import Constants from 'expo-constants';
 
@@ -312,6 +312,18 @@ export const fetchCoinNews = async (coinId: string): Promise<NewsItem[]> => {
     return response.news.map((news) => transformBackendNews(news, []));
   } catch (error: any) {
     throw new Error(`Failed to fetch coin news: ${error.message}`);
+  }
+};
+
+/**
+ * Fetch coin stats from labeled_active_coins (market cap, rank, supply, contract address)
+ */
+export const fetchCoinStats = async (coinId: string): Promise<CoinStats | null> => {
+  try {
+    const response = await apiRequest<{ stats: CoinStats }>(`/coins/${coinId}/stats`);
+    return response.stats;
+  } catch {
+    return null;
   }
 };
 

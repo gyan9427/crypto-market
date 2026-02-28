@@ -9,9 +9,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
-import { fetchCoinDetails, fetchCoinNews } from '../services/api';
-import { Coin, NewsItem } from '../types';
+import { ChevronLeft, Trophy } from 'lucide-react-native';
+import { fetchCoinDetails, fetchCoinNews, fetchCoinStats } from '../services/api';
+import { Coin, CoinStats, NewsItem } from '../types';
+import { CoinStatSegment } from '../components/CoinStatSegment';
 import { openInAppBrowser } from '../utils/browser';
 import { formatTimeAgo } from '../utils/format';
 import { colors, borderRadius, shadows, spacing } from '../theme/theme';
@@ -21,6 +22,7 @@ export const CoinProfileScreen: React.FC = () => {
   const router = useRouter();
   const [coin, setCoin] = useState<Coin | null>(null);
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [stats, setStats] = useState<CoinStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,12 +32,14 @@ export const CoinProfileScreen: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const [coinData, newsData] = await Promise.all([
+        const [coinData, newsData, statsData] = await Promise.all([
           fetchCoinDetails(coinId),
           fetchCoinNews(coinId),
+          fetchCoinStats(coinId),
         ]);
         setCoin(coinData);
         setNews(newsData);
+        setStats(statsData);
       } catch (err: any) {
         setError(err.message || 'Failed to load coin profile');
       } finally {
@@ -84,9 +88,9 @@ export const CoinProfileScreen: React.FC = () => {
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <View style={styles.avatarContainer}>
-            {coin.logo ? (
+            {(stats?.image ?? coin.logo) ? (
               <Image
-                source={{ uri: coin.logo }}
+                source={{ uri: stats?.image ?? coin.logo }}
                 style={styles.avatar}
                 resizeMode="cover"
               />
@@ -97,56 +101,70 @@ export const CoinProfileScreen: React.FC = () => {
             )}
           </View>
           <View style={styles.titleContainer}>
-            <Text style={styles.coinName} numberOfLines={1}>
-              {coin.name} - {coin.symbol}
-            </Text>
+            <View style={styles.coinNameRow}>
+              <Text style={styles.coinName} numberOfLines={1}>
+                {coin.name} - {coin.symbol}
+              </Text>
+              {stats?.market_cap_rank != null && (
+                <View style={styles.rankBadge}>
+                  <Trophy size={14} color={colors.primary[600]} />
+                  <Text style={styles.rankText}>
+                    #{stats.market_cap_rank.toLocaleString()}
+                  </Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.coinSymbol}>@{coin.symbol.toLowerCase()}</Text>
           </View>
         </View>
       </View>
 
-      <View style={styles.newsSection}>
-        <Text style={styles.sectionTitle}>Related news</Text>
-        {news.length === 0 ? (
-          <Text style={styles.emptyText}>No related news for this coin.</Text>
-        ) : (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.newsList}
-          >
-            {news.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.newsCard}
-                onPress={() => handleNewsPress(item)}
-                activeOpacity={0.9}
-                accessibilityRole="button"
-                accessibilityLabel={`Read: ${item.title}`}
-              >
-                <View style={styles.newsCardImageContainer}>
-                  {item.imageUrl ? (
-                    <Image
-                      source={{ uri: item.imageUrl }}
-                      style={styles.newsCardImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={styles.newsCardImagePlaceholder} />
-                  )}
-                </View>
-                <View style={styles.newsCardContent}>
-                  <Text style={styles.newsCardTitle} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.newsCardMeta}>
-                    {item.source} • {formatTimeAgo(item.publishedAt)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
-      </View>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.newsSection}>
+          <CoinStatSegment stats={stats} coinSymbol={coin.symbol} />
+          <Text style={styles.sectionTitle}>Related news</Text>
+          {news.length === 0 ? (
+            <Text style={styles.emptyText}>No related news for this coin.</Text>
+          ) : (
+            <View style={styles.newsList}>
+              {news.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.newsCard}
+                  onPress={() => handleNewsPress(item)}
+                  activeOpacity={0.9}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Read: ${item.title}`}
+                >
+                  <View style={styles.newsCardImageContainer}>
+                    {item.imageUrl ? (
+                      <Image
+                        source={{ uri: item.imageUrl }}
+                        style={styles.newsCardImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.newsCardImagePlaceholder} />
+                    )}
+                  </View>
+                  <View style={styles.newsCardContent}>
+                    <Text style={styles.newsCardTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.newsCardMeta}>
+                      {item.source} • {formatTimeAgo(item.publishedAt)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 };
@@ -203,18 +221,43 @@ const styles = StyleSheet.create({
   titleContainer: {
     flex: 1,
   },
+  coinNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
   coinName: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.neutral[900],
+  },
+  rankBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary[50],
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.xs,
+  },
+  rankText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary[600],
   },
   coinSymbol: {
     fontSize: 14,
     color: colors.neutral[500],
     marginTop: 2,
   },
-  newsSection: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xxl,
+  },
+  newsSection: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.lg,
   },
