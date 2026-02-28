@@ -20,6 +20,11 @@ function resolveApiBaseUrl(): string {
 
 const API_BASE_URL = resolveApiBaseUrl();
 
+/** WebSocket URL for live prices (derived from API base: http -> ws, /api -> /ws) */
+export function resolveWsUrl(): string {
+  return resolveApiBaseUrl().replace(/^http/, 'ws').replace(/\/api\/?$/, '') + '/ws';
+}
+
 // Backend response format
 interface ApiResponse<T> {
   success: boolean;

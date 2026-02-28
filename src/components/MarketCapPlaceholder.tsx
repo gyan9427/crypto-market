@@ -15,7 +15,9 @@ export const MarketCapPlaceholder: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     marginBottom: spacing.md,
+    minWidth: 0, // Allow flex child to shrink within row
   },
   title: {
     fontSize: 18,
@@ -25,13 +27,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   placeholder: {
-    height: 200, // Approximate height matching FeaturedCarousel visual height
+    height: 200,
+    minHeight: 200,
     backgroundColor: '#fff',
     borderRadius: borderRadius.card,
-    marginHorizontal: 0,
+    marginHorizontal: spacing.md,
     ...shadows.md,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   placeholderText: {
     fontSize: 14,

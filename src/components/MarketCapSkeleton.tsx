@@ -17,7 +17,9 @@ export const MarketCapSkeleton: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     marginBottom: spacing.md,
+    minWidth: 0,
   },
   title: {
     marginLeft: spacing.md,
@@ -25,13 +27,15 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     height: 200,
+    minHeight: 200,
     backgroundColor: '#fff',
     borderRadius: borderRadius.card,
-    marginHorizontal: 0,
+    marginHorizontal: spacing.md,
     ...shadows.md,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.md,
+    overflow: 'hidden',
   },
   marginBottom: {
     marginBottom: spacing.sm,

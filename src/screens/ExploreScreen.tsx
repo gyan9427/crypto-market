@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FilterPills } from '../components/FilterPills';
@@ -11,6 +11,7 @@ import { ViewToggle } from '../components/ViewToggle';
 import { SearchBar } from '../components/SearchBar';
 import { useAppStore } from '../state/useAppStore';
 import { fetchTrendingCoins, search } from '../services/api';
+import { useMarketPrices } from '../hooks/useMarketPrices';
 import { ExploreCategory, TrendingCoin } from '../types';
 import { colors } from '../theme/theme';
 
@@ -25,8 +26,26 @@ export const ExploreScreen: React.FC = () => {
 
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
+  const { prices: livePrices, isConnected } = useMarketPrices();
+  void isConnected; // consumed to avoid unused var; connection status not displayed
 
   const categories: ExploreCategory[] = ['trending', 'top', 'nft', 'defi'];
+
+  const mergeLivePrices = useCallback(
+    (coin: TrendingCoin): TrendingCoin => {
+      const live = livePrices.get(coin.symbol);
+      if (live) {
+        return { ...coin, price: live.price, change24h: live.percentChange24h };
+      }
+      return coin;
+    },
+    [livePrices]
+  );
+
+  const coinsWithLivePrices = useMemo(
+    () => coins.map(mergeLivePrices),
+    [coins, mergeLivePrices]
+  );
 
   // Load data when category changes
   useEffect(() => {
@@ -100,8 +119,16 @@ export const ExploreScreen: React.FC = () => {
     );
   }
 
+  const searchResultsWithLivePrices = useMemo(
+    () =>
+      searchResults
+        ? { ...searchResults, coins: searchResults.coins.map(mergeLivePrices) }
+        : null,
+    [searchResults, mergeLivePrices]
+  );
+
   // If searching, show search results
-  if (searchResults !== null) {
+  if (searchResultsWithLivePrices !== null) {
     return (
       <View style={styles.container}>
         <View style={styles.headerSection}>
@@ -110,8 +137,10 @@ export const ExploreScreen: React.FC = () => {
             onChangeText={setSearchQuery}
             placeholder="Search coins, tokens..."
           />
-          <MarketCapPlaceholder />
-          <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
+          <View style={styles.headerRow}>
+            <MarketCapPlaceholder />
+        </View>
+        <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
           {error && (
             <View style={styles.errorBanner}>
               <Text style={styles.errorBannerText}>{error}</Text>
@@ -120,11 +149,11 @@ export const ExploreScreen: React.FC = () => {
         </View>
         {viewMode === 'table' ? (
           <ScrollView style={styles.tableContainer}>
-            <CoinTableView coins={searchResults.coins} onCoinPress={handleCoinPress} />
+            <CoinTableView coins={searchResultsWithLivePrices.coins} onCoinPress={handleCoinPress} />
           </ScrollView>
         ) : (
           <FlatList
-            data={searchResults.coins}
+            data={searchResultsWithLivePrices.coins}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <TrendingCoinCard coin={item} onPress={handleCoinPress} />
@@ -144,8 +173,8 @@ export const ExploreScreen: React.FC = () => {
 
   // Filter coins based on category (for nft/defi, we use all coins since backend doesn't have specific endpoints)
   const filteredCoins = exploreCategory === 'trending' || exploreCategory === 'top'
-    ? coins
-    : coins; // For nft/defi, show all coins (could be enhanced later)
+    ? coinsWithLivePrices
+    : coinsWithLivePrices; // For nft/defi, show all coins (could be enhanced later)
 
   const renderContent = () => {
     if (viewMode === 'table') {
@@ -188,11 +217,13 @@ export const ExploreScreen: React.FC = () => {
           onChangeText={setSearchQuery}
           placeholder="Search coins, tokens..."
         />
-        {loading && coins.length === 0 ? (
-          <MarketCapSkeleton />
-        ) : (
-          <MarketCapPlaceholder />
-        )}
+        <View style={styles.headerRow}>
+          {loading && coins.length === 0 ? (
+            <MarketCapSkeleton />
+          ) : (
+            <MarketCapPlaceholder />
+          )}
+        </View>
         <FilterPills
           categories={categories}
           selectedCategory={exploreCategory}
@@ -217,6 +248,10 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     zIndex: 10,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   centerContent: {
     justifyContent: 'center',
