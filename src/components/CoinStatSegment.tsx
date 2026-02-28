@@ -12,14 +12,22 @@ import { colors, borderRadius, shadows, spacing, typography } from '../theme/the
 interface StatCellProps {
   label: string;
   value: string;
+  dateRight?: string;
 }
 
-const StatCell: React.FC<StatCellProps> = ({ label, value }) => (
+const StatCell: React.FC<StatCellProps> = ({ label, value, dateRight }) => (
   <View style={styles.statCell}>
     <Text style={styles.statLabel}>{label}</Text>
-    <Text style={styles.statValue} numberOfLines={1}>
-      {value}
-    </Text>
+    <View style={styles.statValueRow}>
+      <Text style={styles.statValue} numberOfLines={1}>
+        {value}
+      </Text>
+      {dateRight != null && (
+        <Text style={styles.statDateRight} numberOfLines={1}>
+          {dateRight}
+        </Text>
+      )}
+    </View>
   </View>
 );
 
@@ -60,21 +68,19 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
     },
     {
       label: 'All Time High',
-      value:
-        stats.ath != null
-          ? (stats.ath_date
-              ? `(${formatDate(new Date(stats.ath_date))}) `
-              : '') + formatPrice(stats.ath)
-          : '—',
+      value: stats.ath != null ? formatPrice(stats.ath) : '—',
+      dateRight:
+        stats.ath_date != null
+          ? `(${formatDate(new Date(stats.ath_date))})`
+          : undefined,
     },
     {
       label: 'All Time Low',
-      value:
-        stats.atl != null
-          ? (stats.atl_date
-              ? `(${formatDate(new Date(stats.atl_date))}) `
-              : '') + formatPrice(stats.atl)
-          : '—',
+      value: stats.atl != null ? formatPrice(stats.atl) : '—',
+      dateRight:
+        stats.atl_date != null
+          ? `(${formatDate(new Date(stats.atl_date))})`
+          : undefined,
     },
   ];
 
@@ -132,12 +138,22 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
       <View style={styles.statsGrid}>
         <View style={styles.column}>
           {leftColumn.map((cell) => (
-            <StatCell key={cell.label} label={cell.label} value={cell.value} />
+            <StatCell
+              key={cell.label}
+              label={cell.label}
+              value={cell.value}
+              dateRight={cell.dateRight}
+            />
           ))}
         </View>
         <View style={styles.column}>
           {rightColumn.map((cell) => (
-            <StatCell key={cell.label} label={cell.label} value={cell.value} />
+            <StatCell
+              key={cell.label}
+              label={cell.label}
+              value={cell.value}
+              dateRight={cell.dateRight}
+            />
           ))}
         </View>
       </View>
@@ -225,11 +241,23 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: typography.fontSizes.xs,
     color: colors.neutral[600],
-    marginBottom: 2,
+    marginBottom: spacing.sm,
+  },
+  statValueRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   statValue: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.medium,
     color: colors.neutral[900],
+    flexShrink: 1,
+  },
+  statDateRight: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.neutral[500],
+    flexShrink: 0,
   },
 });
