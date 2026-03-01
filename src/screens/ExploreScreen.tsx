@@ -3,6 +3,7 @@ import { View, FlatList, StyleSheet, Text, ScrollView, ActivityIndicator } from 
 import { useRouter } from 'expo-router';
 import { FilterPills } from '../components/FilterPills';
 import { MarketCapChart } from '../charts';
+import { FeaturedMarketHeader } from '../components/FeaturedMarketHeader';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { LivePriceTrendingCoinCard } from '../components/LivePriceTrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
@@ -165,7 +166,7 @@ export const ExploreScreen: React.FC = () => {
             placeholder="Search coins, tokens..."
           />
           <View style={styles.headerRow}>
-            <MarketCapChart />
+            <FeaturedMarketHeader />
         </View>
         <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
           {error && (
@@ -259,7 +260,7 @@ export const ExploreScreen: React.FC = () => {
           placeholder="Search coins, tokens..."
         />
         <View style={styles.headerRow}>
-          <MarketCapChart />
+          <FeaturedMarketHeader />
         </View>
         <FilterPills
           categories={categories}
@@ -289,6 +290,8 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '100%',
+    alignSelf: 'stretch',
   },
   centerContent: {
     justifyContent: 'center',

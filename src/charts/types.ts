@@ -17,7 +17,7 @@ export interface ChartDataPoint {
 
 export type ChartVariant = 'line' | 'area';
 
-export type KlineInterval = '1m' | '5m' | '1h' | '1d';
+export type KlineInterval = '1m' | '5m' | '1h' | '1d' | '1w';
 
 export interface KlinesParams {
   symbol: string;

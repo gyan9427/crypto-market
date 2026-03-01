@@ -6,6 +6,8 @@ import { DEFAULT_INTERVAL } from '../constants';
 
 interface UseKlinesOptions {
   enabled?: boolean;
+  /** Optional max points per request/render path */
+  limit?: number;
 }
 
 interface UseKlinesResult {
@@ -21,7 +23,7 @@ export function useKlines(
   interval: KlineInterval = DEFAULT_INTERVAL,
   options: UseKlinesOptions = {}
 ): UseKlinesResult {
-  const { enabled = true } = options;
+  const { enabled = true, limit } = options;
   const [data, setData] = useState<KlineRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,15 +33,30 @@ export function useKlines(
     setLoading(true);
     setError(null);
     try {
-      const klines = await fetchKlines({ symbol: symbol.trim().toUpperCase(), interval });
-      setData(klines);
+      const intervalLimit =
+        limit ??
+        (interval === '1m'
+          ? 240
+          : interval === '5m'
+            ? 300
+            : interval === '1h'
+              ? 500
+              : 400);
+      const klines = await fetchKlines({
+        symbol: symbol.trim().toUpperCase(),
+        interval,
+        limit: intervalLimit,
+      });
+      // Keep render payload bounded on mobile to avoid chart OOM/crashes.
+      const bounded = klines.length > intervalLimit ? klines.slice(-intervalLimit) : klines;
+      setData(bounded);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch chart data');
       setData([]);
     } finally {
       setLoading(false);
     }
-  }, [symbol, interval, enabled]);
+  }, [symbol, interval, enabled, limit]);
 
   useEffect(() => {
     fetch();

@@ -7,4 +7,7 @@ export { ChartContainer } from './components/ChartContainer';
 export { PriceLineChart } from './components/PriceLineChart';
 export { PriceAreaChart } from './components/PriceAreaChart';
 export { MarketCapChart } from './components/MarketCapChart';
+export { FullChartModal } from './components/FullChartModal';
 export { CoinPriceChart } from './components/CoinPriceChart';
+export { useKlinesInfinite } from './hooks/useKlinesInfinite';
+export { useChartTheme } from './hooks/useChartTheme';

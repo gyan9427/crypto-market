@@ -32,6 +32,38 @@ const SYMBOL_TO_COINGECKO_ID: Record<string, string> = {
   SHIB: 'shiba-inu',
 };
 
+const BINANCE_INTERVAL_MAP: Record<string, string> = {
+  '1m': '1m',
+  '5m': '5m',
+  '1h': '1h',
+  '1d': '1d',
+  '1w': '1w',
+};
+
+async function fetchKlinesFromBinance(
+  symbol: string,
+  interval: string,
+  limit: number = 300
+): Promise<KlineRecord[]> {
+  const binanceSymbol = `${symbol.trim().toUpperCase()}USDT`;
+  const binanceInterval = BINANCE_INTERVAL_MAP[interval] || '1h';
+  const url = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceInterval}&limit=${limit}`;
+  const response = await fetch(url);
+  if (!response.ok) return [];
+
+  const raw = await response.json();
+  if (!Array.isArray(raw)) return [];
+
+  return raw.map((row: (string | number)[]) => ({
+    openTime: new Date(row[0] as number),
+    open: Number(row[1]),
+    high: Number(row[2]),
+    low: Number(row[3]),
+    close: Number(row[4]),
+    volume: Number(row[5]) || 0,
+  }));
+}
+
 async function fetchKlinesFromCoinGecko(symbol: string, days: number = 7): Promise<KlineRecord[]> {
   const id = SYMBOL_TO_COINGECKO_ID[symbol.trim().toUpperCase()];
   if (!id) return [];
@@ -78,14 +110,18 @@ export async function fetchKlines(params: KlinesParams): Promise<KlineRecord[]> 
     }
     data = json as KlineRecord[];
   } catch {
-    // Backend unreachable (e.g. device can't reach localhost) - try CoinGecko
-    const days = interval === '1d' ? 90 : interval === '1h' ? 30 : 7;
+    // Backend unreachable - try Binance (best for crypto), then CoinGecko
+    const binance = await fetchKlinesFromBinance(symbol, interval, limit);
+    if (binance.length > 0) return binance;
+    const days = interval === '1w' ? 365 : interval === '1d' ? 90 : interval === '1h' ? 30 : 7;
     return fetchKlinesFromCoinGecko(symbol.trim().toUpperCase(), days);
   }
 
-  // Backend returned empty - use CoinGecko as fallback
+  // Backend returned empty - try Binance (uses ohlcv_klines + market_trades), then CoinGecko
   if (data.length === 0) {
-    const days = interval === '1d' ? 90 : interval === '1h' ? 30 : 7;
+    const binance = await fetchKlinesFromBinance(symbol, interval, limit);
+    if (binance.length > 0) return binance;
+    const days = interval === '1w' ? 365 : interval === '1d' ? 90 : interval === '1h' ? 30 : 7;
     return fetchKlinesFromCoinGecko(symbol.trim().toUpperCase(), days);
   }
 
