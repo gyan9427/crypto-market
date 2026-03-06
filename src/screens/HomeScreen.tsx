@@ -13,7 +13,7 @@ import { useAppStore } from '../state/useAppStore';
 import { fetchNews, search, toggleReaction } from '../services/api';
 import { NewsItem, ReactionType } from '../types';
 import { NewsDetailModal } from './NewsDetailModal';
-import { colors } from '../theme/theme';
+import { colors, spacing } from '../theme/theme';
 
 export const HomeScreen: React.FC = () => {
   const router = useRouter();
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     color: colors.error[500],
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   retryText: {
     color: colors.primary[500],
@@ -386,17 +386,17 @@ const styles = StyleSheet.create({
   },
   errorBanner: {
     backgroundColor: colors.error[50],
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 8,
+    padding: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    borderRadius: 16,
   },
   errorBannerText: {
     color: colors.error[700],
     fontSize: 14,
   },
   emptyContainer: {
-    padding: 32,
+    padding: spacing.xxl,
     alignItems: 'center',
   },
   emptyText: {
@@ -404,24 +404,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   listContent: {
-    paddingTop: 16,
-    paddingBottom: 100,
+    paddingTop: spacing.lg,
+    paddingBottom: 120,
   },
   categoryFilterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
-    gap: 8,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
   },
   categoryPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.neutral[300],
     fontSize: 12,
+    fontWeight: '600',
     color: colors.neutral[700],
   },
   categoryPillActive: {

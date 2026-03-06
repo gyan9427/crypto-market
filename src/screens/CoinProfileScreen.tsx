@@ -228,9 +228,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   coinName: {
-    fontSize: 20,
+    fontSize: 32, // larger text matching stitch 'Buy BTC' style
     fontWeight: '700',
     color: colors.neutral[900],
+    letterSpacing: -1.0, // tighter tracking like stitch
   },
   rankBadge: {
     flexDirection: 'row',
@@ -238,17 +239,19 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: colors.primary[50],
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.xs,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
   },
   rankText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.primary[600],
   },
   coinSymbol: {
-    fontSize: 14,
+    fontSize: 16,
+    fontWeight: '500',
     color: colors.neutral[500],
+    letterSpacing: 2.0, // wider tracking for symbols like the stitch symbol
     marginTop: 2,
   },
   scrollView: {

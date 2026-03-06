@@ -12,7 +12,7 @@ import { SearchBar } from '../components/SearchBar';
 import { useAppStore } from '../state/useAppStore';
 import { fetchTrendingCoins, search } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
-import { colors } from '../theme/theme';
+import { colors, spacing } from '../theme/theme';
 
 export const ExploreScreen: React.FC = () => {
   const router = useRouter();
@@ -217,6 +217,8 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     zIndex: 10,
+    backgroundColor: colors.neutral[50],
+    paddingBottom: spacing.sm,
   },
   centerContent: {
     justifyContent: 'center',
@@ -226,7 +228,7 @@ const styles = StyleSheet.create({
     color: colors.error[500],
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   retryText: {
     color: colors.primary[500],
@@ -235,17 +237,17 @@ const styles = StyleSheet.create({
   },
   errorBanner: {
     backgroundColor: colors.error[50],
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 8,
+    padding: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    borderRadius: 16,
   },
   errorBannerText: {
     color: colors.error[700],
     fontSize: 14,
   },
   emptyContainer: {
-    padding: 32,
+    padding: spacing.xxl,
     alignItems: 'center',
   },
   emptyText: {
@@ -253,17 +255,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   listContent: {
-    paddingTop: 8,
-    paddingBottom: 100,
-    paddingHorizontal: 16,
+    paddingTop: spacing.sm,
+    paddingBottom: 120,
+    paddingHorizontal: spacing.lg,
   },
   tableContainer: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
   skeletonContainer: {
-    paddingTop: 8,
-    paddingBottom: 100,
+    paddingTop: spacing.sm,
+    paddingBottom: 120,
   },
 });
