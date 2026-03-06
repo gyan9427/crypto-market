@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Platform, View } from 'react-native';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
+
+// GestureHandler pulls in Reanimated which crashes on Android (Expo Go).
+// Use View on Android; GestureHandlerRootView on iOS.
+const RootView = Platform.OS === 'android'
+  ? View
+  : require('react-native-gesture-handler').GestureHandlerRootView;
 
 export default function RootLayout() {
   useFrameworkReady();
@@ -47,7 +53,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <RootView style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <>
@@ -65,6 +71,6 @@ export default function RootLayout() {
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
-    </GestureHandlerRootView>
+    </RootView>
   );
 }

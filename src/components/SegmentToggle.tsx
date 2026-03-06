@@ -24,7 +24,7 @@ export const SegmentToggle: React.FC<SegmentToggleProps> = ({
     Animated.timing(translateX, {
       toValue: selectedIndex * segmentWidthPx,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   }, [selectedIndex, containerWidth, options.length, translateX]);
 

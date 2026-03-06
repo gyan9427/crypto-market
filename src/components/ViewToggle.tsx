@@ -24,7 +24,7 @@ export const ViewToggle: React.FC<ViewToggleProps> = ({
     Animated.timing(translateX, {
       toValue: selectedIndex * segmentWidthPx,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   }, [selectedIndex, containerWidth, translateX]);
 

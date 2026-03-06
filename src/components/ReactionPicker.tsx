@@ -63,7 +63,7 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
       Animated.parallel([
         Animated.spring(scaleAnim, {
           toValue: 1,
-          useNativeDriver: true,
+          useNativeDriver: false,
           friction: 7,
           tension: 180,
         }),
@@ -81,7 +81,7 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
       Animated.timing(scaleAnim, {
         toValue: 0,
         duration: 100,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(glowAnim, {
         toValue: 0,

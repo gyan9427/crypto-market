@@ -1,13 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, borderRadius, shadows, spacing } from '../theme/theme';
+import { ProfessionalChart } from '../charts/components/ProfessionalChart';
 
 export const MarketCapPlaceholder: React.FC = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Market Cap</Text>
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>Market Cap data coming soon</Text>
+      <View style={styles.chartContainer}>
+        <ProfessionalChart symbol="BTCUSDT" interval="1h" style={styles.chart} />
       </View>
     </View>
   );
@@ -24,18 +25,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
   },
-  placeholder: {
-    height: 200, // Approximate height matching FeaturedCarousel visual height
+  chartContainer: {
+    height: 200,
     backgroundColor: '#fff',
     borderRadius: borderRadius.card,
     marginHorizontal: 0,
     ...shadows.md,
-    justifyContent: 'center',
-    alignItems: 'center',
+    overflow: 'hidden',
   },
-  placeholderText: {
-    fontSize: 14,
-    color: colors.neutral[500],
-    fontWeight: '500',
+  chart: {
+    flex: 1,
+    minHeight: 200,
   },
 });

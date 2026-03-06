@@ -58,14 +58,14 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
       setNewBoardName('');
       setError(null);
       Animated.parallel([
-        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, bounciness: 3 }),
-        Animated.timing(backdropAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, bounciness: 3 }),
+        Animated.timing(backdropAnim, { toValue: 1, duration: 200, useNativeDriver: false }),
       ]).start();
       fetchBoards();
     } else {
       Animated.parallel([
-        Animated.timing(slideAnim, { toValue: 500, duration: 220, useNativeDriver: true }),
-        Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 500, duration: 220, useNativeDriver: false }),
+        Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: false }),
       ]).start();
     }
   }, [visible]);
