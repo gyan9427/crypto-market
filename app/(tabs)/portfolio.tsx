@@ -1,12 +1,12 @@
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PlaceholderScreen } from '@/src/screens/PlaceholderScreen';
+import { PortfolioScreen } from '@/src/screens/PortfolioScreen';
 import { StyleSheet } from 'react-native';
 
 export default function PortfolioTab() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <PlaceholderScreen title="Portfolio" />
+      <PortfolioScreen />
     </SafeAreaView>
   );
 }

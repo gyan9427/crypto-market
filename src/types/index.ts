@@ -145,6 +145,38 @@ export interface TrendingCoin extends Coin {
 export type FeedFilter = 'following' | 'explore';
 export type ExploreCategory = 'trending' | 'top' | 'nft' | 'defi';
 
+// ── Portfolio / wallet monitoring ────────────────────────────────────────────
+
+export interface SupportedChain {
+  id:     string;
+  name:   string;
+  symbol: string;
+}
+
+export interface WalletAddress {
+  id:        string;
+  address:   string;
+  chains:    string[];
+  label?:    string;
+  createdAt: string;
+}
+
+export type WalletEventType =
+  | 'token_transfer'
+  | 'native_transfer'
+  | 'contract_interaction'
+  | 'multi_chain_activity';
+
+export interface WalletEvent {
+  id:             string;
+  address:        string;
+  chain:          string;
+  type:           WalletEventType;
+  rawEventCount:  number;
+  enrichedData?:  Record<string, unknown>;
+  aggregatedAt:   string;
+}
+
 export interface AppState {
   feedFilter: FeedFilter;
   exploreCategory: ExploreCategory;
