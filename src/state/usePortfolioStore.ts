@@ -7,6 +7,7 @@ interface PortfolioState {
   events:          WalletEvent[];
   isLoading:       boolean;
   error:           string | null;
+  monitorSheetOpen: boolean;
 
   loadSupportedChains(): Promise<void>;
   loadWallets():         Promise<void>;
@@ -15,6 +16,8 @@ interface PortfolioState {
   loadEvents(page?: number, limit?: number): Promise<void>;
   appendEvent(event: WalletEvent): void;
   clearError(): void;
+  openMonitorSheet(): void;
+  closeMonitorSheet(): void;
 }
 
 export const usePortfolioStore = create<PortfolioState>((set, get) => ({
@@ -23,8 +26,11 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   events:          [],
   isLoading:       false,
   error:           null,
+  monitorSheetOpen: false,
 
   clearError: () => set({ error: null }),
+  openMonitorSheet: () => set({ monitorSheetOpen: true }),
+  closeMonitorSheet: () => set({ monitorSheetOpen: false }),
 
   loadSupportedChains: async () => {
     try {
