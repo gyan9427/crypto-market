@@ -167,14 +167,30 @@ export type WalletEventType =
   | 'contract_interaction'
   | 'multi_chain_activity';
 
+export type TxStatus = 'success' | 'failed' | 'pending';
+
+export interface WalletEventActivity {
+  txHash?:      string;
+  txStatus?:    TxStatus | null;
+  explorerUrl?: string;
+  blockNum?:    string;
+  asset?:       string;
+  value?:      number;
+  fromAddress?: string;
+  toAddress?:   string;
+}
+
 export interface WalletEvent {
-  id:             string;
-  address:        string;
-  chain:          string;
-  type:           WalletEventType;
-  rawEventCount:  number;
-  enrichedData?:  Record<string, unknown>;
-  aggregatedAt:   string;
+  id:                string;
+  address:           string;
+  chain:             string;
+  type:              WalletEventType;
+  rawEventCount:     number;
+  transactionCount?: number;
+  eventSummaries?:   string[];
+  enrichedData?:     Record<string, unknown>;
+  aggregatedAt:      string;
+  activity?:         WalletEventActivity;
 }
 
 export interface AppState {
