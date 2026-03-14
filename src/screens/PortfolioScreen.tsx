@@ -11,7 +11,7 @@ import { usePortfolioStore } from '../state/usePortfolioStore';
 import { MonitorWalletSheet } from '../components/MonitorWalletSheet';
 import { Skeleton } from '../components/Skeleton';
 import { WalletEvent } from '../types';
-import { colors, spacing, borderRadius, shadows, typography } from '../theme/theme';
+import { colors, spacing, borderRadius, shadows, typography, semantic } from '../theme/theme';
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   token_transfer:       'Token Transfer',
@@ -164,17 +164,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral[50],
   },
   listContent: {
-    paddingTop:    spacing.lg,
+    paddingTop:    semantic.listMarginH,
     paddingBottom: 120,
   },
 
   accountCard: {
-    marginHorizontal:  spacing.lg,
-    marginBottom:      spacing.md,
-    backgroundColor:  '#fff',
-    borderRadius:     borderRadius.md,
-    padding:          spacing.md,
-    ...shadows.sm,
+    marginHorizontal:  semantic.listMarginH,
+    marginBottom:      semantic.listGap,
+    backgroundColor:  semantic.surface,
+    borderRadius:     semantic.cardRadius,
+    padding:          semantic.cardPadding,
+    ...semantic.cardShadow,
   },
   accountTitle: {
     fontSize:   typography.fontSizes.xl,
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
 
   // ── Events heading ──
   eventsHeader: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: semantic.listMarginH,
     paddingTop:        spacing.xs,
     paddingBottom:     spacing.xs,
   },
@@ -200,12 +200,12 @@ const styles = StyleSheet.create({
     flexDirection:    'row',
     justifyContent:   'space-between',
     alignItems:       'center',
-    marginHorizontal: spacing.lg,
-    marginBottom:     spacing.sm,
-    backgroundColor:  '#fff',
-    borderRadius:     borderRadius.xs,
-    padding:          spacing.md,
-    ...shadows.sm,
+    marginHorizontal: semantic.listMarginH,
+    marginBottom:     semantic.listGap,
+    backgroundColor:  semantic.surface,
+    borderRadius:     semantic.cardRadiusSmall,
+    padding:          semantic.cardPadding,
+    ...semantic.cardShadow,
   },
   eventLeft: {
     flexDirection: 'row',
@@ -214,14 +214,14 @@ const styles = StyleSheet.create({
     marginRight:   spacing.sm,
   },
   chainBadge: {
-    backgroundColor: colors.primary[100],
-    borderRadius:    borderRadius.xs,
-    paddingHorizontal: 8,
-    paddingVertical:   4,
-    marginRight:     spacing.sm,
+    backgroundColor:   colors.primary[100],
+    borderRadius:      semantic.cardRadiusSmall,
+    paddingHorizontal: spacing.sm,
+    paddingVertical:   spacing.xs,
+    marginRight:       spacing.sm,
   },
   chainBadgeText: {
-    fontSize:   10,
+    fontSize:   typography.fontSizes.badge,
     fontWeight: typography.fontWeights.bold,
     color:      colors.primary[700],
   },
@@ -255,9 +255,9 @@ const styles = StyleSheet.create({
   // ── Skeleton ──
   skeletonRow: {
     height:           68,
-    marginHorizontal: spacing.lg,
-    marginBottom:     spacing.sm,
-    borderRadius:     borderRadius.xs,
+    marginHorizontal: semantic.listMarginH,
+    marginBottom:     semantic.listGap,
+    borderRadius:     semantic.cardRadiusSmall,
   },
 
   // ── Empty state ──

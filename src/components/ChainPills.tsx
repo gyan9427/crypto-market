@@ -7,7 +7,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SupportedChain } from '../types';
-import { colors, borderRadius, spacing } from '../theme/theme';
+import { colors, borderRadius, spacing, typography } from '../theme/theme';
 
 interface ChainPillsProps {
   chains:         SupportedChain[];
@@ -56,8 +56,8 @@ const styles = StyleSheet.create({
     flexDirection:     'row',
   },
   pill: {
-    paddingHorizontal: 12,
-    paddingVertical:   6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical:   spacing.xs,
     borderRadius:      borderRadius.button,
     backgroundColor:   colors.neutral[100],
     marginRight:       spacing.xs,
@@ -69,11 +69,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[500],
   },
   pillText: {
-    fontSize:   12,
-    fontWeight: '600',
+    fontSize:   typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
     color:      colors.neutral[600],
   },
   pillTextActive: {
-    color: '#fff',
+    color: colors.surface,
   },
 });

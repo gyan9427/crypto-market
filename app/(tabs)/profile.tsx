@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/src/state/useAuthStore';
-import { colors, spacing, borderRadius, typography, shadows } from '@/src/theme/theme';
+import { colors, spacing, borderRadius, typography, shadows, semantic } from '@/src/theme/theme';
 import { LogOut, Shield, Info, User as UserIcon, Bookmark } from 'lucide-react-native';
 
 const getInitials = (name?: string | null) => {
@@ -165,11 +165,11 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
   },
   section: {
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.card,
+    backgroundColor: semantic.surface,
+    borderRadius: semantic.cardRadius,
     paddingVertical: spacing.xs,
     marginBottom: spacing.lg,
-    ...shadows.sm,
+    ...semantic.cardShadow,
   },
   sectionTitle: {
     fontSize: typography.fontSizes.sm,

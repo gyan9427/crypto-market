@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus, Bell, PlusCircle, FileText, Gift } from 'lucide-react-native';
-import { colors, shadows } from '../theme/theme';
+import { colors, shadows, spacing, semantic, typography, borderRadius } from '../theme/theme';
 
 interface FABProps {
   onPress?: () => void;
@@ -59,7 +59,7 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
           accessibilityLabel="Add action"
           activeOpacity={0.9}
         >
-          <Plus size={28} color="#fff" strokeWidth={2.5} />
+          <Plus size={28} color={colors.surface} strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
 
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   fab: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: borderRadius.fab,
     backgroundColor: colors.primary[500],
     justifyContent: 'center',
     alignItems: 'center',
@@ -159,16 +159,16 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: semantic.backdrop,
   },
   bottomSheetBackground: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: semantic.surface,
+    borderTopLeftRadius: semantic.sheetRadius,
+    borderTopRightRadius: semantic.sheetRadius,
     ...shadows.lg,
   },
   handleBar: {
@@ -177,45 +177,45 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: colors.neutral[300],
     alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 4,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
   },
   bottomSheetContent: {
-    padding: 24,
-    paddingTop: 12,
+    padding: semantic.listMarginH,
+    paddingTop: spacing.sm,
   },
   sheetTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
     color: colors.neutral[900],
-    marginBottom: 20,
+    marginBottom: spacing.lg,
   },
   sheetAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: spacing.sm,
     minHeight: 60,
   },
   sheetIconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: semantic.sheetRadius,
     backgroundColor: colors.neutral[100],
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: semantic.cardPadding,
   },
   sheetActionText: {
     flex: 1,
   },
   sheetActionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.neutral[900],
     marginBottom: 2,
   },
   sheetActionSubtitle: {
-    fontSize: 13,
+    fontSize: typography.fontSizes.sm,
     color: colors.neutral[500],
   },
 });

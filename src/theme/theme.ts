@@ -54,6 +54,9 @@ export const colors = {
     900: '#171717',
     950: '#0a0a0a',
   },
+  surface: '#fff',
+  white: '#fff',
+  backdrop: 'rgba(0,0,0,0.45)',
 };
 
 export const darkColors = {
@@ -92,7 +95,7 @@ export const borderRadius = {
   lg: 24,
   card: 32,
   button: 24,
-  fab: 32,
+  fab: 28,
 };
 
 export const shadows = {
@@ -119,9 +122,22 @@ export const shadows = {
   },
 };
 
+export const semantic = {
+  surface: colors.surface,
+  backdrop: colors.backdrop,
+  cardRadius: borderRadius.md,
+  cardRadiusSmall: borderRadius.xs,
+  sheetRadius: borderRadius.lg,
+  cardShadow: shadows.sm,
+  cardPadding: spacing.md,
+  listMarginH: spacing.lg,
+  listGap: spacing.sm,
+};
+
 export const typography = {
   fontSizes: {
     xs: 12,
+    badge: 10,
     sm: 13,
     base: 14,
     md: 16,
@@ -149,6 +165,7 @@ export const theme = {
     spacing,
     borderRadius,
     shadows,
+    semantic,
     typography,
   },
   dark: {
@@ -156,6 +173,7 @@ export const theme = {
     spacing,
     borderRadius,
     shadows,
+    semantic,
     typography,
   },
 };

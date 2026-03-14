@@ -1,9 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { TrendingCoin } from '../types';
-import { Sparkline } from './Sparkline';
 import { formatPrice, formatPercentage } from '../utils/format';
-import { colors, borderRadius, shadows, spacing } from '../theme/theme';
+import { colors, spacing, semantic, typography } from '../theme/theme';
 
 interface TrendingCoinCardProps {
   coin: TrendingCoin;
@@ -21,98 +20,71 @@ export const TrendingCoinCard: React.FC<TrendingCoinCardProps> = ({ coin, onPres
       accessibilityLabel={`${coin.name} ${formatPrice(coin.price)}`}
       activeOpacity={0.8}
     >
-      <View style={styles.header}>
-        <View style={styles.coinInfo}>
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarText}>{coin.symbol[0]}</Text>
-          </View>
-          <View>
-            <Text style={styles.symbol}>{coin.symbol}</Text>
-            <Text style={styles.name} numberOfLines={1}>{coin.name}</Text>
-          </View>
+      <View style={styles.leftSection}>
+        <View style={styles.symbolBadge}>
+          <Text style={styles.symbolBadgeText}>{coin.symbol}</Text>
         </View>
-        <Text style={styles.rank}>#{coin.rank}</Text>
+        <View style={styles.coinDetails}>
+          <Text style={styles.coinName} numberOfLines={1}>{coin.name}</Text>
+        </View>
       </View>
-
-      <View style={styles.priceRow}>
-        <Text style={styles.price}>{formatPrice(coin.price)}</Text>
+      <View style={styles.rightSection}>
         <Text style={[styles.change, isPositive ? styles.changePositive : styles.changeNegative]}>
           {formatPercentage(coin.change24h)}
         </Text>
+        <Text style={styles.price}>{formatPrice(coin.price)}</Text>
+        {coin.rank > 0 && (
+          <Text style={styles.rank}>#{coin.rank}</Text>
+        )}
       </View>
-
-      {coin.sparklineData && (
-        <View style={styles.sparklineContainer}>
-          <Sparkline data={coin.sparklineData} width={100} height={30} isPositive={isPositive} />
-        </View>
-      )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.card,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadows.sm,
-    minHeight: 120,
-  },
-  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.sm,
+    alignItems: 'center',
+    marginHorizontal: semantic.listMarginH,
+    marginBottom: semantic.listGap,
+    backgroundColor: semantic.surface,
+    borderRadius: semantic.cardRadiusSmall,
+    padding: semantic.cardPadding,
+    ...semantic.cardShadow,
   },
-  coinInfo: {
+  leftSection: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-  },
-  avatarPlaceholder: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary[500],
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  symbol: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.neutral[900],
-  },
-  name: {
-    fontSize: 13,
-    color: colors.neutral[500],
-    marginTop: 2,
-  },
-  rank: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.neutral[400],
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: spacing.sm,
-  },
-  price: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.neutral[900],
     marginRight: spacing.sm,
   },
+  symbolBadge: {
+    backgroundColor: colors.primary[100],
+    borderRadius: semantic.cardRadiusSmall,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginRight: spacing.sm,
+  },
+  symbolBadgeText: {
+    fontSize: typography.fontSizes.badge,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary[700],
+  },
+  coinDetails: {
+    flex: 1,
+  },
+  coinName: {
+    fontSize: typography.fontSizes.base,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.neutral[800],
+  },
+  rightSection: {
+    alignItems: 'flex-end',
+  },
   change: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
   },
   changePositive: {
     color: colors.success[500],
@@ -120,7 +92,15 @@ const styles = StyleSheet.create({
   changeNegative: {
     color: colors.danger[500],
   },
-  sparklineContainer: {
-    alignItems: 'flex-start',
+  price: {
+    fontSize: typography.fontSizes.base,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.neutral[800],
+    marginTop: 2,
+  },
+  rank: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.neutral[400],
+    marginTop: 2,
   },
 });

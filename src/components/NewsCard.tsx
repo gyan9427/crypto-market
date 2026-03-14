@@ -12,7 +12,7 @@ import { FeedCardProps } from '../types';
 import { CoinChip } from './CoinChip';
 import { ReactionPicker } from './ReactionPicker';
 import { formatTimeAgo, abbreviateNumber } from '../utils/format';
-import { colors, borderRadius, shadows, spacing } from '../theme/theme';
+import { colors, borderRadius, shadows, spacing, semantic, typography } from '../theme/theme';
 
 const COLLAPSED_LINES = 3;
 
@@ -205,34 +205,34 @@ export const NewsCard: React.FC<FeedCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.card,
+    backgroundColor: semantic.surface,
+    borderRadius: semantic.cardRadius,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
-    ...shadows.md,
+    ...semantic.cardShadow,
     overflow: 'hidden',
   },
   gridContainer: {
     marginHorizontal: 0,
     marginBottom: 0,
     padding: spacing.sm,
-    ...shadows.sm,
+    ...semantic.cardShadow,
   },
   gridSource: {
-    fontSize: 11,
+    fontSize: typography.fontSizes.badge,
     color: colors.neutral[500],
-    fontWeight: '600',
+    fontWeight: typography.fontWeights.semibold,
     marginBottom: spacing.xs,
   },
   gridTitle: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.neutral[900],
     lineHeight: 18,
     marginBottom: spacing.xs,
   },
   gridSnippet: {
-    fontSize: 12,
+    fontSize: typography.fontSizes.xs,
     color: colors.neutral[600],
     lineHeight: 16,
   },
@@ -254,32 +254,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[500],
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: spacing.sm,
   },
   coinAvatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.surface,
   },
   coinName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.neutral[800],
   },
   timeAgo: {
-    fontSize: 12,
+    fontSize: typography.fontSizes.xs,
     color: colors.neutral[500],
     marginTop: 2,
   },
   followingBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     backgroundColor: colors.primary[100],
-    borderRadius: 12,
+    borderRadius: borderRadius.sm,
   },
   followingText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.primary[700],
   },
   coinsRow: {
@@ -289,10 +289,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   moreCoins: {
-    fontSize: 13,
+    fontSize: typography.fontSizes.sm,
     color: colors.neutral[500],
     alignSelf: 'center',
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   heroImage: {
     width: '100%',
@@ -303,14 +303,14 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.neutral[900],
     lineHeight: 22,
     marginBottom: spacing.sm,
   },
   snippet: {
-    fontSize: 13,
+    fontSize: typography.fontSizes.sm,
     color: colors.neutral[600],
     lineHeight: 18,
     marginBottom: spacing.xs,
@@ -320,50 +320,50 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   showMoreText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.primary[500],
   },
   categoriesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: spacing.xs,
     marginBottom: spacing.sm,
   },
   categoryBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: semantic.cardRadiusSmall,
     backgroundColor: colors.primary[100],
   },
   categoryBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.badge,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.primary[700],
   },
   relatedCoinsSection: {
     marginBottom: spacing.sm,
   },
   relatedCoinsHeader: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.badge,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.neutral[600],
-    marginBottom: 6,
+    marginBottom: spacing.xs,
   },
   relatedCoinsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: spacing.xs,
   },
   relatedCoinBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: semantic.cardRadiusSmall,
     backgroundColor: '#FEF08A',
   },
   relatedCoinBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.badge,
+    fontWeight: typography.fontWeights.semibold,
     color: '#854D0E',
   },
   footerRow: {
@@ -378,16 +378,16 @@ const styles = StyleSheet.create({
   },
   source: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.fontSizes.xs,
     color: colors.neutral[500],
-    fontWeight: '500',
+    fontWeight: typography.fontWeights.medium,
   },
   readFullTouchable: {
     flexShrink: 0,
   },
   readFullLink: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.primary[500],
   },
   actionsRow: {
@@ -405,10 +405,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
-    fontSize: 13,
+    fontSize: typography.fontSizes.sm,
     color: colors.neutral[500],
-    marginLeft: 6,
-    fontWeight: '500',
+    marginLeft: spacing.xs,
+    fontWeight: typography.fontWeights.medium,
   },
   actionTextSaved: {
     color: colors.primary[500],

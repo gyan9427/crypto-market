@@ -257,7 +257,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingTop: spacing.sm,
     paddingBottom: 120,
-    paddingHorizontal: spacing.lg,
   },
   tableContainer: {
     flex: 1,

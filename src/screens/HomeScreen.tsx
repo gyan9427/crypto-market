@@ -13,7 +13,7 @@ import { useAppStore } from '../state/useAppStore';
 import { fetchNews, search, toggleReaction } from '../services/api';
 import { NewsItem, ReactionType } from '../types';
 import { NewsDetailModal } from './NewsDetailModal';
-import { colors, spacing } from '../theme/theme';
+import { colors, spacing, semantic } from '../theme/theme';
 
 export const HomeScreen: React.FC = () => {
   const router = useRouter();
@@ -387,9 +387,9 @@ const styles = StyleSheet.create({
   errorBanner: {
     backgroundColor: colors.error[50],
     padding: spacing.md,
-    marginHorizontal: spacing.lg,
+    marginHorizontal: semantic.listMarginH,
     marginTop: spacing.sm,
-    borderRadius: 16,
+    borderRadius: semantic.cardRadius,
   },
   errorBannerText: {
     color: colors.error[700],

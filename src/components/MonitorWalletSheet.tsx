@@ -14,7 +14,7 @@ import {
 import { X } from 'lucide-react-native';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { ChainPills } from './ChainPills';
-import { colors, spacing, borderRadius, shadows, typography } from '../theme/theme';
+import { colors, spacing, borderRadius, shadows, typography, semantic } from '../theme/theme';
 
 function truncateAddress(address: string): string {
   if (address.length <= 12) return address;
@@ -236,22 +236,22 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: semantic.backdrop,
   },
   sheet: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    backgroundColor: semantic.surface,
+    borderBottomLeftRadius: semantic.sheetRadius,
+    borderBottomRightRadius: semantic.sheetRadius,
     maxHeight: '85%',
     ...shadows.lg,
   },
   handleBarContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: semantic.listMarginH,
     alignItems: 'center',
   },
   handleBar: {
@@ -264,8 +264,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingHorizontal: semantic.listMarginH,
+    paddingBottom: semantic.cardPadding,
   },
   title: {
     fontSize:     typography.fontSizes.xl,
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     color:        colors.neutral[900],
   },
   content: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: semantic.listMarginH,
     paddingBottom:     spacing.xxl,
   },
   inputLabel: {
@@ -283,25 +283,25 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   input: {
-    borderWidth:      1,
-    borderColor:      colors.neutral[200],
-    borderRadius:    borderRadius.xs,
+    borderWidth:       1,
+    borderColor:       colors.neutral[200],
+    borderRadius:      semantic.cardRadiusSmall,
     paddingHorizontal: spacing.md,
     paddingVertical:   spacing.sm,
-    fontSize:        typography.fontSizes.base,
-    color:           colors.neutral[800],
-    marginTop:       spacing.sm,
-    backgroundColor: colors.neutral[50],
+    fontSize:          typography.fontSizes.base,
+    color:             colors.neutral[800],
+    marginTop:         spacing.sm,
+    backgroundColor:   colors.neutral[50],
   },
   inputSmall: {
-    paddingVertical: 8,
-    fontSize:        typography.fontSizes.sm,
+    paddingVertical: spacing.sm,
+    fontSize:         typography.fontSizes.sm,
   },
   errorBanner: {
     marginTop:       spacing.sm,
     backgroundColor: colors.error[50],
-    borderRadius:   borderRadius.xs,
-    padding:        spacing.sm,
+    borderRadius:    semantic.cardRadiusSmall,
+    padding:         spacing.sm,
   },
   errorBannerText: {
     color:    colors.error[700],
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral[300],
   },
   addButtonText: {
-    color:      '#fff',
+    color:      colors.surface,
     fontWeight: typography.fontWeights.semibold,
     fontSize:   typography.fontSizes.base,
   },
@@ -333,16 +333,16 @@ const styles = StyleSheet.create({
   },
   walletList: {},
   walletListItem: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'space-between',
-    backgroundColor: colors.neutral[50],
-    borderColor:     colors.neutral[200],
-    borderWidth:     1,
-    borderRadius:    borderRadius.xs,
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:    'space-between',
+    backgroundColor:   colors.neutral[50],
+    borderColor:       colors.neutral[200],
+    borderWidth:       1,
+    borderRadius:      semantic.cardRadiusSmall,
     paddingHorizontal: spacing.md,
     paddingVertical:   spacing.sm,
-    marginBottom:    spacing.xs,
+    marginBottom:      spacing.xs,
   },
   walletListItemLabel: {
     fontSize:   typography.fontSizes.base,
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     flex:       1,
   },
   walletListItemRemove: {
-    fontSize:   14,
+    fontSize:   typography.fontSizes.base,
     color:      colors.neutral[400],
     fontWeight: typography.fontWeights.bold,
     marginLeft: spacing.sm,
