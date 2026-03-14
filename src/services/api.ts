@@ -676,7 +676,7 @@ export const searchUsers = async (
 
 // ── Portfolio / wallet monitoring ────────────────────────────────────────────
 
-import { SupportedChain, WalletAddress, WalletEvent } from '../types';
+import { SupportedChain, WalletAddress, WalletEvent, Holdings } from '../types';
 
 /**
  * Returns the list of blockchain networks supported by the backend configuration.
@@ -746,6 +746,24 @@ export const getWalletEvents = async (
     return response.events;
   } catch (error: any) {
     throw new Error(`Failed to fetch wallet events: ${error.message}`);
+  }
+};
+
+/**
+ * Returns portfolio holdings (total value, 24h change, positions) for the authenticated user.
+ * @param forceRefresh - if true, bypasses cache and fetches fresh from Zerion
+ */
+export const getHoldings = async (forceRefresh = false): Promise<Holdings> => {
+  const url = forceRefresh ? '/portfolio/holdings?refresh=1' : '/portfolio/holdings';
+  console.log('[Holdings] api.getHoldings: calling GET', url);
+  try {
+    const response = await apiRequest<{ holdings: Holdings }>(url);
+    const holdings = response.holdings;
+    console.log('[Holdings] api.getHoldings: success', { totalValue: holdings?.totalValue, positionsCount: holdings?.positions?.length });
+    return holdings;
+  } catch (error: any) {
+    console.error('[Holdings] api.getHoldings: failed', error?.message);
+    throw new Error(`Failed to fetch holdings: ${error.message}`);
   }
 };
 

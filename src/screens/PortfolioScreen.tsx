@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { MonitorWalletSheet } from '../components/MonitorWalletSheet';
+import { HoldingsSegment } from '../components/HoldingsSegment';
 import { Skeleton } from '../components/Skeleton';
 import { WalletEvent } from '../types';
 import { colors, spacing, borderRadius, shadows, typography, semantic } from '../theme/theme';
@@ -144,6 +145,7 @@ export const PortfolioScreen: React.FC = () => {
     loadWallets,
     loadSupportedChains,
     loadEvents,
+    loadHoldings,
     monitorSheetOpen,
     closeMonitorSheet,
   } = usePortfolioStore();
@@ -151,16 +153,19 @@ export const PortfolioScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
+    console.log('[Holdings] PortfolioScreen mount: loading chains, wallets, events, holdings');
     loadSupportedChains();
     loadWallets();
     loadEvents();
+    loadHoldings();
   }, []);
 
   const handleRefresh = useCallback(async () => {
+    console.log('[Holdings] PortfolioScreen handleRefresh: reloading wallets, events, holdings (forceRefresh)');
     setRefreshing(true);
-    await Promise.all([loadWallets(), loadEvents()]);
+    await Promise.all([loadWallets(), loadEvents(), loadHoldings(true)]);
     setRefreshing(false);
-  }, [loadWallets, loadEvents]);
+  }, [loadWallets, loadEvents, loadHoldings]);
 
   const accountLabel = wallets.length > 0
     ? `Account ${truncateAddress(wallets[0].address)}`
@@ -175,6 +180,7 @@ export const PortfolioScreen: React.FC = () => {
       >
         <Text style={styles.accountTitle}>{accountLabel}</Text>
       </TouchableOpacity>
+      <HoldingsSegment />
       <View style={styles.eventsHeader}>
         <Text style={styles.sectionTitle}>Activity</Text>
       </View>
