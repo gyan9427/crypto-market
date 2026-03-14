@@ -181,14 +181,16 @@ export interface WalletEventActivity {
 }
 
 export interface WalletEvent {
-  id:             string;
-  address:        string;
-  chain:          string;
-  type:           WalletEventType;
-  rawEventCount:  number;
-  enrichedData?:  Record<string, unknown>;
-  aggregatedAt:   string;
-  activity?:      WalletEventActivity;
+  id:                string;
+  address:           string;
+  chain:             string;
+  type:              WalletEventType;
+  rawEventCount:     number;
+  transactionCount?: number;
+  eventSummaries?:   string[];
+  enrichedData?:     Record<string, unknown>;
+  aggregatedAt:      string;
+  activity?:         WalletEventActivity;
 }
 
 export interface AppState {
