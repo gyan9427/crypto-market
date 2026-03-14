@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
-import { colors } from '@/src/theme/theme';
+import { colors, spacing, typography } from '@/src/theme/theme';
 import { FAB } from '@/src/components/FAB';
 import { View } from 'react-native';
 
@@ -13,11 +13,11 @@ export default function TabsLayout() {
           tabBarActiveTintColor: colors.primary[500],
           tabBarInactiveTintColor: colors.neutral[400],
           tabBarStyle: {
-            backgroundColor: '#fff',
+            backgroundColor: colors.surface,
             borderTopWidth: 1,
             borderTopColor: colors.neutral[200],
-            paddingBottom: 8,
-            paddingTop: 8,
+            paddingBottom: spacing.sm,
+            paddingTop: spacing.sm,
             height: 70,
             paddingRight: 0,
           },
@@ -25,8 +25,8 @@ export default function TabsLayout() {
             flex: 1,
           },
           tabBarLabelStyle: {
-            fontSize: 12,
-            fontWeight: '600',
+            fontSize: typography.fontSizes.xs,
+            fontWeight: typography.fontWeights.semibold,
           },
           headerShown: false,
         }}

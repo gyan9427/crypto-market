@@ -673,3 +673,78 @@ export const searchUsers = async (
   );
   return response.users;
 };
+
+// ── Portfolio / wallet monitoring ────────────────────────────────────────────
+
+import { SupportedChain, WalletAddress, WalletEvent } from '../types';
+
+/**
+ * Returns the list of blockchain networks supported by the backend configuration.
+ */
+export const getSupportedChains = async (): Promise<SupportedChain[]> => {
+  try {
+    const response = await apiRequest<{ chains: SupportedChain[] }>('/portfolio/chains');
+    return response.chains;
+  } catch (error: any) {
+    throw new Error(`Failed to fetch supported chains: ${error.message}`);
+  }
+};
+
+/**
+ * Returns all wallet addresses the authenticated user has registered.
+ */
+export const getWallets = async (): Promise<WalletAddress[]> => {
+  try {
+    const response = await apiRequest<{ wallets: WalletAddress[] }>('/portfolio/wallets');
+    return response.wallets;
+  } catch (error: any) {
+    throw new Error(`Failed to fetch wallets: ${error.message}`);
+  }
+};
+
+/**
+ * Registers a new wallet address for monitoring on the given chains.
+ */
+export const addWallet = async (
+  address: string,
+  chains:  string[],
+  label?:  string
+): Promise<WalletAddress> => {
+  try {
+    const response = await apiRequest<{ wallet: WalletAddress }>('/portfolio/wallets', {
+      method: 'POST',
+      body:   JSON.stringify({ address, chains, label }),
+    });
+    return response.wallet;
+  } catch (error: any) {
+    throw new Error(`Failed to add wallet: ${error.message}`);
+  }
+};
+
+/**
+ * Removes a registered wallet by its ID.
+ */
+export const removeWallet = async (id: string): Promise<void> => {
+  try {
+    await apiRequest(`/portfolio/wallets/${id}`, { method: 'DELETE' });
+  } catch (error: any) {
+    throw new Error(`Failed to remove wallet: ${error.message}`);
+  }
+};
+
+/**
+ * Returns paginated aggregated wallet events for the authenticated user.
+ */
+export const getWalletEvents = async (
+  page:  number = 1,
+  limit: number = 20
+): Promise<WalletEvent[]> => {
+  try {
+    const response = await apiRequest<{ events: WalletEvent[] }>(
+      `/portfolio/events?page=${page}&limit=${limit}`
+    );
+    return response.events;
+  } catch (error: any) {
+    throw new Error(`Failed to fetch wallet events: ${error.message}`);
+  }
+};

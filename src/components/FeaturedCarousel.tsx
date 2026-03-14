@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { NewsItem } from '../types';
 import { formatTimeAgo } from '../utils/format';
-import { colors, borderRadius, shadows, spacing } from '../theme/theme';
+import { colors, borderRadius, shadows, spacing, semantic, typography } from '../theme/theme';
 
 interface FeaturedCarouselProps {
   items: NewsItem[];
@@ -58,41 +58,43 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.bold,
     color: colors.neutral[900],
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
   },
   scrollContent: {
     paddingHorizontal: spacing.md,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   card: {
     width: 280,
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.card,
+    backgroundColor: semantic.surface,
+    borderRadius: semantic.cardRadius,
     marginRight: spacing.md,
-    ...shadows.md,
+    ...semantic.cardShadow,
     overflow: 'hidden',
   },
   image: {
     width: '100%',
     height: 140,
     backgroundColor: colors.neutral[200],
+    borderTopLeftRadius: semantic.cardRadius,
+    borderTopRightRadius: semantic.cardRadius,
   },
   content: {
     padding: spacing.md,
   },
   cardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.neutral[900],
     lineHeight: 20,
     marginBottom: spacing.sm,
   },
   meta: {
-    fontSize: 12,
+    fontSize: typography.fontSizes.xs,
     color: colors.neutral[500],
   },
 });
