@@ -6,6 +6,7 @@ import {
   RefreshControl,
   Text,
   TouchableOpacity,
+  Linking,
 } from 'react-native';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { MonitorWalletSheet } from '../components/MonitorWalletSheet';
@@ -18,6 +19,12 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   native_transfer:      'Native Transfer',
   contract_interaction: 'Contract Interaction',
   multi_chain_activity: 'Multi-Chain Activity',
+};
+
+const TX_STATUS_LABELS: Record<string, string> = {
+  success: 'Success',
+  failed:  'Failed',
+  pending: 'Pending',
 };
 
 function truncateAddress(address: string): string {
@@ -41,27 +48,54 @@ interface EventRowProps {
   event: WalletEvent;
 }
 
-const EventRow: React.FC<EventRowProps> = ({ event }) => (
-  <View style={styles.eventRow}>
-    <View style={styles.eventLeft}>
-      <View style={[styles.chainBadge]}>
-        <Text style={styles.chainBadgeText}>{event.chain.toUpperCase()}</Text>
+const EventRow: React.FC<EventRowProps> = ({ event }) => {
+  const activity = event.activity;
+  const txStatus = activity?.txStatus;
+  const explorerUrl = activity?.explorerUrl;
+
+  return (
+    <View style={styles.eventRow}>
+      <View style={styles.eventLeft}>
+        <View style={[styles.chainBadge]}>
+          <Text style={styles.chainBadgeText}>{event.chain.toUpperCase()}</Text>
+        </View>
+        <View style={styles.eventDetails}>
+          <Text style={styles.eventType} numberOfLines={1}>
+            {EVENT_TYPE_LABELS[event.type] ?? event.type}
+          </Text>
+          <Text style={styles.eventAddress}>{truncateAddress(event.address)}</Text>
+          {txStatus && (
+            <View style={[
+              styles.statusBadge,
+              txStatus === 'success' && styles.statusSuccess,
+              txStatus === 'failed' && styles.statusFailed,
+              txStatus === 'pending' && styles.statusPending,
+            ]}>
+              <Text style={styles.statusBadgeText}>
+                {TX_STATUS_LABELS[txStatus] ?? txStatus}
+              </Text>
+            </View>
+          )}
+          {explorerUrl && (
+            <TouchableOpacity
+              onPress={() => Linking.openURL(explorerUrl)}
+              style={styles.explorerLink}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.explorerLinkText}>View on Explorer</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-      <View style={styles.eventDetails}>
-        <Text style={styles.eventType} numberOfLines={1}>
-          {EVENT_TYPE_LABELS[event.type] ?? event.type}
+      <View style={styles.eventRight}>
+        <Text style={styles.eventCount}>
+          {event.rawEventCount > 1 ? `×${event.rawEventCount}` : ''}
         </Text>
-        <Text style={styles.eventAddress}>{truncateAddress(event.address)}</Text>
+        <Text style={styles.eventTime}>{formatTime(event.aggregatedAt)}</Text>
       </View>
     </View>
-    <View style={styles.eventRight}>
-      <Text style={styles.eventCount}>
-        {event.rawEventCount > 1 ? `×${event.rawEventCount}` : ''}
-      </Text>
-      <Text style={styles.eventTime}>{formatTime(event.aggregatedAt)}</Text>
-    </View>
-  </View>
-);
+  );
+};
 
 // ── Main screen ──────────────────────────────────────────────────────────────
 
@@ -237,6 +271,36 @@ const styles = StyleSheet.create({
     fontSize:  typography.fontSizes.sm,
     color:     colors.neutral[500],
     marginTop: 2,
+  },
+  statusBadge: {
+    alignSelf:       'flex-start',
+    marginTop:       spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical:  spacing.xs,
+    borderRadius:    semantic.cardRadiusSmall,
+  },
+  statusSuccess: {
+    backgroundColor: '#d1fae5',
+  },
+  statusFailed: {
+    backgroundColor: colors.error[100],
+  },
+  statusPending: {
+    backgroundColor: colors.neutral[200],
+  },
+  statusBadgeText: {
+    fontSize:   typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
+    color:      colors.neutral[700],
+  },
+  explorerLink: {
+    marginTop: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  explorerLinkText: {
+    fontSize:   typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
+    color:      colors.primary[600],
   },
   eventRight: {
     alignItems: 'flex-end',

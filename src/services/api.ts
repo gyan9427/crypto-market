@@ -748,3 +748,19 @@ export const getWalletEvents = async (
     throw new Error(`Failed to fetch wallet events: ${error.message}`);
   }
 };
+
+/**
+ * Refreshes transaction status for events that are pending.
+ * Call before loading events to fix stale statuses.
+ */
+export const refreshEventStatuses = async (): Promise<{ updated: number }> => {
+  try {
+    const response = await apiRequest<{ updated: number }>(
+      '/portfolio/events/refresh-status',
+      { method: 'POST' }
+    );
+    return response;
+  } catch (error: any) {
+    throw new Error(`Failed to refresh event statuses: ${error.message}`);
+  }
+};

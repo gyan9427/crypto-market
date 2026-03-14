@@ -82,7 +82,10 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   loadEvents: async (page = 1, limit = 20) => {
     set({ isLoading: true, error: null });
     try {
-      const { getWalletEvents } = await import('../services/api');
+      const { getWalletEvents, refreshEventStatuses } = await import('../services/api');
+      if (page === 1) {
+        await refreshEventStatuses().catch(() => {}); // Best-effort; don't block
+      }
       const events = await getWalletEvents(page, limit);
       set((state) => ({
         events:    page === 1 ? events : [...state.events, ...events],
