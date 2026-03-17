@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, LayoutAnimation } from 'react-native';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { Skeleton } from './Skeleton';
 import { colors, spacing, typography, semantic } from '../theme/theme';
@@ -32,6 +32,7 @@ function formatQuantity(n: number | undefined | null): string {
 
 export const HoldingsSegment: React.FC = () => {
   const { wallets, holdings, holdingsLoading } = usePortfolioStore();
+  const [expanded, setExpanded] = useState(false);
 
   console.log('[Holdings] HoldingsSegment render', { walletsCount: wallets.length, holdingsLoading, hasHoldings: !!holdings, totalValue: holdings?.totalValue });
 
@@ -74,19 +75,35 @@ export const HoldingsSegment: React.FC = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Holdings</Text>
-      <View style={styles.summaryCard}>
-        <Text style={styles.totalValue}>{formatUsd(totalValue)}</Text>
-        <Text
-          style={[
-            styles.change24h,
-            changePositive ? styles.changePositive : styles.changeNegative,
-          ]}
-        >
-          {changePositive ? '+' : ''}
-          {relativeChange24h.toFixed(2)}% (24h)
-        </Text>
-      </View>
-      {positions.length > 0 && (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => {
+          if (positions.length > 0) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setExpanded((e) => !e);
+          }
+        }}
+        disabled={positions.length === 0}
+      >
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.totalValue}>{formatUsd(totalValue)}</Text>
+            {positions.length > 0 && (
+              <Text style={styles.expandHint}>{expanded ? '▼' : '▶'}</Text>
+            )}
+          </View>
+          <Text
+            style={[
+              styles.change24h,
+              changePositive ? styles.changePositive : styles.changeNegative,
+            ]}
+          >
+            {changePositive ? '+' : ''}
+            {relativeChange24h.toFixed(2)}% (24h)
+          </Text>
+        </View>
+      </TouchableOpacity>
+      {positions.length > 0 && expanded && (
         <View style={styles.positionsContainer}>
           {positions.slice(0, 10).map((p, i) => (
             <View
@@ -148,6 +165,16 @@ const styles = StyleSheet.create({
     marginBottom:     spacing.sm,
     ...semantic.cardShadow,
   },
+  summaryRow: {
+    flexDirection:  'row',
+    justifyContent: 'space-between',
+    alignItems:     'center',
+  },
+  expandHint: {
+    fontSize:   typography.fontSizes.sm,
+    color:      colors.neutral[500],
+    marginLeft: spacing.sm,
+  },
   totalValue: {
     fontSize:   typography.fontSizes.xxl,
     fontWeight: typography.fontWeights.bold,
@@ -172,6 +199,8 @@ const styles = StyleSheet.create({
     backgroundColor:  semantic.surface,
     borderRadius:     semantic.cardRadiusSmall,
     padding:          semantic.cardPadding,
+    marginTop:        spacing.xs,
+    marginBottom:     spacing.sm,
     ...semantic.cardShadow,
   },
   positionRow: {
