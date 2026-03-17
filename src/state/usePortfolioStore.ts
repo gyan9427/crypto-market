@@ -1,16 +1,19 @@
 import { create } from 'zustand';
-import { SupportedChain, WalletAddress, WalletEvent } from '../types';
+import { SupportedChain, WalletAddress, WalletEvent, Holdings } from '../types';
 
 interface PortfolioState {
-  wallets:         WalletAddress[];
-  supportedChains: SupportedChain[];
-  events:          WalletEvent[];
-  isLoading:       boolean;
-  error:           string | null;
+  wallets:          WalletAddress[];
+  supportedChains:  SupportedChain[];
+  events:           WalletEvent[];
+  holdings:         Holdings | null;
+  holdingsLoading:  boolean;
+  isLoading:        boolean;
+  error:            string | null;
   monitorSheetOpen: boolean;
 
   loadSupportedChains(): Promise<void>;
   loadWallets():         Promise<void>;
+  loadHoldings(forceRefresh?: boolean): Promise<void>;
   addWallet(address: string, chains: string[], label?: string): Promise<void>;
   removeWallet(id: string): Promise<void>;
   loadEvents(page?: number, limit?: number): Promise<void>;
@@ -21,11 +24,13 @@ interface PortfolioState {
 }
 
 export const usePortfolioStore = create<PortfolioState>((set, get) => ({
-  wallets:         [],
-  supportedChains: [],
-  events:          [],
-  isLoading:       false,
-  error:           null,
+  wallets:          [],
+  supportedChains:  [],
+  events:           [],
+  holdings:         null,
+  holdingsLoading:  false,
+  isLoading:        false,
+  error:            null,
   monitorSheetOpen: false,
 
   clearError: () => set({ error: null }),
@@ -76,6 +81,21 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       }));
     } catch (err: any) {
       set({ isLoading: false, error: err.message || 'Failed to remove wallet' });
+    }
+  },
+
+  loadHoldings: async (forceRefresh = false) => {
+    console.log('[Holdings] usePortfolioStore.loadHoldings: starting', { forceRefresh });
+    set({ holdingsLoading: true });
+    try {
+      const { getHoldings } = await import('../services/api');
+      console.log('[Holdings] usePortfolioStore.loadHoldings: calling getHoldings API');
+      const holdings = await getHoldings(forceRefresh);
+      console.log('[Holdings] usePortfolioStore.loadHoldings: success', { totalValue: holdings?.totalValue, positionsCount: holdings?.positions?.length });
+      set({ holdings, holdingsLoading: false });
+    } catch (err: any) {
+      console.error('[Holdings] usePortfolioStore.loadHoldings: failed', err);
+      set({ holdingsLoading: false });
     }
   },
 

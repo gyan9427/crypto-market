@@ -193,6 +193,21 @@ export interface WalletEvent {
   activity?:         WalletEventActivity;
 }
 
+export interface HoldingPosition {
+  name:     string;
+  symbol:   string;
+  quantity: number;
+  value:    number;
+  chain:    string;
+}
+
+export interface Holdings {
+  totalValue:        number;
+  absoluteChange24h: number;
+  relativeChange24h: number;
+  positions:        HoldingPosition[];
+}
+
 export interface AppState {
   feedFilter: FeedFilter;
   exploreCategory: ExploreCategory;
