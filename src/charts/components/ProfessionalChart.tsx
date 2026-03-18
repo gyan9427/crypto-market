@@ -1,10 +1,12 @@
 import React, { Suspense, lazy, useMemo, useState } from 'react';
-import { Platform, View, StyleSheet } from 'react-native';
+import { Platform, View, StyleSheet, Text } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import type { KlineInterval } from '../types';
-import { useKlinesCache } from '../../hooks/useKlinesCache';
+import { useKlinesCacheState } from '../../hooks/useKlinesCache';
+import { colors } from '../../theme/theme';
 
 const SkiaChart = lazy(() => import('./SkiaChart'));
+const WEB_CHART_HEIGHT = 168;
 
 export interface ProfessionalChartProps {
   symbol: string;
@@ -14,9 +16,9 @@ export interface ProfessionalChartProps {
 
 function UniversalLineChart({ symbol, interval, style }: ProfessionalChartProps) {
   const limit = interval === '1m' ? 240 : 72;
-  const data = useKlinesCache(symbol, interval, limit);
+  const { data, isLoading, hasFetched } = useKlinesCacheState(symbol, interval, limit);
   const [width, setWidth] = useState(0);
-  const height = 200;
+  const height = WEB_CHART_HEIGHT;
   const padding = 10;
   const chartData = data;
 
@@ -66,14 +68,16 @@ function UniversalLineChart({ symbol, interval, style }: ProfessionalChartProps)
           <Path d={linePath} fill="none" stroke={strokeColor} strokeWidth={2.25} strokeLinecap="round" />
         </Svg>
       ) : (
-        <View style={styles.chartSkeleton} />
+        <View style={styles.chartSkeleton}>
+          {isLoading ? <Text style={styles.stateText}>Loading chart...</Text> : null}
+          {!isLoading && hasFetched ? <Text style={styles.stateText}>No market data</Text> : null}
+        </View>
       )}
     </View>
   );
 }
 
 export function ProfessionalChart(props: ProfessionalChartProps) {
-  console.log('ProfessionalChart platform: ', Platform.OS);
   // Reanimated + GestureHandler chart has stability issues on web/Android.
   // Use a lightweight SVG line chart there so all devices see chart data.
   if (Platform.OS === 'web' || Platform.OS === 'android') {
@@ -89,7 +93,7 @@ export function ProfessionalChart(props: ProfessionalChartProps) {
 const styles = StyleSheet.create({
   webFallback: {
     flex: 1,
-    minHeight: 200,
+    minHeight: WEB_CHART_HEIGHT,
     justifyContent: 'flex-start',
     alignItems: 'stretch',
     backgroundColor: '#f8fafc',
@@ -99,5 +103,11 @@ const styles = StyleSheet.create({
     margin: 10,
     borderRadius: 12,
     backgroundColor: '#eef2f7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stateText: {
+    fontSize: 12,
+    color: colors.neutral[500],
   },
 });

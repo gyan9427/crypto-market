@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, ScrollView, StyleSheet } from 'react-native';
 import { ExploreCategory } from '../types';
-import { colors, borderRadius, spacing } from '../theme/theme';
+import { colors, borderRadius, spacing, shadows } from '../theme/theme';
 
 interface FilterPillsProps {
   categories: ExploreCategory[];
@@ -50,27 +50,28 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 24,
     paddingVertical: spacing.xs,
     flexDirection: 'row',
   },
   pill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: borderRadius.button,
-    backgroundColor: colors.neutral[100],
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 9999,
+    backgroundColor: '#fff',
     marginRight: spacing.xs,
     minHeight: 32,
     justifyContent: 'center',
     alignItems: 'center',
+    ...shadows.sm,
   },
   pillActive: {
     backgroundColor: colors.primary[500],
   },
   pillText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
-    color: colors.neutral[600],
+    color: colors.neutral[500],
   },
   pillTextActive: {
     color: '#fff',

@@ -1,6 +1,6 @@
+import '@/src/polyfills/devtools';
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { Platform, View } from 'react-native';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '@/src/state/useAuthStore';
@@ -55,22 +55,11 @@ export default function RootLayout() {
   return (
     <RootView style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? (
-          <>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="login" />
-            <Stack.Screen name="register" />
-          </>
-        ) : (
-          <>
-            <Stack.Screen name="login" />
-            <Stack.Screen name="register" />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          </>
-        )}
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
         <Stack.Screen name="+not-found" />
       </Stack>
-      <StatusBar style="auto" />
     </RootView>
   );
 }

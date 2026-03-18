@@ -8,6 +8,7 @@ import {
   formatDate,
 } from '../utils/format';
 import { colors, borderRadius, shadows, spacing, typography } from '../theme/theme';
+import { SkiaProgressBar } from './SkiaProgressBar';
 
 interface StatCellProps {
   label: string;
@@ -119,14 +120,11 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
           <Text style={styles.lowHighValue}>
             {low != null ? formatPrice(low) : '—'}
           </Text>
-          <View style={styles.barTrack}>
-            <View
-              style={[
-                styles.barFill,
-                { width: `${fillRatio * 100}%` },
-              ]}
-            />
-          </View>
+          <SkiaProgressBar
+            fillRatio={fillRatio}
+            trackColor={colors.neutral[200]}
+            fillColor={colors.primary[500]}
+          />
           <Text style={styles.lowHighValue}>
             {high != null ? formatPrice(high) : '—'}
           </Text>
@@ -213,18 +211,6 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeights.medium,
     color: colors.neutral[900],
     minWidth: 70,
-  },
-  barTrack: {
-    flex: 1,
-    height: 6,
-    backgroundColor: colors.neutral[200],
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    backgroundColor: colors.primary[500],
-    borderRadius: 3,
   },
   statsGrid: {
     flexDirection: 'row',
