@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -10,7 +10,7 @@ import { CoinTableView } from '../components/CoinTableView';
 import { ViewToggle } from '../components/ViewToggle';
 import { SearchBar } from '../components/SearchBar';
 import { useAppStore } from '../state/useAppStore';
-import { fetchTrendingCoins, search } from '../services/api';
+import { fetchTrendingCoins } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
 import { colors, spacing } from '../theme/theme';
 import { usePollingEffect } from '../hooks/usePollingEffect';
@@ -19,30 +19,16 @@ import { useMarketPriceStream } from '../hooks/useMarketPriceStream';
 export const ExploreScreen: React.FC = () => {
   const router = useRouter();
   const isFocused = useIsFocused();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchPreview, setSearchPreview] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState<TrendingCoin[]>([]);
-  const [searchResults, setSearchResults] = useState<{ coins: TrendingCoin[] } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
 
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
 
   const categories: ExploreCategory[] = ['trending', 'top', 'nft', 'defi'];
-
-  // Handle search
-  useEffect(() => {
-    if (searchQuery.trim().length > 0) {
-      const timeoutId = setTimeout(() => {
-        handleSearch(searchQuery);
-      }, 500); // Debounce search
-
-      return () => clearTimeout(timeoutId);
-    } else {
-      setSearchResults(null);
-    }
-  }, [searchQuery]);
 
   const loadData = useCallback(async () => {
     try {
@@ -70,47 +56,19 @@ export const ExploreScreen: React.FC = () => {
   // Keep market list actively synced from backend while not searching.
   usePollingEffect(
     loadData,
-    [loadData, searchQuery, isFocused],
-    { enabled: isFocused && searchQuery.trim().length === 0, intervalMs: 20000, immediate: true }
+    [loadData, isFocused],
+    { enabled: isFocused, intervalMs: 20000, immediate: true }
   );
-
-  const handleSearch = async (query: string) => {
-    try {
-      const results = await search(query);
-      setSearchResults({
-        coins: results.coins.map((coin) => ({
-          ...coin,
-          rank: 0, // Search results don't have rank
-          category: exploreCategory,
-        })) as TrendingCoin[],
-      });
-    } catch (err: any) {
-      console.error('Search error:', err);
-      setSearchResults({ coins: [] });
-    }
-  };
 
   const handleCoinPress = (coinId: string) => {
     router.push(`/coin/${coinId}` as never);
   };
 
-  if (error && coins.length === 0) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.retryText} onPress={loadData}>
-          Tap to retry
-        </Text>
-      </View>
-    );
-  }
-
   // Filter coins based on category (for nft/defi, we use all coins since backend doesn't have specific endpoints)
   const filteredCoins = exploreCategory === 'trending' || exploreCategory === 'top'
     ? coins
     : coins; // For nft/defi, show all coins (could be enhanced later)
-  const isSearching = searchResults !== null;
-  const visibleCoins = isSearching ? searchResults.coins : filteredCoins;
+  const visibleCoins = filteredCoins;
   const visibleSymbols = visibleCoins.map((c) => c.symbol);
   const { quotes } = useMarketPriceStream(visibleSymbols, { enabled: isFocused });
   const liveVisibleCoins = visibleCoins.map((coin) => {
@@ -123,21 +81,33 @@ export const ExploreScreen: React.FC = () => {
     };
   });
 
+  if (error && coins.length === 0) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.retryText} onPress={loadData}>
+          Tap to retry
+        </Text>
+      </View>
+    );
+  }
+
   const renderHeader = () => (
     <View style={styles.headerSection}>
       <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search coins, tokens..."
+        value={searchPreview}
+        onChangeText={setSearchPreview}
+        onFocus={() => {
+          router.push('/search?segment=all' as never);
+        }}
+        placeholder="Search all: coins, news, users, boards, portfolio..."
       />
       <MarketCapPlaceholder liveUpdatesEnabled={isFocused} />
-      {!isSearching && (
-        <FilterPills
-          categories={categories}
-          selectedCategory={exploreCategory}
-          onSelect={setExploreCategory}
-        />
-      )}
+      <FilterPills
+        categories={categories}
+        selectedCategory={exploreCategory}
+        onSelect={setExploreCategory}
+      />
       <View style={styles.toggleRow}>
         <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
       </View>
@@ -148,35 +118,6 @@ export const ExploreScreen: React.FC = () => {
       )}
     </View>
   );
-
-  // If searching, show search results
-  if (isSearching) {
-    return (
-      <View style={styles.container}>
-        {renderHeader()}
-        {viewMode === 'table' ? (
-          <ScrollView style={styles.tableContainer}>
-            <CoinTableView coins={liveVisibleCoins} onCoinPress={handleCoinPress} />
-          </ScrollView>
-        ) : (
-          <FlatList
-            data={liveVisibleCoins}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TrendingCoinCard coin={item} onPress={handleCoinPress} />
-            )}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No results found</Text>
-              </View>
-            }
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-      </View>
-    );
-  }
 
   const renderContent = () => {
     if (viewMode === 'table') {

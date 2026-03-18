@@ -1,6 +1,6 @@
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { colors, spacing, borderRadius, typography, shadows, semantic } from '@/src/theme/theme';
@@ -10,8 +10,8 @@ import {
   unfollowUser,
   getFollowedUsers,
   getUserFollowStats,
-  searchUsers,
 } from '@/src/services/api';
+import { SearchBar } from '@/src/components/SearchBar';
 
 const getInitials = (name?: string | null) => {
   if (!name) return '?';
@@ -53,8 +53,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [searchResults, setSearchResults] = React.useState<{ id: string; username: string }[]>([]);
+  const [searchPreview, setSearchPreview] = React.useState('');
   const [followingUsers, setFollowingUsers] = React.useState<{ id: string; username: string }[]>([]);
   const [stats, setStats] = React.useState<{
     followersCount: number;
@@ -97,24 +96,6 @@ export default function ProfileScreen() {
     refreshSocialData();
   }, [refreshSocialData]);
 
-  React.useEffect(() => {
-    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      try {
-        const users = await searchUsers(searchQuery.trim(), 8);
-        setSearchResults(users.filter((item) => item.id !== user?.id));
-      } catch (error) {
-        console.warn('User search failed:', error);
-        setSearchResults([]);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery, user?.id]);
-
   const handleToggleUserFollow = async (targetUserId: string, currentlyFollowing: boolean) => {
     setUpdatingUserId(targetUserId);
     try {
@@ -123,12 +104,6 @@ export default function ProfileScreen() {
         setFollowingUsers((prev) => prev.filter((u) => u.id !== targetUserId));
       } else {
         await followUser(targetUserId);
-        const userFromSearch = searchResults.find((u) => u.id === targetUserId);
-        if (userFromSearch) {
-          setFollowingUsers((prev) =>
-            prev.some((u) => u.id === targetUserId) ? prev : [userFromSearch, ...prev]
-          );
-        }
       }
       await refreshSocialData();
     } catch (error) {
@@ -172,34 +147,15 @@ export default function ProfileScreen() {
             </View>
           )}
           <View style={styles.searchWrap}>
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
+            <SearchBar
+              value={searchPreview}
+              onChangeText={setSearchPreview}
               placeholder="Search users to follow..."
-              placeholderTextColor={colors.neutral[400]}
-              style={styles.searchInput}
-              autoCapitalize="none"
-              autoCorrect={false}
+              onFocus={() => {
+                router.push('/search?segment=users' as never);
+              }}
             />
           </View>
-          {searchResults.map((item) => {
-            const isFollowingUser = followingUsers.some((u) => u.id === item.id);
-            return (
-              <View key={item.id} style={styles.followRow}>
-                <Text style={styles.followUsername}>@{item.username}</Text>
-                <TouchableOpacity
-                  style={[styles.followChip, isFollowingUser && styles.followingChip]}
-                  onPress={() => handleToggleUserFollow(item.id, isFollowingUser)}
-                  disabled={updatingUserId === item.id}
-                >
-                  <Text style={[styles.followChipText, isFollowingUser && styles.followingChipText]}>
-                    {updatingUserId === item.id ? '...' : isFollowingUser ? 'Following' : 'Follow'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            );
-          })}
-
           {followingUsers.length > 0 && (
             <View style={styles.followingList}>
               <Text style={styles.subSectionTitle}>Following</Text>
