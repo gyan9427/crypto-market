@@ -56,7 +56,7 @@ export default function ProfileScreen() {
   const email = (user as any)?.email;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
           <View style={styles.avatar}>

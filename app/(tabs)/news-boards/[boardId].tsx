@@ -10,8 +10,8 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronRight, BookmarkX } from 'lucide-react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { BookmarkX } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/src/theme/theme';
 import { NewsCard } from '@/src/components/NewsCard';
 import { NewsCardSkeleton } from '@/src/components/NewsCardSkeleton';
@@ -20,8 +20,7 @@ import { getBoardNews } from '@/src/services/api';
 import { NewsItem } from '@/src/types';
 
 export default function BoardDetailScreen() {
-  const router = useRouter();
-  const { boardId, name } = useLocalSearchParams<{ boardId: string; name: string }>();
+  const { boardId } = useLocalSearchParams<{ boardId: string; name: string }>();
 
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,31 +65,8 @@ export default function BoardDetailScreen() {
     setSelectedNews(null);
   };
 
-  const boardTitle = name || 'Board';
-
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronRight
-            size={24}
-            color={colors.neutral[700]}
-            style={{ transform: [{ rotate: '180deg' }] }}
-          />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {boardTitle}
-          </Text>
-          {!loading && (
-            <Text style={styles.headerSubtitle}>
-              {news.length} {news.length === 1 ? 'article' : 'articles'}
-            </Text>
-          )}
-        </View>
-      </View>
-
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       {error ? (
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
@@ -153,32 +129,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.neutral[50],
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
-  },
-  backButton: {
-    marginRight: spacing.sm,
-    padding: 4,
-  },
-  headerText: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.neutral[900],
-  },
-  headerSubtitle: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral[500],
-    marginTop: 2,
   },
   centered: {
     flex: 1,
