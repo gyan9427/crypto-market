@@ -13,6 +13,7 @@ import { ChevronLeft, Trophy } from 'lucide-react-native';
 import { fetchCoinDetails, fetchCoinNews, fetchCoinStats } from '../services/api';
 import { Coin, CoinStats, NewsItem } from '../types';
 import { CoinStatSegment } from '../components/CoinStatSegment';
+import { CoinPriceChart } from '../components/CoinPriceChart';
 import { openInAppBrowser } from '../utils/browser';
 import { formatTimeAgo } from '../utils/format';
 import { colors, borderRadius, shadows, spacing } from '../theme/theme';
@@ -24,29 +25,60 @@ export const CoinProfileScreen: React.FC = () => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [stats, setStats] = useState<CoinStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!coinId) return;
+    let cancelled = false;
     const load = async () => {
       try {
         setLoading(true);
+        setLoadingDetails(true);
         setError(null);
-        const [coinData, newsData, statsData] = await Promise.all([
-          fetchCoinDetails(coinId),
+        setNews([]);
+        setStats(null);
+
+        // Fetch primary coin payload first to render the screen quickly.
+        const coinData = await fetchCoinDetails(coinId);
+        if (cancelled) return;
+        setCoin(coinData);
+        setLoading(false);
+
+        // Load secondary sections in parallel without blocking route transition.
+        const [newsResult, statsResult] = await Promise.allSettled([
           fetchCoinNews(coinId),
           fetchCoinStats(coinId),
         ]);
-        setCoin(coinData);
-        setNews(newsData);
-        setStats(statsData);
+        if (cancelled) return;
+
+        if (newsResult.status === 'fulfilled') {
+          setNews(newsResult.value);
+        } else {
+          console.warn('Failed to load coin news:', newsResult.reason);
+        }
+
+        if (statsResult.status === 'fulfilled') {
+          setStats(statsResult.value);
+        } else {
+          console.warn('Failed to load coin stats:', statsResult.reason);
+        }
       } catch (err: any) {
-        setError(err.message || 'Failed to load coin profile');
+        if (!cancelled) {
+          setError(err.message || 'Failed to load coin profile');
+          setCoin(null);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setLoadingDetails(false);
+        }
       }
     };
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [coinId]);
 
   const handleNewsPress = (item: NewsItem) => {
@@ -125,8 +157,12 @@ export const CoinProfileScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.newsSection}>
+          <CoinPriceChart symbol={coin.symbol} />
           <CoinStatSegment stats={stats} coinSymbol={coin.symbol} />
           <Text style={styles.sectionTitle}>Related news</Text>
+          {loadingDetails ? (
+            <Text style={styles.loadingDetailText}>Refreshing latest data...</Text>
+          ) : null}
           {news.length === 0 ? (
             <Text style={styles.emptyText}>No related news for this coin.</Text>
           ) : (
@@ -326,5 +362,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: spacing.lg,
+  },
+  loadingDetailText: {
+    color: colors.neutral[500],
+    fontSize: 12,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
   },
 });

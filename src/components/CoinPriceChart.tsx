@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import Svg, { Line, Path, Circle } from 'react-native-svg';
 import { fetchKlines, KlineInterval, KlineRecord } from '../services/api';
@@ -18,6 +18,26 @@ interface CoinPriceChartProps {
   height?: number;
 }
 
+type KlineCacheEntry = {
+  rows: KlineRecord[];
+  updatedAt: number;
+};
+
+const KLINE_CACHE_TTL_MS = 90_000;
+const klineCache = new Map<string, KlineCacheEntry>();
+
+function getCacheKey(symbol: string, interval: DisplayInterval): string {
+  return `${symbol.toUpperCase()}::${interval}`;
+}
+
+function readKlineCache(symbol: string, interval: DisplayInterval): KlineRecord[] | null {
+  const key = getCacheKey(symbol, interval);
+  const entry = klineCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.updatedAt > KLINE_CACHE_TTL_MS) return null;
+  return entry.rows;
+}
+
 export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
   symbol,
   height = 220,
@@ -26,9 +46,24 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
   const chartWidth = Math.max(200, width - spacing.md * 2);
   const chartHeight = Math.max(120, height - 60);
   const [interval, setInterval] = useState<DisplayInterval>('1W');
-  const [klines, setKlines] = useState<KlineRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [klines, setKlines] = useState<KlineRecord[]>(() => readKlineCache(symbol, '1W') ?? []);
+  const [loading, setLoading] = useState(() => !(readKlineCache(symbol, '1W')?.length));
   const [error, setError] = useState<string | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    const cachedRows = readKlineCache(symbol, interval);
+    if (cachedRows && cachedRows.length > 0) {
+      setKlines(cachedRows);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    setKlines([]);
+    setHoverIndex(null);
+    setLoading(true);
+  }, [symbol, interval]);
 
   const refreshMs = interval === '1D' ? 15000 : interval === '1W' ? 30000 : 60000;
   usePollingEffect(
@@ -36,7 +71,8 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
       if (!symbol) return;
       try {
         setError(null);
-        const rows = await fetchKlines(symbol, INTERVAL_MAP[interval], 240);
+        const rows = await fetchKlines(symbol, INTERVAL_MAP[interval], 180);
+        klineCache.set(getCacheKey(symbol, interval), { rows, updatedAt: Date.now() });
         setKlines(rows);
       } catch (err: any) {
         setError(err?.message || 'Failed to load chart');
@@ -82,8 +118,28 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
       formatTimeLabel(klines[idxD].openTime),
     ];
 
-    return { linePath, stroke, marker, labels, last };
+    return { linePath, stroke, marker, labels, last, points };
   }, [klines, chartHeight, chartWidth]);
+
+  const activeIndex = hoverIndex;
+  const activePoint = chartView && activeIndex !== null ? chartView.points[activeIndex] : null;
+  const activeKline = activeIndex !== null ? klines[activeIndex] : null;
+
+  const tooltipPosition = useMemo(() => {
+    if (!activePoint) return null;
+    const width = 140;
+    const left = Math.min(Math.max(activePoint.x - width / 2, 6), chartWidth - width - 6);
+    const top = Math.max(activePoint.y - 64, 6);
+    return { left, top, width };
+  }, [activePoint, chartWidth]);
+
+  const handlePointer = (x: number) => {
+    if (!chartView) return;
+    const maxIdx = chartView.points.length - 1;
+    const raw = Math.round((Math.max(0, Math.min(chartWidth, x)) / chartWidth) * maxIdx);
+    const idx = Math.max(0, Math.min(maxIdx, raw));
+    setHoverIndex(idx);
+  };
 
   if (loading && !chartView) {
     return (
@@ -175,7 +231,56 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
             strokeWidth="2.5"
           />
           <Circle cx={chartView.marker.x} cy={chartView.marker.y} fill={chartView.stroke} r="4" stroke={colors.white} strokeWidth="2" />
+          {activePoint ? (
+            <>
+              <Line
+                x1={activePoint.x}
+                x2={activePoint.x}
+                y1={0}
+                y2={chartHeight}
+                stroke={colors.neutral[400]}
+                strokeWidth="1"
+                strokeDasharray="3"
+              />
+              <Line
+                x1={0}
+                x2={chartWidth}
+                y1={activePoint.y}
+                y2={activePoint.y}
+                stroke={colors.neutral[400]}
+                strokeWidth="1"
+                strokeDasharray="3"
+              />
+              <Circle cx={activePoint.x} cy={activePoint.y} fill={chartView.stroke} r="4" stroke={colors.white} strokeWidth="2" />
+            </>
+          ) : null}
         </Svg>
+        <View
+          style={[styles.chartInteractionLayer, { width: chartWidth, height: chartHeight }]}
+          onMouseMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
+          onMouseLeave={() => setHoverIndex(null)}
+          onStartShouldSetResponder={() => true}
+          onResponderGrant={(e: any) => handlePointer(e.nativeEvent.locationX)}
+          onResponderMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
+          onResponderRelease={() => setHoverIndex(null)}
+          onResponderTerminate={() => setHoverIndex(null)}
+        />
+        {activeKline && tooltipPosition ? (
+          <View
+            style={[
+              styles.tooltipCard,
+              { left: tooltipPosition.left, top: tooltipPosition.top, width: tooltipPosition.width },
+            ]}
+          >
+            <Text style={styles.tooltipTime}>{formatTimeLabel(activeKline.openTime)}</Text>
+            <Text style={styles.tooltipValue}>
+              O {formatPrice(activeKline.open)} H {formatPrice(activeKline.high)}
+            </Text>
+            <Text style={styles.tooltipValue}>
+              L {formatPrice(activeKline.low)} C {formatPrice(activeKline.close)}
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.xAxisLabels}>
           <Text style={styles.datetimeLabel}>{chartView.labels[0]}</Text>
           <Text style={styles.datetimeLabel}>{chartView.labels[1]}</Text>
@@ -196,6 +301,10 @@ function formatTimeLabel(openTime: string | Date): string {
   const hour = h % 12 === 0 ? 12 : h % 12;
   const suffix = h >= 12 ? 'PM' : 'AM';
   return `${hour}:${m}${suffix}`;
+}
+
+function formatPrice(value: number): string {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 const styles = StyleSheet.create({
@@ -231,6 +340,7 @@ const styles = StyleSheet.create({
   },
   chartRegion: {
     width: '100%',
+    position: 'relative',
   },
   chartSkeleton: {
     width: '100%',
@@ -241,6 +351,30 @@ const styles = StyleSheet.create({
     marginTop: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  chartInteractionLayer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  tooltipCard: {
+    position: 'absolute',
+    backgroundColor: colors.neutral[900],
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.neutral[700],
+  },
+  tooltipTime: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.neutral[300],
+    marginBottom: 2,
+  },
+  tooltipValue: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.neutral[50],
+    fontWeight: typography.fontWeights.medium,
   },
   errorText: {
     fontSize: typography.fontSizes.sm,
