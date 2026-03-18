@@ -8,7 +8,7 @@ export const MarketCapPlaceholder: React.FC = () => {
     <View style={styles.container}>
       <Text style={styles.title}>Market Cap</Text>
       <View style={styles.chartContainer}>
-        <ProfessionalChart symbol="BTCUSDT" interval="1h" style={styles.chart} />
+        <ProfessionalChart symbol="BTC" interval="1m" style={styles.chart} />
       </View>
     </View>
   );
