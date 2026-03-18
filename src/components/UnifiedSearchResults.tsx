@@ -50,7 +50,7 @@ type UnifiedSearchResultsProps = {
   selectedSegment: SearchSegment;
   isActive: boolean;
   onCoinPress?: (coinId: string) => void;
-  onNewsPress?: (newsId: string) => void;
+  onNewsPress?: (newsId: string, url?: string) => void;
   onUserPress?: (userId: string) => void;
   renderUserAction?: (user: { id: string; username: string }) => React.ReactNode;
 };
@@ -58,7 +58,7 @@ type UnifiedSearchResultsProps = {
 type RowData =
   | { key: string; type: 'group'; title: string }
   | { key: string; type: 'coin'; coinId: string; symbol: string; name: string; logo?: string }
-  | { key: string; type: 'news'; newsId: string; title: string; source?: string; imageUrl?: string }
+  | { key: string; type: 'news'; newsId: string; title: string; source?: string; imageUrl?: string; url?: string }
   | { key: string; type: 'user'; userId: string; username: string }
   | { key: string; type: 'board'; boardId: string; name: string; itemCount: number }
   | { key: string; type: 'asset'; assetId: string; symbol: string; name: string; chain?: string };
@@ -80,6 +80,7 @@ function buildRows(result: UnifiedSearchResult, selectedSegment: SearchSegment):
     title: news.title,
     source: news.source,
     imageUrl: news.imageUrl,
+    url: news.url ?? news.sourceUrl,
   }));
 
   const userRows = result.users.map<RowData>((user) => ({
@@ -164,7 +165,7 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
 
           if (item.type === 'news') {
             return (
-              <TouchableOpacity style={styles.row} onPress={() => onNewsPress?.(item.newsId)} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.row} onPress={() => onNewsPress?.(item.newsId, item.url)} activeOpacity={0.7}>
                 <ResultAvatar type="news" imageUrl={item.imageUrl} />
                 <View style={styles.rowContent}>
                   <Text style={styles.primaryText} numberOfLines={2}>

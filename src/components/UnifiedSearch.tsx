@@ -16,7 +16,7 @@ type UnifiedSearchProps = {
   limit?: number;
   placeholder?: string;
   onCoinPress?: (coinId: string) => void;
-  onNewsPress?: (newsId: string) => void;
+  onNewsPress?: (newsId: string, url?: string) => void;
   onUserPress?: (userId: string) => void;
   renderUserAction?: (user: { id: string; username: string }) => React.ReactNode;
   onResult?: (result: UnifiedSearchResult) => void;

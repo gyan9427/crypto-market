@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { SearchSegment } from '@/src/services/api';
@@ -48,9 +49,18 @@ export default function SearchScreen() {
 
   const handleCoinPress = React.useCallback(
     (coinId: string) => {
-      router.push(`/coin/${coinId}` as never);
+      router.push(`/coins/${coinId}` as never);
     },
     [router]
+  );
+
+  const handleNewsPress = React.useCallback(
+    (_newsId: string, url?: string) => {
+      if (url) {
+        WebBrowser.openBrowserAsync(url);
+      }
+    },
+    []
   );
 
   return (
@@ -75,6 +85,7 @@ export default function SearchScreen() {
           availableSegments={ALL_SEGMENTS}
           placeholder="Search all segments..."
           onCoinPress={handleCoinPress}
+          onNewsPress={handleNewsPress}
         />
       </View>
     </SafeAreaView>
