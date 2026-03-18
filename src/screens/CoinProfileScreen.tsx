@@ -143,14 +143,17 @@ export const CoinProfileScreen: React.FC = () => {
         </View>
       </View>
 
+      <View style={styles.fixedSegment}>
+        <CoinPriceChart symbol={coin.symbol} />
+        <CoinStatSegment stats={stats} coinSymbol={coin.symbol} />
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.newsSection}>
-          <CoinPriceChart symbol={coin.symbol} />
-          <CoinStatSegment stats={stats} coinSymbol={coin.symbol} />
           <Text style={styles.sectionTitle}>Related news</Text>
           {loadingDetails ? (
             <Text style={styles.loadingDetailText}>Refreshing latest data...</Text>
@@ -282,11 +285,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xxl,
   },
-  newsSection: {
+  fixedSegment: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.lg,
+  },
+  newsSection: {
+    paddingTop: spacing.sm,
   },
   sectionTitle: {
     fontSize: 18,
