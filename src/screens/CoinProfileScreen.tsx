@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Trophy } from 'lucide-react-native';
+import { Trophy } from 'lucide-react-native';
 import { fetchCoinDetails, fetchCoinNews, fetchCoinStats } from '../services/api';
 import { Coin, CoinStats, NewsItem } from '../types';
 import { CoinStatSegment } from '../components/CoinStatSegment';
@@ -110,14 +110,6 @@ export const CoinProfileScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <ChevronLeft size={24} color={colors.neutral[800]} />
-        </TouchableOpacity>
         <View style={styles.headerContent}>
           <View style={styles.avatarContainer}>
             {(stats?.image ?? coin.logo) ? (
@@ -223,10 +215,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral[200],
-  },
-  backButton: {
-    padding: spacing.sm,
-    marginRight: spacing.sm,
   },
   headerContent: {
     flex: 1,

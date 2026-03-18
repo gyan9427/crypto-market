@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 
 export default function CoinProfileRoute() {
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar style="dark" />
       <CoinProfileScreen />
     </SafeAreaView>

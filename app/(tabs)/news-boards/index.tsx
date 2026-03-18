@@ -56,10 +56,7 @@ export default function NewsBoardsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>News Boards</Text>
-        </View>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
         <View style={styles.centered}>
           <ActivityIndicator color={colors.primary[500]} size="large" />
         </View>
@@ -68,18 +65,7 @@ export default function NewsBoardsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronRight
-            size={24}
-            color={colors.neutral[700]}
-            style={{ transform: [{ rotate: '180deg' }] }}
-          />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>News Boards</Text>
-      </View>
-
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       {error ? (
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
@@ -137,24 +123,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.neutral[50],
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
-  },
-  backButton: {
-    marginRight: spacing.sm,
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.neutral[900],
   },
   centered: {
     flex: 1,

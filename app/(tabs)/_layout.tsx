@@ -1,15 +1,51 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/src/theme/theme';
 import { FAB } from '@/src/components/FAB';
 import { View } from 'react-native';
 
+const formatSegmentTitle = (rawSegment: string) => {
+  return rawSegment
+    .replace(/[\[\]]/g, '')
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
+const getHeaderTitle = (routeName: string, params?: Record<string, unknown>) => {
+  if (routeName === 'index') return 'NAYFT';
+
+  if (routeName === 'news-boards/[boardId]') {
+    const boardName = params?.name;
+    return typeof boardName === 'string' && boardName.trim().length > 0 ? boardName : 'News Board';
+  }
+
+  const routeTitleMap: Record<string, string> = {
+    portfolio: 'Portfolio',
+    market: 'Market',
+    profile: 'Profile',
+    rewards: 'Rewards',
+    'coin/[coinId]': 'Coin',
+    'coins/[coinId]': 'Coin',
+    'news-boards/index': 'News Boards',
+  };
+
+  if (routeTitleMap[routeName]) return routeTitleMap[routeName];
+
+  const segments = routeName.split('/').filter(Boolean);
+  const lastSegment = segments[segments.length - 1] ?? routeName;
+  return formatSegmentTitle(lastSegment) || 'NAYFT';
+};
+
 export default function TabsLayout() {
   return (
     <View style={{ flex: 1 }}>
+      <StatusBar style="auto" />
       <Tabs
-        screenOptions={{
+        screenOptions={({ route }) => ({
           tabBarActiveTintColor: colors.primary[500],
           tabBarInactiveTintColor: colors.neutral[400],
           tabBarStyle: {
@@ -28,8 +64,18 @@ export default function TabsLayout() {
             fontSize: typography.fontSizes.xs,
             fontWeight: typography.fontWeights.semibold,
           },
-          headerShown: false,
-        }}
+          headerShown: true,
+          headerTitle: getHeaderTitle(route.name, route.params as Record<string, unknown> | undefined),
+          headerStyle: {
+            backgroundColor: colors.surface,
+          },
+          headerTintColor: colors.neutral[900],
+          headerTitleStyle: {
+            fontSize: typography.fontSizes.lg,
+            fontWeight: typography.fontWeights.semibold,
+          },
+          headerShadowVisible: true,
+        })}
       >
         <Tabs.Screen
           name="index"
