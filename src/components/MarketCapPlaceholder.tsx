@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Svg, { Line, Path, Circle } from 'react-native-svg';
 import { Maximize2, MoreHorizontal, TrendingUp } from 'lucide-react-native';
@@ -30,6 +30,8 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const klines = data.klines;
   const isLoading = !hasFetched;
   const isPositive = data.absoluteChange24h >= 0;
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [chartPixelWidth, setChartPixelWidth] = useState(CHART_WIDTH);
 
   const displayCap = useMemo(() => {
     if (data.totalMarketCap <= 0) return '$0';
@@ -89,8 +91,29 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       formatTimeLabel(klines[idxD].openTime),
     ];
 
-    return { linePath, markerX: marker.x, markerY: marker.y, labels };
+    return { linePath, markerX: marker.x, markerY: marker.y, labels, points };
   }, [klines]);
+
+  const activePoint = chartView && hoverIndex !== null ? chartView.points[hoverIndex] : null;
+  const activeKline = hoverIndex !== null ? klines[hoverIndex] : null;
+
+  const tooltipPosition = useMemo(() => {
+    if (!activePoint) return null;
+    const tooltipWidth = 152;
+    const pxX = (activePoint.x / CHART_WIDTH) * Math.max(1, chartPixelWidth);
+    const pxY = (activePoint.y / CHART_HEIGHT) * CHART_HEIGHT;
+    const left = Math.min(Math.max(pxX - tooltipWidth / 2, 6), Math.max(6, chartPixelWidth - tooltipWidth - 6));
+    const top = Math.max(6, pxY - 58);
+    return { left, top, width: tooltipWidth };
+  }, [activePoint, chartPixelWidth]);
+
+  const handlePointer = (xPx: number) => {
+    if (!chartView) return;
+    const maxIdx = chartView.points.length - 1;
+    const ratio = Math.max(0, Math.min(1, xPx / Math.max(1, chartPixelWidth)));
+    const idx = Math.max(0, Math.min(maxIdx, Math.round(ratio * maxIdx)));
+    setHoverIndex(idx);
+  };
 
   return (
     <View style={styles.container}>
@@ -119,7 +142,13 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
         </View>
         
         {/* Exact Stitch Graph Region */}
-        <View style={styles.chartWrapper}>
+        <View
+          style={styles.chartWrapper}
+          onLayout={(e) => {
+            const width = e.nativeEvent.layout.width;
+            if (width > 0) setChartPixelWidth(width);
+          }}
+        >
           {isLoading ? (
             <View style={styles.chartSkeleton} />
           ) : chartView ? (
@@ -138,8 +167,53 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                 />
                 {/* Marker */}
                 <Circle cx={chartView.markerX} cy={chartView.markerY} fill="#3b82f6" r="4" stroke="white" strokeWidth="2" />
+                {activePoint ? (
+                  <>
+                    <Line
+                      x1={activePoint.x}
+                      x2={activePoint.x}
+                      y1={0}
+                      y2={CHART_HEIGHT}
+                      stroke={colors.neutral[400]}
+                      strokeWidth="1"
+                      strokeDasharray="3"
+                    />
+                    <Line
+                      x1={0}
+                      x2={CHART_WIDTH}
+                      y1={activePoint.y}
+                      y2={activePoint.y}
+                      stroke={colors.neutral[400]}
+                      strokeWidth="1"
+                      strokeDasharray="3"
+                    />
+                    <Circle cx={activePoint.x} cy={activePoint.y} fill="#3b82f6" r="4" stroke="white" strokeWidth="2" />
+                  </>
+                ) : null}
               </Svg>
-              
+              <View
+                style={styles.interactionLayer}
+                onMouseMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
+                onMouseLeave={() => setHoverIndex(null)}
+                onStartShouldSetResponder={() => true}
+                onResponderGrant={(e: any) => handlePointer(e.nativeEvent.locationX)}
+                onResponderMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
+                onResponderRelease={() => setHoverIndex(null)}
+                onResponderTerminate={() => setHoverIndex(null)}
+              />
+              {activeKline && tooltipPosition ? (
+                <View
+                  style={[
+                    styles.tooltipCard,
+                    { left: tooltipPosition.left, top: tooltipPosition.top, width: tooltipPosition.width },
+                  ]}
+                >
+                  <Text style={styles.tooltipTime}>{formatTimeLabel(activeKline.openTime)}</Text>
+                  <Text style={styles.tooltipValue}>
+                    {`$${activeKline.close.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                  </Text>
+                </View>
+              ) : null}
               {/* X-Axis Labels */}
               <View style={styles.xAxisLabels}>
                 <Text style={styles.xLabel}>{chartView.labels[0]}</Text>
@@ -252,9 +326,39 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral[800],
   },
   xAxisLabels: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    paddingTop: 8,
+  },
+  interactionLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: CHART_HEIGHT,
+  },
+  tooltipCard: {
+    position: 'absolute',
+    backgroundColor: colors.neutral[900],
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.neutral[700],
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  tooltipTime: {
+    fontSize: 10,
+    color: colors.neutral[300],
+    marginBottom: 2,
+  },
+  tooltipValue: {
+    fontSize: 11,
+    color: colors.neutral[50],
+    fontWeight: '600',
   },
   xLabel: {
     fontSize: 10,
