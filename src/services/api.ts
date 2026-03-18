@@ -72,6 +72,19 @@ interface BackendUser {
   createdAt?: string;
 }
 
+interface BackendFollowUser {
+  id: string;
+  username: string;
+  followedAt?: string;
+  followersCount?: number;
+}
+
+interface FollowStats {
+  followersCount: number;
+  followingUsersCount?: number;
+  followingCoinsCount?: number;
+}
+
 // Helper function to make API requests
 async function apiRequest<T>(
   endpoint: string,
@@ -196,17 +209,19 @@ export const fetchNews = async (
   filter: 'following' | 'explore',
   page: number = 1,
   limit: number = 50,
-  categories?: string[]
+  categories?: string[],
+  mode: 'all' | 'coin' | 'users' = 'all'
 ): Promise<NewsItem[]> => {
   try {
     const categoryParam =
       categories && categories.length
         ? `&categories=${encodeURIComponent(categories.join(','))}`
         : '';
+    const modeParam = filter === 'following' ? `&mode=${encodeURIComponent(mode)}` : '';
 
     const endpoint =
       filter === 'following'
-        ? `/news/following?page=${page}&limit=${limit}${categoryParam}`
+        ? `/news/following?page=${page}&limit=${limit}${categoryParam}${modeParam}`
         : `/news?page=${page}&limit=${limit}${categoryParam}`;
     
     const response = await apiRequest<{ news: BackendNews[] }>(endpoint);
@@ -462,8 +477,12 @@ export const unsaveNewsFromBoard = async (
  */
 export const followCoin = async (coinId: string): Promise<void> => {
   try {
-    await apiRequest(`/wishlist/${coinId}`, { method: 'POST' });
+    await apiRequest(`/follow/coins/${coinId}`, { method: 'POST' });
   } catch (error: any) {
+    if (String(error?.message || '').includes('404')) {
+      await apiRequest(`/wishlist/${coinId}`, { method: 'POST' });
+      return;
+    }
     throw new Error(`Failed to follow coin: ${error.message}`);
   }
 };
@@ -473,8 +492,12 @@ export const followCoin = async (coinId: string): Promise<void> => {
  */
 export const unfollowCoin = async (coinId: string): Promise<void> => {
   try {
-    await apiRequest(`/wishlist/${coinId}`, { method: 'DELETE' });
+    await apiRequest(`/follow/coins/${coinId}`, { method: 'DELETE' });
   } catch (error: any) {
+    if (String(error?.message || '').includes('404')) {
+      await apiRequest(`/wishlist/${coinId}`, { method: 'DELETE' });
+      return;
+    }
     throw new Error(`Failed to unfollow coin: ${error.message}`);
   }
 };
@@ -483,11 +506,90 @@ export const unfollowCoin = async (coinId: string): Promise<void> => {
  * Get wishlist (following coins)
  */
 export const getWishlist = async (): Promise<Coin[]> => {
+  return getFollowedCoins();
+};
+
+export const getFollowedCoins = async (): Promise<Coin[]> => {
   try {
-    const response = await apiRequest<{ coins: BackendCoin[] }>('/wishlist');
+    const response = await apiRequest<{ coins: BackendCoin[] }>('/follow/coins');
     return response.coins.map((coin) => transformBackendCoin(coin, true));
   } catch (error: any) {
-    throw new Error(`Failed to fetch wishlist: ${error.message}`);
+    if (String(error?.message || '').includes('404')) {
+      const fallback = await apiRequest<{ coins: BackendCoin[] }>('/wishlist');
+      return fallback.coins.map((coin) => transformBackendCoin(coin, true));
+    }
+    throw new Error(`Failed to fetch followed coins: ${error.message}`);
+  }
+};
+
+export const followUser = async (userId: string): Promise<void> => {
+  try {
+    await apiRequest(`/follow/users/${userId}`, { method: 'POST' });
+  } catch (error: any) {
+    throw new Error(`Failed to follow user: ${error.message}`);
+  }
+};
+
+export const unfollowUser = async (userId: string): Promise<void> => {
+  try {
+    await apiRequest(`/follow/users/${userId}`, { method: 'DELETE' });
+  } catch (error: any) {
+    throw new Error(`Failed to unfollow user: ${error.message}`);
+  }
+};
+
+export const getFollowedUsers = async (): Promise<BackendFollowUser[]> => {
+  try {
+    const response = await apiRequest<{ users: BackendFollowUser[] }>('/follow/users');
+    return response.users;
+  } catch (error: any) {
+    throw new Error(`Failed to fetch followed users: ${error.message}`);
+  }
+};
+
+export const getUserFollowers = async (
+  userId: string,
+  page: number = 1,
+  limit: number = 20
+): Promise<BackendFollowUser[]> => {
+  try {
+    const response = await apiRequest<{ followers: BackendFollowUser[] }>(
+      `/follow/users/${userId}/followers?page=${page}&limit=${limit}`
+    );
+    return response.followers;
+  } catch (error: any) {
+    throw new Error(`Failed to fetch user followers: ${error.message}`);
+  }
+};
+
+export const getCoinFollowers = async (
+  coinId: string,
+  page: number = 1,
+  limit: number = 20
+): Promise<BackendFollowUser[]> => {
+  try {
+    const response = await apiRequest<{ followers: BackendFollowUser[] }>(
+      `/follow/coins/${coinId}/followers?page=${page}&limit=${limit}`
+    );
+    return response.followers;
+  } catch (error: any) {
+    throw new Error(`Failed to fetch coin followers: ${error.message}`);
+  }
+};
+
+export const getUserFollowStats = async (userId: string): Promise<FollowStats> => {
+  try {
+    return await apiRequest<FollowStats>(`/follow/users/${userId}/stats`);
+  } catch (error: any) {
+    throw new Error(`Failed to fetch user follow stats: ${error.message}`);
+  }
+};
+
+export const getCoinFollowStats = async (coinId: string): Promise<FollowStats> => {
+  try {
+    return await apiRequest<FollowStats>(`/follow/coins/${coinId}/stats`);
+  } catch (error: any) {
+    throw new Error(`Failed to fetch coin follow stats: ${error.message}`);
   }
 };
 

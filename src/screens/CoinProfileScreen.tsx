@@ -10,13 +10,21 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Trophy } from 'lucide-react-native';
-import { fetchCoinDetails, fetchCoinNews, fetchCoinStats } from '../services/api';
+import {
+  fetchCoinDetails,
+  fetchCoinNews,
+  fetchCoinStats,
+  followCoin,
+  unfollowCoin,
+  getCoinFollowStats,
+} from '../services/api';
 import { Coin, CoinStats, NewsItem } from '../types';
 import { CoinStatSegment } from '../components/CoinStatSegment';
 import { CoinPriceChart } from '../components/CoinPriceChart';
 import { openInAppBrowser } from '../utils/browser';
 import { formatTimeAgo } from '../utils/format';
 import { colors, borderRadius, shadows, spacing } from '../theme/theme';
+import { useAppStore } from '../state/useAppStore';
 
 export const CoinProfileScreen: React.FC = () => {
   const { coinId } = useLocalSearchParams<{ coinId: string }>();
@@ -26,7 +34,11 @@ export const CoinProfileScreen: React.FC = () => {
   const [stats, setStats] = useState<CoinStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const syncFollowingCoins = useAppStore((state) => state.syncFollowingCoins);
 
   useEffect(() => {
     if (!coinId) return;
@@ -43,6 +55,7 @@ export const CoinProfileScreen: React.FC = () => {
         const coinData = await fetchCoinDetails(coinId);
         if (cancelled) return;
         setCoin(coinData);
+        setIsFollowing(Boolean(coinData.isFollowing));
         setLoading(false);
 
         // Load secondary sections in parallel without blocking route transition.
@@ -62,6 +75,15 @@ export const CoinProfileScreen: React.FC = () => {
           setStats(statsResult.value);
         } else {
           console.warn('Failed to load coin stats:', statsResult.reason);
+        }
+
+        try {
+          const followStats = await getCoinFollowStats(coinId);
+          if (!cancelled) {
+            setFollowersCount(followStats.followersCount ?? null);
+          }
+        } catch (followStatsError) {
+          console.warn('Failed to load coin followers count:', followStatsError);
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -84,6 +106,36 @@ export const CoinProfileScreen: React.FC = () => {
   const handleNewsPress = (item: NewsItem) => {
     const url = item.url || item.sourceUrl;
     if (url) openInAppBrowser(url);
+  };
+
+  const handleFollowToggle = async () => {
+    if (!coinId || followLoading) return;
+    const nextFollowing = !isFollowing;
+    const prevFollowers = followersCount;
+
+    setFollowLoading(true);
+    setIsFollowing(nextFollowing);
+    setFollowersCount((current) => {
+      if (current == null) return current;
+      return nextFollowing ? current + 1 : Math.max(0, current - 1);
+    });
+
+    try {
+      if (nextFollowing) {
+        await followCoin(coinId);
+      } else {
+        await unfollowCoin(coinId);
+      }
+      await syncFollowingCoins();
+      const refreshedStats = await getCoinFollowStats(coinId);
+      setFollowersCount(refreshedStats.followersCount ?? prevFollowers);
+    } catch (toggleError) {
+      setIsFollowing(!nextFollowing);
+      setFollowersCount(prevFollowers);
+      console.warn('Failed to toggle follow status:', toggleError);
+    } finally {
+      setFollowLoading(false);
+    }
   };
 
   if (loading && !coin) {
@@ -139,7 +191,20 @@ export const CoinProfileScreen: React.FC = () => {
               )}
             </View>
             <Text style={styles.coinSymbol}>@{coin.symbol.toLowerCase()}</Text>
+            {typeof followersCount === 'number' && (
+              <Text style={styles.followersText}>{followersCount.toLocaleString()} followers</Text>
+            )}
           </View>
+          <TouchableOpacity
+            onPress={handleFollowToggle}
+            style={[styles.followButton, isFollowing && styles.followingButton]}
+            activeOpacity={0.8}
+            disabled={followLoading}
+          >
+            <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
+              {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -280,6 +345,33 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
     letterSpacing: 2.0, // wider tracking for symbols like the stitch symbol
     marginTop: 2,
+  },
+  followersText: {
+    marginTop: spacing.xs,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.neutral[500],
+  },
+  followButton: {
+    borderWidth: 1,
+    borderColor: colors.primary[500],
+    borderRadius: borderRadius.button,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginLeft: spacing.sm,
+    backgroundColor: colors.primary[500],
+  },
+  followingButton: {
+    borderColor: colors.neutral[300],
+    backgroundColor: '#fff',
+  },
+  followButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  followingButtonText: {
+    color: colors.neutral[700],
   },
   scrollView: {
     flex: 1,
