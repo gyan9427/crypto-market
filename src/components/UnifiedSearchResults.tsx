@@ -1,7 +1,49 @@
 import React from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Bookmark, Newspaper, User as UserIcon, Wallet } from 'lucide-react-native';
 import { SearchSegment, UnifiedSearchResult } from '../services/api';
 import { borderRadius, colors, spacing, typography } from '../theme/theme';
+
+const AVATAR_SIZE = 36;
+
+function ResultAvatar({
+  type,
+  logo,
+  imageUrl,
+  symbol,
+}: {
+  type: 'coin' | 'news' | 'user' | 'board' | 'asset';
+  logo?: string;
+  imageUrl?: string;
+  symbol?: string;
+}) {
+  if (type === 'coin' && logo) {
+    return (
+      <Image source={{ uri: logo }} style={styles.avatar} resizeMode="cover" />
+    );
+  }
+  if (type === 'news' && imageUrl) {
+    return (
+      <Image source={{ uri: imageUrl }} style={styles.avatar} resizeMode="cover" />
+    );
+  }
+  const fallback = (
+    <View style={[styles.avatarPlaceholder, type === 'news' && styles.avatarPlaceholderNews]}>
+      {type === 'coin' || type === 'asset' ? (
+        <Text style={styles.avatarPlaceholderText}>{symbol?.slice(0, 2)?.toUpperCase() || '?'}</Text>
+      ) : type === 'news' ? (
+        <Newspaper size={18} color={colors.neutral[500]} />
+      ) : type === 'user' ? (
+        <UserIcon size={18} color={colors.neutral[500]} />
+      ) : type === 'board' ? (
+        <Bookmark size={18} color={colors.neutral[500]} />
+      ) : (
+        <Wallet size={18} color={colors.neutral[500]} />
+      )}
+    </View>
+  );
+  return fallback;
+}
 
 type UnifiedSearchResultsProps = {
   result: UnifiedSearchResult;
@@ -15,8 +57,8 @@ type UnifiedSearchResultsProps = {
 
 type RowData =
   | { key: string; type: 'group'; title: string }
-  | { key: string; type: 'coin'; coinId: string; symbol: string; name: string }
-  | { key: string; type: 'news'; newsId: string; title: string; source?: string }
+  | { key: string; type: 'coin'; coinId: string; symbol: string; name: string; logo?: string }
+  | { key: string; type: 'news'; newsId: string; title: string; source?: string; imageUrl?: string }
   | { key: string; type: 'user'; userId: string; username: string }
   | { key: string; type: 'board'; boardId: string; name: string; itemCount: number }
   | { key: string; type: 'asset'; assetId: string; symbol: string; name: string; chain?: string };
@@ -28,6 +70,7 @@ function buildRows(result: UnifiedSearchResult, selectedSegment: SearchSegment):
     coinId: coin.id,
     symbol: coin.symbol,
     name: coin.name,
+    logo: coin.logo,
   }));
 
   const newsRows = result.news.map<RowData>((news) => ({
@@ -36,6 +79,7 @@ function buildRows(result: UnifiedSearchResult, selectedSegment: SearchSegment):
     newsId: news.id,
     title: news.title,
     source: news.source,
+    imageUrl: news.imageUrl,
   }));
 
   const userRows = result.users.map<RowData>((user) => ({
@@ -109,8 +153,11 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
           if (item.type === 'coin') {
             return (
               <TouchableOpacity style={styles.row} onPress={() => onCoinPress?.(item.coinId)} activeOpacity={0.7}>
-                <Text style={styles.primaryText}>{item.symbol}</Text>
-                <Text style={styles.secondaryText}>{item.name}</Text>
+                <ResultAvatar type="coin" logo={item.logo} symbol={item.symbol} />
+                <View style={styles.rowContent}>
+                  <Text style={styles.primaryText}>{item.symbol}</Text>
+                  <Text style={styles.secondaryText}>{item.name}</Text>
+                </View>
               </TouchableOpacity>
             );
           }
@@ -118,12 +165,15 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
           if (item.type === 'news') {
             return (
               <TouchableOpacity style={styles.row} onPress={() => onNewsPress?.(item.newsId)} activeOpacity={0.7}>
-                <Text style={styles.primaryText} numberOfLines={2}>
-                  {item.title}
-                </Text>
-                <Text style={styles.secondaryText} numberOfLines={1}>
-                  {item.source}
-                </Text>
+                <ResultAvatar type="news" imageUrl={item.imageUrl} />
+                <View style={styles.rowContent}>
+                  <Text style={styles.primaryText} numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.secondaryText} numberOfLines={1}>
+                    {item.source}
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           }
@@ -132,7 +182,10 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
             return (
               <View style={styles.rowWithAction}>
                 <TouchableOpacity style={styles.rowBody} onPress={() => onUserPress?.(item.userId)} activeOpacity={0.7}>
-                  <Text style={styles.primaryText}>@{item.username}</Text>
+                  <ResultAvatar type="user" />
+                  <View style={styles.rowContent}>
+                    <Text style={styles.primaryText}>@{item.username}</Text>
+                  </View>
                 </TouchableOpacity>
                 {renderUserAction ? renderUserAction({ id: item.userId, username: item.username }) : null}
               </View>
@@ -142,19 +195,25 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
           if (item.type === 'board') {
             return (
               <View style={styles.row}>
-                <Text style={styles.primaryText}>{item.name}</Text>
-                <Text style={styles.secondaryText}>{item.itemCount} saved</Text>
+                <ResultAvatar type="board" />
+                <View style={styles.rowContent}>
+                  <Text style={styles.primaryText}>{item.name}</Text>
+                  <Text style={styles.secondaryText}>{item.itemCount} saved</Text>
+                </View>
               </View>
             );
           }
 
           return (
             <View style={styles.row}>
-              <Text style={styles.primaryText}>{item.symbol}</Text>
-              <Text style={styles.secondaryText}>
-                {item.name}
-                {item.chain ? ` · ${item.chain}` : ''}
-              </Text>
+              <ResultAvatar type="asset" symbol={item.symbol} />
+              <View style={styles.rowContent}>
+                <Text style={styles.primaryText}>{item.symbol}</Text>
+                <Text style={styles.secondaryText}>
+                  {item.name}
+                  {item.chain ? ` · ${item.chain}` : ''}
+                </Text>
+              </View>
             </View>
           );
         }}
@@ -184,10 +243,38 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   row: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.neutral[100],
+  },
+  rowContent: {
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
+  avatar: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    overflow: 'hidden',
+  },
+  avatarPlaceholder: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    backgroundColor: colors.primary[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarPlaceholderNews: {
+    backgroundColor: colors.neutral[100],
+  },
+  avatarPlaceholderText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary[600],
   },
   rowWithAction: {
     borderTopWidth: 1,
@@ -200,6 +287,8 @@ const styles = StyleSheet.create({
   },
   rowBody: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: spacing.xs,
     paddingRight: spacing.md,
   },
