@@ -19,8 +19,14 @@ function formatTimeLabel(openTime: string | Date): string {
   return `${hr}:${min}${suffix}`;
 }
 
-export const MarketCapPlaceholder: React.FC = () => {
-  const { data, hasFetched } = useLiveMarketOverview();
+interface MarketCapPlaceholderProps {
+  liveUpdatesEnabled?: boolean;
+}
+
+export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
+  liveUpdatesEnabled = true,
+}) => {
+  const { data, hasFetched } = useLiveMarketOverview({ enabled: liveUpdatesEnabled });
   const klines = data.klines;
   const isLoading = !hasFetched;
   const isPositive = data.absoluteChange24h >= 0;

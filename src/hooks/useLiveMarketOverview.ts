@@ -11,6 +11,10 @@ export interface MarketOverviewState {
   relativeChange24h: number;
 }
 
+interface LiveMarketOverviewOptions {
+  enabled?: boolean;
+}
+
 const EMPTY_OVERVIEW: MarketOverviewState = {
   klines: [],
   topCoins: [],
@@ -44,7 +48,10 @@ function buildMarketOverview(klines: KlineRecord[], coins: TrendingCoin[]): Mark
  * Live market summary data sourced from backend APIs with periodic refresh.
  * Designed to be reused by market cards/widgets that require synchronized values.
  */
-export function useLiveMarketOverview(): { data: MarketOverviewState; hasFetched: boolean } {
+export function useLiveMarketOverview(
+  options: LiveMarketOverviewOptions = {}
+): { data: MarketOverviewState; hasFetched: boolean } {
+  const { enabled = true } = options;
   const [data, setData] = useState<MarketOverviewState>(EMPTY_OVERVIEW);
   const [hasFetched, setHasFetched] = useState(false);
 
@@ -58,8 +65,8 @@ export function useLiveMarketOverview(): { data: MarketOverviewState; hasFetched
       setData(next);
       setHasFetched(true);
     },
-    [],
-    { intervalMs: 15000, immediate: true }
+    [enabled],
+    { enabled, intervalMs: 15000, immediate: true }
   );
 
   return useMemo(() => ({ data, hasFetched }), [data, hasFetched]);

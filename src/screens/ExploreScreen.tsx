@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { FilterPills } from '../components/FilterPills';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
@@ -17,6 +18,7 @@ import { useMarketPriceStream } from '../hooks/useMarketPriceStream';
 
 export const ExploreScreen: React.FC = () => {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,8 +70,8 @@ export const ExploreScreen: React.FC = () => {
   // Keep market list actively synced from backend while not searching.
   usePollingEffect(
     loadData,
-    [loadData, searchQuery],
-    { enabled: searchQuery.trim().length === 0, intervalMs: 20000, immediate: true }
+    [loadData, searchQuery, isFocused],
+    { enabled: isFocused && searchQuery.trim().length === 0, intervalMs: 20000, immediate: true }
   );
 
   const handleSearch = async (query: string) => {
@@ -110,7 +112,7 @@ export const ExploreScreen: React.FC = () => {
   const isSearching = searchResults !== null;
   const visibleCoins = isSearching ? searchResults.coins : filteredCoins;
   const visibleSymbols = visibleCoins.map((c) => c.symbol);
-  const { quotes } = useMarketPriceStream(visibleSymbols);
+  const { quotes } = useMarketPriceStream(visibleSymbols, { enabled: isFocused });
   const liveVisibleCoins = visibleCoins.map((coin) => {
     const q = quotes[coin.symbol.toUpperCase()];
     if (!q) return coin;
@@ -128,7 +130,7 @@ export const ExploreScreen: React.FC = () => {
         onChangeText={setSearchQuery}
         placeholder="Search coins, tokens..."
       />
-      <MarketCapPlaceholder />
+      <MarketCapPlaceholder liveUpdatesEnabled={isFocused} />
       {!isSearching && (
         <FilterPills
           categories={categories}

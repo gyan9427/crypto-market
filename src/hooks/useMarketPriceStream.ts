@@ -6,6 +6,10 @@ export interface LivePriceQuote {
   percentChange24h: number;
 }
 
+interface MarketPriceStreamOptions {
+  enabled?: boolean;
+}
+
 interface SnapshotMessage {
   type: 'snapshot';
   prices: Record<string, LivePriceQuote>;
@@ -38,10 +42,14 @@ function resolveWsUrl(): string {
 /**
  * Reusable market quote stream. Opens one socket and keeps subscribed symbols in sync.
  */
-export function useMarketPriceStream(symbols: string[]): {
+export function useMarketPriceStream(
+  symbols: string[],
+  options: MarketPriceStreamOptions = {}
+): {
   quotes: Record<string, LivePriceQuote>;
   isConnected: boolean;
 } {
+  const { enabled = true } = options;
   const [quotes, setQuotes] = useState<Record<string, LivePriceQuote>>({});
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -51,14 +59,21 @@ export function useMarketPriceStream(symbols: string[]): {
     () => Array.from(new Set(symbols.filter(Boolean).map((s) => s.trim().toUpperCase()))),
     [symbols]
   );
+  const normalizedSymbolsRef = useRef<string[]>(normalizedSymbols);
+  normalizedSymbolsRef.current = normalizedSymbols;
 
   useEffect(() => {
+    if (!enabled || normalizedSymbolsRef.current.length === 0) {
+      setIsConnected(false);
+      return;
+    }
+
     let disposed = false;
 
     const sendSubscribe = () => {
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({ type: 'subscribe', symbols: normalizedSymbols }));
+      ws.send(JSON.stringify({ type: 'subscribe', symbols: normalizedSymbolsRef.current }));
     };
 
     const connect = () => {
@@ -123,13 +138,14 @@ export function useMarketPriceStream(symbols: string[]): {
         wsRef.current = null;
       }
     };
-  }, []);
+  }, [enabled, normalizedSymbols.length]);
 
   useEffect(() => {
+    if (!enabled || normalizedSymbols.length === 0) return;
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(JSON.stringify({ type: 'subscribe', symbols: normalizedSymbols }));
-  }, [normalizedSymbols]);
+  }, [enabled, normalizedSymbols]);
 
   return { quotes, isConnected };
 }
