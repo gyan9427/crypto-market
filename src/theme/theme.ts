@@ -98,28 +98,46 @@ export const borderRadius = {
   fab: 28,
 };
 
+import { Platform } from 'react-native';
+
+// Use boxShadow on web (shadow* is deprecated); shadow* on native
+const shadowStyles = {
+  sm: Platform.select({
+    web: { boxShadow: '0px 2px 4px rgba(0,0,0,0.06)' } as const,
+    default: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+  }),
+  md: Platform.select({
+    web: { boxShadow: '0px 4px 6px rgba(0,0,0,0.1)' } as const,
+    default: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 6,
+      elevation: 4,
+    },
+  }),
+  lg: Platform.select({
+    web: { boxShadow: '0px 8px 16px rgba(0,0,0,0.15)' } as const,
+    default: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+  }),
+};
+
 export const shadows = {
-  sm: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  md: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  lg: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
-  },
+  sm: shadowStyles.sm!,
+  md: shadowStyles.md!,
+  lg: shadowStyles.lg!,
 };
 
 export const semantic = {

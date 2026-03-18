@@ -88,10 +88,10 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: colors.neutral[100],
-    borderRadius: borderRadius.button,
+    borderRadius: 16,
     padding: 4,
     position: 'relative',
-    marginHorizontal: 16,
+    marginHorizontal: 24,
     marginBottom: 16,
   },
   indicator: {
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     top: 4,
     bottom: 4,
     backgroundColor: '#fff',
-    borderRadius: borderRadius.button - 2,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
   },
   segmentTextActive: {
-    color: colors.neutral[800],
-    fontWeight: '600',
+    color: colors.neutral[900],
+    fontWeight: 'bold',
   },
 });
