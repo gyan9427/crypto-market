@@ -27,6 +27,7 @@ const getHeaderTitle = (routeName: string, params?: Record<string, unknown>) => 
     portfolio: 'Portfolio',
     market: 'Market',
     profile: 'Profile',
+    'search/index': 'Search',
     rewards: 'Rewards',
     'coin/[coinId]': 'Coin',
     'coins/[coinId]': 'Coin',
@@ -139,6 +140,12 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="news-boards/[boardId]"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="search/index"
           options={{
             href: null,
           }}

@@ -1,13 +1,19 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import type { NativeSyntheticEvent, TextInputPressEventData } from 'react-native';
 import { Search, X } from 'lucide-react-native';
-import { colors, borderRadius, shadows } from '../theme/theme';
+import { colors, shadows } from '../theme/theme';
 
 interface SearchBarProps {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
   onClear?: () => void;
+  onFocus?: () => void;
+  editable?: boolean;
+  onPressIn?: (event: NativeSyntheticEvent<TextInputPressEventData>) => void;
+  /** When provided with editable=false, the whole bar acts as a button (navigates to search). Prevents focus on the input so user doesn't think they can type. */
+  onPress?: () => void;
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({
@@ -15,18 +21,27 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onChangeText,
   placeholder = 'Search',
   onClear,
+  onFocus,
+  editable = true,
+  onPressIn,
+  onPress,
 }) => {
-  return (
+  const isFakeBar = !editable && onPress != null;
+  const content = (
     <View style={styles.container}>
       <Search size={20} color={colors.neutral[400]} style={styles.icon} />
       <TextInput
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
+        onFocus={onFocus}
+        editable={editable}
+        onPressIn={isFakeBar ? undefined : onPressIn}
         placeholder={placeholder}
         placeholderTextColor={colors.neutral[400]}
         accessibilityLabel="Search input"
         accessibilityRole="search"
+        pointerEvents={isFakeBar ? 'none' : 'auto'}
       />
       {value.length > 0 && (
         <TouchableOpacity
@@ -44,6 +59,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       )}
     </View>
   );
+
+  if (isFakeBar) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Open search">
+        {content}
+      </TouchableOpacity>
+    );
+  }
+  return content;
 };
 
 const styles = StyleSheet.create({

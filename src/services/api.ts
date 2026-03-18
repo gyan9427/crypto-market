@@ -85,6 +85,54 @@ interface FollowStats {
   followingCoinsCount?: number;
 }
 
+export type SearchSegment =
+  | 'all'
+  | 'coins'
+  | 'news'
+  | 'users'
+  | 'newsBoards'
+  | 'portfolioAssets';
+
+export interface SearchMeta {
+  tookMs: number;
+  query: string;
+  segments: SearchSegment[];
+  partialFailures?: string[];
+  nextCursor?: string;
+}
+
+export interface SearchBoardResult {
+  id: string;
+  name: string;
+  newsIds?: string[];
+  itemCount?: number;
+}
+
+export interface SearchPortfolioAssetResult {
+  id: string;
+  symbol: string;
+  name: string;
+  balance?: number;
+  valueUsd?: number;
+  chain?: string;
+}
+
+export interface UnifiedSearchResult {
+  coins: Coin[];
+  news: NewsItem[];
+  users: { id: string; username: string }[];
+  newsBoards: SearchBoardResult[];
+  portfolioAssets: SearchPortfolioAssetResult[];
+  meta: SearchMeta;
+}
+
+export interface UnifiedSearchOptions {
+  segments?: SearchSegment[];
+  limit?: number;
+  cursor?: string;
+  signal?: AbortSignal;
+}
+
 // Helper function to make API requests
 async function apiRequest<T>(
   endpoint: string,
@@ -598,17 +646,108 @@ export const getCoinFollowStats = async (coinId: string): Promise<FollowStats> =
  */
 export const search = async (query: string): Promise<{ coins: Coin[]; news: NewsItem[] }> => {
   try {
-    const response = await apiRequest<{ coins: BackendCoin[]; news: BackendNews[] }>(
-      `/search?q=${encodeURIComponent(query)}`
-    );
-
-    const coins = response.coins.map((coin) => transformBackendCoin(coin));
-    const news = response.news.map((newsItem) => transformBackendNews(newsItem));
-
-    return { coins, news };
+    const result = await unifiedSearch(query, { segments: ['coins', 'news'] });
+    return { coins: result.coins, news: result.news };
   } catch (error: any) {
     throw new Error(`Failed to search: ${error.message}`);
   }
+};
+
+const DEFAULT_SEARCH_META: SearchMeta = {
+  tookMs: 0,
+  query: '',
+  segments: ['all'],
+  partialFailures: [],
+};
+
+function normalizeSegments(segments?: SearchSegment[]): SearchSegment[] {
+  if (!segments || segments.length === 0) return ['all'];
+  const seen = new Set<SearchSegment>();
+  for (const segment of segments) {
+    if (!segment) continue;
+    if (segment === 'all') return ['all'];
+    seen.add(segment);
+  }
+  return seen.size > 0 ? Array.from(seen) : ['all'];
+}
+
+/**
+ * Unified segmented search API (coins/news/users/newsBoards/portfolioAssets).
+ * Keeps compatibility with legacy backend shape by normalizing older responses.
+ */
+export const unifiedSearch = async (
+  query: string,
+  options: UnifiedSearchOptions = {}
+): Promise<UnifiedSearchResult> => {
+  const trimmed = query.trim();
+  const segments = normalizeSegments(options.segments);
+  if (trimmed.length === 0) {
+    return {
+      coins: [],
+      news: [],
+      users: [],
+      newsBoards: [],
+      portfolioAssets: [],
+      meta: {
+        ...DEFAULT_SEARCH_META,
+        query: '',
+        segments,
+      },
+    };
+  }
+
+  const params = new URLSearchParams();
+  params.set('q', trimmed);
+  params.set('segments', segments.join(','));
+  params.set('limit', String(options.limit ?? 8));
+  if (options.cursor) {
+    params.set('cursor', options.cursor);
+  }
+
+  type BackendSearchPayload = {
+    results?: {
+      coins?: BackendCoin[];
+      news?: BackendNews[];
+      users?: Array<{ id?: string; _id?: string; username: string }>;
+      newsBoards?: SearchBoardResult[];
+      portfolioAssets?: SearchPortfolioAssetResult[];
+    };
+    meta?: Partial<SearchMeta>;
+    // Legacy compatibility fields:
+    coins?: BackendCoin[];
+    news?: BackendNews[];
+    users?: Array<{ id?: string; _id?: string; username: string }>;
+    newsBoards?: SearchBoardResult[];
+    portfolioAssets?: SearchPortfolioAssetResult[];
+  };
+
+  const payload = await apiRequest<BackendSearchPayload>(`/search?${params.toString()}`, {
+    signal: options.signal,
+  });
+  const buckets = payload.results ?? payload;
+  const usersRaw = buckets.users || [];
+
+  const users = usersRaw
+    .map((user) => {
+      const id = user.id || user._id;
+      if (!id) return null;
+      return { id, username: user.username };
+    })
+    .filter((user): user is { id: string; username: string } => Boolean(user));
+
+  return {
+    coins: (buckets.coins || []).map((coin) => transformBackendCoin(coin)),
+    news: (buckets.news || []).map((item) => transformBackendNews(item)),
+    users,
+    newsBoards: buckets.newsBoards || [],
+    portfolioAssets: buckets.portfolioAssets || [],
+    meta: {
+      ...DEFAULT_SEARCH_META,
+      ...payload.meta,
+      query: payload.meta?.query || trimmed,
+      segments: (payload.meta?.segments as SearchSegment[] | undefined) || segments,
+    },
+  };
 };
 
 /**
@@ -770,10 +909,8 @@ export const searchUsers = async (
   query: string,
   limit: number = 5
 ): Promise<{ id: string; username: string }[]> => {
-  const response = await apiRequest<{ users: { id: string; username: string }[] }>(
-    `/user/search?q=${encodeURIComponent(query)}&limit=${limit}`
-  );
-  return response.users;
+  const result = await unifiedSearch(query, { segments: ['users'], limit });
+  return result.users;
 };
 
 // ── Charts / klines ────────────────────────────────────────────────────────────

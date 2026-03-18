@@ -10,19 +10,17 @@ import { NewsCardSkeleton } from '../components/NewsCardSkeleton';
 import { SaveToBoardModal } from '../components/SaveToBoardModal';
 import { CommentTray } from '../components/CommentTray';
 import { useAppStore } from '../state/useAppStore';
-import { fetchNews, search, toggleReaction } from '../services/api';
+import { fetchNews, toggleReaction } from '../services/api';
 import { NewsItem, ReactionType } from '../types';
 import { NewsDetailModal } from './NewsDetailModal';
 import { colors, spacing, semantic } from '../theme/theme';
 
 export const HomeScreen: React.FC = () => {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newsData, setNewsData] = useState<NewsItem[]>([]);
-  const [searchResults, setSearchResults] = useState<NewsItem[] | null>(null);
   const [featuredNews, setFeaturedNews] = useState<NewsItem[]>([]);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [isDetailVisible, setIsDetailVisible] = useState(false);
@@ -45,19 +43,6 @@ export const HomeScreen: React.FC = () => {
   useEffect(() => {
     loadFeaturedNews();
   }, [feedFilter]);
-
-  // Handle search
-  useEffect(() => {
-    if (searchQuery.trim().length > 0) {
-      const timeoutId = setTimeout(() => {
-        handleSearch(searchQuery);
-      }, 500); // Debounce search
-
-      return () => clearTimeout(timeoutId);
-    } else {
-      setSearchResults(null);
-    }
-  }, [searchQuery]);
 
   const loadNews = async () => {
     try {
@@ -87,21 +72,6 @@ export const HomeScreen: React.FC = () => {
       setFeaturedNews(news.slice(0, 3));
     } catch (err: any) {
       console.error('Error loading featured news:', err);
-    }
-  };
-
-  const handleSearch = async (query: string) => {
-    try {
-      const results = await search(query);
-      const newsWithState = results.news.map((item) => ({
-        ...item,
-        userReaction: newsReactions[item.id] ?? item.userReaction ?? null,
-        isSaved: isSavedToAnyBoard(item.id),
-      }));
-      setSearchResults(newsWithState);
-    } catch (err: any) {
-      console.error('Search error:', err);
-      setSearchResults([]);
     }
   };
 
@@ -143,9 +113,6 @@ export const HomeScreen: React.FC = () => {
     };
 
     setNewsData((prev) => prev.map(optimisticUpdate));
-    if (searchResults) {
-      setSearchResults((prev) => prev ? prev.map(optimisticUpdate) : null);
-    }
 
     try {
       const result = await toggleReaction(newsId, type);
@@ -157,9 +124,6 @@ export const HomeScreen: React.FC = () => {
             : item
         );
       setNewsData((prev) => applyServer(prev));
-      if (searchResults) {
-        setSearchResults((prev) => prev ? applyServer(prev) : null);
-      }
     } catch (error) {
       setReaction(newsId, currentReaction);
       setNewsData((prev) =>
@@ -179,7 +143,6 @@ export const HomeScreen: React.FC = () => {
     const update = (item: NewsItem) =>
       item.id === newsId ? { ...item, isSaved: true, saveCount } : item;
     setNewsData((prev) => prev.map(update));
-    setSearchResults((prev) => prev?.map(update) || null);
     setSavingNewsId(null);
   };
 
@@ -191,7 +154,6 @@ export const HomeScreen: React.FC = () => {
     const update = (item: NewsItem) =>
       item.id === newsId ? { ...item, comments: count } : item;
     setNewsData((prev) => prev.map(update));
-    setSearchResults((prev) => prev?.map(update) || null);
   };
 
   const handleShare = (newsId: string) => {
@@ -202,7 +164,6 @@ export const HomeScreen: React.FC = () => {
   const openNewsDetailById = (newsId: string) => {
     const allNewsSources: NewsItem[] = [
       ...newsData,
-      ...(searchResults || []),
       ...featuredNews,
     ];
 
@@ -224,10 +185,6 @@ export const HomeScreen: React.FC = () => {
     setIsDetailVisible(true);
   };
 
-  const handleNewsPress = (newsId: string) => {
-    openNewsDetailById(newsId);
-  };
-
   const handleFeaturedNewsPress = (newsId: string) => {
     openNewsDetailById(newsId);
   };
@@ -241,7 +198,7 @@ export const HomeScreen: React.FC = () => {
     router.push(`/coins/${coinId}` as never);
   };
 
-  const displayData = searchResults !== null ? searchResults : newsData;
+  const displayData = newsData;
 
   if (error && newsData.length === 0) {
     return (
@@ -277,8 +234,12 @@ export const HomeScreen: React.FC = () => {
         ListHeaderComponent={
           <>
             <SearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
+              value=""
+              onChangeText={() => {}}
+              editable={false}
+              onPress={() => {
+                router.push('/search?segment=all' as never);
+              }}
               placeholder="Search news, coins..."
             />
             {loading && newsData.length === 0 ? (
@@ -318,7 +279,7 @@ export const HomeScreen: React.FC = () => {
           </>
         }
         ListEmptyComponent={
-          !loading && searchResults !== null && searchResults.length === 0 ? (
+          !loading && displayData.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No results found</Text>
             </View>
