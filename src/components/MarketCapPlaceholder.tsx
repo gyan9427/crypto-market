@@ -150,7 +150,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
             </>
           ) : (
             <View style={styles.chartSkeleton}>
-              <Text style={styles.noDataText}>No data available</Text>
+              <Text style={styles.noDataText}>No active market trend</Text>
             </View>
           )}
         </View>

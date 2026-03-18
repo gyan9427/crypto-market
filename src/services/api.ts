@@ -674,6 +674,128 @@ export const searchUsers = async (
   return response.users;
 };
 
+// ── Charts / klines ────────────────────────────────────────────────────────────
+
+export type KlineInterval = '1m' | '5m' | '1h' | '1d' | '1w';
+
+export interface KlineRecord {
+  openTime: string | Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface MarketTrendPoint {
+  openTime: string | Date;
+  value: number;
+}
+
+export interface MarketTrendResponse {
+  points: MarketTrendPoint[];
+  latestValue: number;
+  absoluteChange24h: number;
+  relativeChange24h: number;
+  range: {
+    interval: KlineInterval;
+    from: string | Date;
+    to: string | Date;
+    limit: number;
+  };
+  constituents: number;
+}
+
+/** Maps coin symbol (e.g. BTC) to Binance trading pair (e.g. BTCUSDT) */
+export function toChartSymbol(symbol: string): string {
+  const s = (symbol || '').trim().toUpperCase();
+  if (!s) return '';
+  return s.endsWith('USDT') ? s : `${s}USDT`;
+}
+
+/**
+ * Fetches OHLCV klines from the backend chart API.
+ * Returns raw klines; use toLineChartData or toCandlestickData for chart libraries.
+ */
+export const fetchKlines = async (
+  symbol: string,
+  interval: KlineInterval = '1h',
+  limit: number = 500
+): Promise<KlineRecord[]> => {
+  const chartSymbol = toChartSymbol(symbol);
+  if (!chartSymbol) return [];
+  const url = `${API_BASE_URL}/charts/klines?symbol=${encodeURIComponent(chartSymbol)}&interval=${interval}&limit=${limit}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch klines: ${response.status}`);
+  }
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
+};
+
+/**
+ * Fetch aggregate market trend series and 24h change summary.
+ */
+export const fetchMarketTrend = async (
+  interval: KlineInterval = '1m',
+  limit: number = 240
+): Promise<MarketTrendResponse> => {
+  const url = `${API_BASE_URL}/charts/market-trend?interval=${interval}&limit=${limit}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch market trend: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const pointsRaw = Array.isArray(data?.points) ? data.points : [];
+  const points = pointsRaw
+    .map((point: any) => ({
+      openTime: point?.openTime,
+      value: Number(point?.value),
+    }))
+    .filter((point: MarketTrendPoint) => Number.isFinite(point.value) && point.value > 0 && Boolean(point.openTime));
+
+  return {
+    points,
+    latestValue: Number.isFinite(Number(data?.latestValue)) ? Number(data.latestValue) : 0,
+    absoluteChange24h: Number.isFinite(Number(data?.absoluteChange24h)) ? Number(data.absoluteChange24h) : 0,
+    relativeChange24h: Number.isFinite(Number(data?.relativeChange24h)) ? Number(data.relativeChange24h) : 0,
+    range: {
+      interval,
+      from: data?.range?.from ?? '',
+      to: data?.range?.to ?? '',
+      limit: Number.isFinite(Number(data?.range?.limit)) ? Number(data.range.limit) : limit,
+    },
+    constituents: Number.isFinite(Number(data?.constituents)) ? Number(data.constituents) : 0,
+  };
+};
+
+/** Converts klines to WAGMI LineChart format: { timestamp, value }[] */
+export function toLineChartData(klines: KlineRecord[]): Array<{ timestamp: number; value: number }> {
+  return klines.map((k) => ({
+    timestamp: typeof k.openTime === 'string' ? new Date(k.openTime).getTime() : (k.openTime as Date).getTime(),
+    value: k.close,
+  }));
+}
+
+/** Converts klines to WAGMI CandlestickChart format */
+export function toCandlestickData(
+  klines: KlineRecord[]
+): Array<{ timestamp: number; open: number; high: number; low: number; close: number }> {
+  return klines.map((k) => ({
+    timestamp: typeof k.openTime === 'string' ? new Date(k.openTime).getTime() : (k.openTime as Date).getTime(),
+    open: k.open,
+    high: k.high,
+    low: k.low,
+    close: k.close,
+  }));
+}
+
+/** Extracts close prices for Skia sparkline: number[] */
+export function toSparklineData(klines: KlineRecord[]): number[] {
+  return klines.map((k) => k.close);
+}
+
 // ── Portfolio / wallet monitoring ────────────────────────────────────────────
 
 import { SupportedChain, WalletAddress, WalletEvent, Holdings } from '../types';
