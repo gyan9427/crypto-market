@@ -1,14 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Svg, { Line, Path, Circle } from 'react-native-svg';
 import { Maximize2, MoreHorizontal, TrendingUp } from 'lucide-react-native';
 import { colors, borderRadius, shadows, spacing } from '../theme/theme';
-import { fetchKlines, KlineRecord } from '../services/api';
+import { useLiveMarketOverview } from '../hooks/useLiveMarketOverview';
 
 const CHART_WIDTH = 400;
 const CHART_HEIGHT = 120;
-const DEFAULT_PATH =
-  'M0,80 L20,65 L40,90 L60,95 L80,120 L100,60 L120,75 L140,65 L160,90 L180,50 L200,70 L220,40 L240,95 L260,125 L280,100 L300,105 L320,115 L340,90 L360,105 L380,85 L400,95';
 
 function formatTimeLabel(openTime: string | Date): string {
   const date = typeof openTime === 'string' ? new Date(openTime) : openTime;
@@ -22,37 +20,39 @@ function formatTimeLabel(openTime: string | Date): string {
 }
 
 export const MarketCapPlaceholder: React.FC = () => {
-  const [klines, setKlines] = useState<KlineRecord[]>([]);
+  const { data, hasFetched } = useLiveMarketOverview();
+  const klines = data.klines;
+  const isLoading = !hasFetched;
+  const isPositive = data.absoluteChange24h >= 0;
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const rows = await fetchKlines('BTC', '1m', 240);
-        if (!cancelled && rows.length > 0) {
-          setKlines(rows);
-        }
-      } catch {
-        // Keep existing points on intermittent failures.
-      }
-    };
+  const displayCap = useMemo(() => {
+    if (data.totalMarketCap <= 0) return '$0';
+    const value = data.totalMarketCap;
+    if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+    if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+    if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
+    return `$${value.toFixed(0)}`;
+  }, [data.totalMarketCap]);
 
-    load();
-    const timer = setInterval(load, 15000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, []);
+  const displayAbsChange = useMemo(() => {
+    if (data.totalMarketCap <= 0) return '+0';
+    const abs = Math.abs(data.absoluteChange24h);
+    const sign = data.absoluteChange24h >= 0 ? '+' : '-';
+    if (abs >= 1e12) return `${sign}${(abs / 1e12).toFixed(2)}T`;
+    if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)}B`;
+    if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(2)}M`;
+    return `${sign}${abs.toFixed(2)}`;
+  }, [data.absoluteChange24h, data.totalMarketCap]);
+
+  const displayPctChange = useMemo(() => {
+    if (data.totalMarketCap <= 0) return '▲ 0.00%';
+    const sign = data.relativeChange24h >= 0 ? '▲' : '▼';
+    return `${sign} ${Math.abs(data.relativeChange24h).toFixed(2)}%`;
+  }, [data.relativeChange24h, data.totalMarketCap]);
 
   const chartView = useMemo(() => {
     if (klines.length < 2) {
-      return {
-        linePath: DEFAULT_PATH,
-        markerX: 220,
-        markerY: 40,
-        labels: ['6.11', '3:00AM', '6:00AM', '9:00AM'],
-      };
+      return null;
     }
 
     const closes = klines.map((k) => k.close);
@@ -91,40 +91,62 @@ export const MarketCapPlaceholder: React.FC = () => {
       <View style={styles.card}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.title}>$3,428B</Text>
-            <View style={styles.statsRow}>
-              <Text style={styles.statsText}>+1.23B</Text>
-              <Text style={styles.statsText}>▲ 24.64%</Text>
-            </View>
+            {isLoading ? (
+              <View style={styles.headerSkeleton}>
+                <View style={[styles.skeletonBlock, styles.titleSkeleton]} />
+                <View style={styles.statsRow}>
+                  <View style={[styles.skeletonBlock, styles.statSkeleton]} />
+                  <View style={[styles.skeletonBlock, styles.statSkeleton]} />
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.title}>{displayCap}</Text>
+                <View style={styles.statsRow}>
+                  <Text style={[styles.statsText, !isPositive && styles.negativeStatsText]}>{displayAbsChange}</Text>
+                  <Text style={[styles.statsText, !isPositive && styles.negativeStatsText]}>{displayPctChange}</Text>
+                </View>
+              </>
+            )}
           </View>
           <Text style={styles.periodLabel}>TODAY</Text>
         </View>
         
         {/* Exact Stitch Graph Region */}
         <View style={styles.chartWrapper}>
-          <Svg style={styles.svgChart} preserveAspectRatio="none" viewBox="0 0 400 120">
-            {/* Dotted Reference Line */}
-            <Line stroke="#374151" strokeDasharray="4" strokeWidth="1" x1="0" x2="400" y1="60" y2="60" />
-            {/* Main Path (Blue Line Style) */}
-            <Path 
-              d={chartView.linePath}
-              fill="none" 
-              stroke="#3b82f6" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth="2.5" 
-            />
-            {/* Marker */}
-            <Circle cx={chartView.markerX} cy={chartView.markerY} fill="#3b82f6" r="4" stroke="white" strokeWidth="2" />
-          </Svg>
-          
-          {/* X-Axis Labels */}
-          <View style={styles.xAxisLabels}>
-            <Text style={styles.xLabel}>{chartView.labels[0]}</Text>
-            <Text style={styles.xLabel}>{chartView.labels[1]}</Text>
-            <Text style={styles.xLabel}>{chartView.labels[2]}</Text>
-            <Text style={styles.xLabel}>{chartView.labels[3]}</Text>
-          </View>
+          {isLoading ? (
+            <View style={styles.chartSkeleton} />
+          ) : chartView ? (
+            <>
+              <Svg style={styles.svgChart} preserveAspectRatio="none" viewBox="0 0 400 120">
+                {/* Dotted Reference Line */}
+                <Line stroke="#374151" strokeDasharray="4" strokeWidth="1" x1="0" x2="400" y1="60" y2="60" />
+                {/* Main Path (Blue Line Style) */}
+                <Path 
+                  d={chartView.linePath}
+                  fill="none" 
+                  stroke="#3b82f6" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth="2.5" 
+                />
+                {/* Marker */}
+                <Circle cx={chartView.markerX} cy={chartView.markerY} fill="#3b82f6" r="4" stroke="white" strokeWidth="2" />
+              </Svg>
+              
+              {/* X-Axis Labels */}
+              <View style={styles.xAxisLabels}>
+                <Text style={styles.xLabel}>{chartView.labels[0]}</Text>
+                <Text style={styles.xLabel}>{chartView.labels[1]}</Text>
+                <Text style={styles.xLabel}>{chartView.labels[2]}</Text>
+                <Text style={styles.xLabel}>{chartView.labels[3]}</Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.chartSkeleton}>
+              <Text style={styles.noDataText}>No data available</Text>
+            </View>
+          )}
         </View>
 
         {/* Utility Icons */}
@@ -171,6 +193,21 @@ const styles = StyleSheet.create({
     color: colors.neutral[50],
     letterSpacing: -0.5,
   },
+  headerSkeleton: {
+    alignItems: 'flex-start',
+  },
+  skeletonBlock: {
+    backgroundColor: colors.neutral[800],
+    borderRadius: 8,
+  },
+  titleSkeleton: {
+    width: 140,
+    height: 34,
+  },
+  statSkeleton: {
+    width: 64,
+    height: 14,
+  },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -181,6 +218,9 @@ const styles = StyleSheet.create({
     color: colors.success[500],
     fontSize: 14,
     fontWeight: '500',
+  },
+  negativeStatsText: {
+    color: colors.danger[500],
   },
   periodLabel: {
     fontSize: 12,
@@ -199,6 +239,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  chartSkeleton: {
+    width: '100%',
+    height: CHART_HEIGHT,
+    borderRadius: 12,
+    backgroundColor: colors.neutral[800],
+  },
   xAxisLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -207,6 +253,12 @@ const styles = StyleSheet.create({
   xLabel: {
     fontSize: 10,
     color: colors.neutral[500],
+  },
+  noDataText: {
+    color: colors.neutral[500],
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 50,
   },
   utilitiesRow: {
     flexDirection: 'row',

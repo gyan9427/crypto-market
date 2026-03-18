@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FilterPills } from '../components/FilterPills';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
-import { MarketCapSkeleton } from '../components/MarketCapSkeleton';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
 import { CoinTableView } from '../components/CoinTableView';
@@ -13,6 +12,8 @@ import { useAppStore } from '../state/useAppStore';
 import { fetchTrendingCoins, search } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
 import { colors, spacing } from '../theme/theme';
+import { usePollingEffect } from '../hooks/usePollingEffect';
+import { useMarketPriceStream } from '../hooks/useMarketPriceStream';
 
 export const ExploreScreen: React.FC = () => {
   const router = useRouter();
@@ -28,11 +29,6 @@ export const ExploreScreen: React.FC = () => {
 
   const categories: ExploreCategory[] = ['trending', 'top', 'nft', 'defi'];
 
-  // Load data when category changes
-  useEffect(() => {
-    loadData();
-  }, [exploreCategory]);
-
   // Handle search
   useEffect(() => {
     if (searchQuery.trim().length > 0) {
@@ -46,7 +42,7 @@ export const ExploreScreen: React.FC = () => {
     }
   }, [searchQuery]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -67,7 +63,14 @@ export const ExploreScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [exploreCategory]);
+
+  // Keep market list actively synced from backend while not searching.
+  usePollingEffect(
+    loadData,
+    [loadData, searchQuery],
+    { enabled: searchQuery.trim().length === 0, intervalMs: 20000, immediate: true }
+  );
 
   const handleSearch = async (query: string) => {
     try {
@@ -100,31 +103,62 @@ export const ExploreScreen: React.FC = () => {
     );
   }
 
+  // Filter coins based on category (for nft/defi, we use all coins since backend doesn't have specific endpoints)
+  const filteredCoins = exploreCategory === 'trending' || exploreCategory === 'top'
+    ? coins
+    : coins; // For nft/defi, show all coins (could be enhanced later)
+  const isSearching = searchResults !== null;
+  const visibleCoins = isSearching ? searchResults.coins : filteredCoins;
+  const visibleSymbols = visibleCoins.map((c) => c.symbol);
+  const { quotes } = useMarketPriceStream(visibleSymbols);
+  const liveVisibleCoins = visibleCoins.map((coin) => {
+    const q = quotes[coin.symbol.toUpperCase()];
+    if (!q) return coin;
+    return {
+      ...coin,
+      price: Number.isFinite(q.price) ? q.price : coin.price,
+      change24h: Number.isFinite(q.percentChange24h) ? q.percentChange24h : coin.change24h,
+    };
+  });
+
+  const renderHeader = () => (
+    <View style={styles.headerSection}>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search coins, tokens..."
+      />
+      <MarketCapPlaceholder />
+      {!isSearching && (
+        <FilterPills
+          categories={categories}
+          selectedCategory={exploreCategory}
+          onSelect={setExploreCategory}
+        />
+      )}
+      <View style={styles.toggleRow}>
+        <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
+      </View>
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{error}</Text>
+        </View>
+      )}
+    </View>
+  );
+
   // If searching, show search results
-  if (searchResults !== null) {
+  if (isSearching) {
     return (
       <View style={styles.container}>
-        <View style={styles.headerSection}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search coins, tokens..."
-          />
-          <MarketCapPlaceholder />
-          <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
-          {error && (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>{error}</Text>
-            </View>
-          )}
-        </View>
+        {renderHeader()}
         {viewMode === 'table' ? (
           <ScrollView style={styles.tableContainer}>
-            <CoinTableView coins={searchResults.coins} onCoinPress={handleCoinPress} />
+            <CoinTableView coins={liveVisibleCoins} onCoinPress={handleCoinPress} />
           </ScrollView>
         ) : (
           <FlatList
-            data={searchResults.coins}
+            data={liveVisibleCoins}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <TrendingCoinCard coin={item} onPress={handleCoinPress} />
@@ -142,11 +176,6 @@ export const ExploreScreen: React.FC = () => {
     );
   }
 
-  // Filter coins based on category (for nft/defi, we use all coins since backend doesn't have specific endpoints)
-  const filteredCoins = exploreCategory === 'trending' || exploreCategory === 'top'
-    ? coins
-    : coins; // For nft/defi, show all coins (could be enhanced later)
-
   const renderContent = () => {
     if (viewMode === 'table') {
       return (
@@ -158,7 +187,7 @@ export const ExploreScreen: React.FC = () => {
               ))}
             </View>
           ) : (
-            <CoinTableView coins={filteredCoins} onCoinPress={handleCoinPress} />
+            <CoinTableView coins={liveVisibleCoins} onCoinPress={handleCoinPress} />
           )}
         </ScrollView>
       );
@@ -166,7 +195,7 @@ export const ExploreScreen: React.FC = () => {
 
     return (
       <FlatList
-        data={loading && coins.length === 0 ? Array(5).fill(null) : filteredCoins}
+        data={loading && coins.length === 0 ? Array(5).fill(null) : liveVisibleCoins}
         keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
         renderItem={({ item, index }) => {
           if (loading && coins.length === 0) {
@@ -182,29 +211,7 @@ export const ExploreScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerSection}>
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search coins, tokens..."
-        />
-        {loading && coins.length === 0 ? (
-          <MarketCapSkeleton />
-        ) : (
-          <MarketCapPlaceholder />
-        )}
-        <FilterPills
-          categories={categories}
-          selectedCategory={exploreCategory}
-          onSelect={setExploreCategory}
-        />
-        <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText}>{error}</Text>
-          </View>
-        )}
-      </View>
+      {renderHeader()}
       {renderContent()}
     </View>
   );
@@ -218,7 +225,7 @@ const styles = StyleSheet.create({
   headerSection: {
     zIndex: 10,
     backgroundColor: colors.neutral[50],
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   centerContent: {
     justifyContent: 'center',
@@ -238,8 +245,8 @@ const styles = StyleSheet.create({
   errorBanner: {
     backgroundColor: colors.error[50],
     padding: spacing.md,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
+    marginHorizontal: 24,
+    marginTop: spacing.xs,
     borderRadius: 16,
   },
   errorBannerText: {
@@ -255,16 +262,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   listContent: {
-    paddingTop: spacing.sm,
-    paddingBottom: 120,
+    paddingTop: spacing.xs,
+    paddingBottom: 96,
   },
   tableContainer: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingHorizontal: 24,
+    paddingTop: spacing.xs,
   },
   skeletonContainer: {
-    paddingTop: spacing.sm,
-    paddingBottom: 120,
+    paddingTop: spacing.xs,
+    paddingBottom: 96,
+  },
+  toggleRow: {
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
   },
 });

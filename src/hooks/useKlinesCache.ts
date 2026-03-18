@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchKlines, toSparklineData, KlineInterval } from '../services/api';
+import { usePollingEffect } from './usePollingEffect';
 
 const cache = new Map<string, { data: number[]; ts: number }>();
 const CACHE_TTL_MS = 60 * 1000;
@@ -81,32 +82,21 @@ export function useKlinesCacheState(
     return () => { cancelled = true; };
   }, [symbol, interval, limit, cacheKey]);
 
-  useEffect(() => {
-    if (!symbol || !cacheKey) return;
-    const refreshMs = interval === '1m' ? 15000 : interval === '5m' ? 30000 : 60000;
-    let cancelled = false;
-
-    const refresh = async () => {
-      try {
-        const klines = await fetchKlines(symbol, interval, limit);
-        if (cancelled) return;
-        const closes = toSparklineData(klines);
-        if (closes.length > 0) {
-          setCached(cacheKey, closes);
-          setData(closes);
-          setHasFetched(true);
-        }
-      } catch {
-        // Keep last good dataset; polling failures should not blank chart.
+  const refreshMs = interval === '1m' ? 15000 : interval === '5m' ? 30000 : 60000;
+  usePollingEffect(
+    async () => {
+      if (!symbol || !cacheKey) return;
+      const klines = await fetchKlines(symbol, interval, limit);
+      const closes = toSparklineData(klines);
+      if (closes.length > 0) {
+        setCached(cacheKey, closes);
+        setData(closes);
+        setHasFetched(true);
       }
-    };
-
-    const timer = setInterval(refresh, refreshMs);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [symbol, interval, limit, cacheKey]);
+    },
+    [symbol, interval, limit, cacheKey],
+    { enabled: Boolean(symbol && cacheKey), intervalMs: refreshMs, immediate: false }
+  );
 
   return { data, isLoading, hasFetched };
 }
