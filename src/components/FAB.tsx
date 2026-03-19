@@ -26,15 +26,15 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
     setVisible(true);
     onPress?.();
     Animated.parallel([
-      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, bounciness: 4 }),
-      Animated.timing(backdropAnim, { toValue: 1, duration: 200, useNativeDriver: false }),
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, bounciness: 4 }),
+      Animated.timing(backdropAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
   };
 
   const closeSheet = (callback?: () => void) => {
     Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 400, duration: 220, useNativeDriver: false }),
-      Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: false }),
+      Animated.timing(slideAnim, { toValue: 400, duration: 220, useNativeDriver: true }),
+      Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
     ]).start(() => {
       setVisible(false);
       callback?.();

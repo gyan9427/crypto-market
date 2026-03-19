@@ -11,7 +11,13 @@ interface TrendingCoinCardProps {
   onPress?: (coinId: string) => void;
 }
 
-export const TrendingCoinCard: React.FC<TrendingCoinCardProps> = ({ coin, onPress }) => {
+function areTrendingCoinCardPropsEqual(prev: TrendingCoinCardProps, next: TrendingCoinCardProps): boolean {
+  const a = prev.coin;
+  const b = next.coin;
+  return a.id === b.id && a.symbol === b.symbol && a.price === b.price && a.change24h === b.change24h && a.rank === b.rank;
+}
+
+export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPress }) => {
   const isPositive = coin.change24h >= 0;
   const sparklineData = useKlinesCache(coin.symbol, '1d', 48);
   const sparklineColor = isPositive ? colors.success[500] : colors.danger[500];
@@ -53,7 +59,7 @@ export const TrendingCoinCard: React.FC<TrendingCoinCardProps> = ({ coin, onPres
       </View>
     </TouchableOpacity>
   );
-};
+}, areTrendingCoinCardPropsEqual);
 
 const styles = StyleSheet.create({
   container: {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, FlatList, StyleSheet, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -69,7 +69,11 @@ export const ExploreScreen: React.FC = () => {
     ? coins
     : coins; // For nft/defi, show all coins (could be enhanced later)
   const visibleCoins = filteredCoins;
-  const visibleSymbols = visibleCoins.map((c) => c.symbol);
+  // Memoize symbols to avoid WebSocket re-subscribe on every render (e.g. when quotes update)
+  const visibleSymbols = useMemo(
+    () => visibleCoins.map((c) => c.symbol),
+    [visibleCoins]
+  );
   const { quotes } = useMarketPriceStream(visibleSymbols, { enabled: isFocused });
   const liveVisibleCoins = visibleCoins.map((coin) => {
     const q = quotes[coin.symbol.toUpperCase()];
@@ -147,6 +151,8 @@ export const ExploreScreen: React.FC = () => {
           return <TrendingCoinCard coin={item} onPress={handleCoinPress} />;
         }}
         contentContainerStyle={styles.listContent}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
         showsVerticalScrollIndicator={false}
       />
     );
