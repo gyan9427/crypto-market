@@ -9,6 +9,7 @@ import { CoinChip } from './CoinChip';
 import { ReactionPicker } from './ReactionPicker';
 import { formatTimeAgo, abbreviateNumber } from '../utils/format';
 import { colors, borderRadius, shadows, spacing, semantic, typography } from '../theme/theme';
+import { useHasFeature } from '../utils/features';
 
 const COLLAPSED_LINES = 3;
 
@@ -34,6 +35,8 @@ export const NewsCard = React.memo<FeedCardProps>(({
   onSave,
   onCoinPress,
 }) => {
+  const hasFollow = useHasFeature('follow');
+  const hasComments = useHasFeature('comments');
   const [isExpanded, setIsExpanded] = useState(false);
   const isSaved = item.isSaved || false;
   const isGrid = variant === 'grid';
@@ -69,7 +72,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
             <Text style={styles.timeAgo}>{formatTimeAgo(item.publishedAt)}</Text>
           </View>
         </View>
-        {item.coins[0]?.isFollowing && (
+        {hasFollow && item.coins[0]?.isFollowing && (
           <View style={styles.followingBadge}>
             <Text style={styles.followingText}>Following</Text>
           </View>
@@ -171,16 +174,18 @@ export const NewsCard = React.memo<FeedCardProps>(({
           onReact={(type) => onReact?.(item.id, type)}
         />
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => onComment?.(item.id)}
-          accessibilityRole="button"
-          accessibilityLabel="Comment"
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <MessageCircle size={20} color={colors.neutral[500]} />
-          <Text style={styles.actionText}>{abbreviateNumber(item.comments)}</Text>
-        </TouchableOpacity>
+        {hasComments && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => onComment?.(item.id)}
+            accessibilityRole="button"
+            accessibilityLabel="Comment"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MessageCircle size={20} color={colors.neutral[500]} />
+            <Text style={styles.actionText}>{abbreviateNumber(item.comments)}</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.actionButton}
