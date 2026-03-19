@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { openInAppBrowser } from '../utils/browser';
 import { MessageCircle, Share2, Bookmark } from 'lucide-react-native';
 import { FeedCardProps } from '../types';
@@ -16,7 +11,20 @@ import { colors, borderRadius, shadows, spacing, semantic, typography } from '..
 
 const COLLAPSED_LINES = 3;
 
-export const NewsCard: React.FC<FeedCardProps> = ({
+function areNewsCardPropsEqual(prev: FeedCardProps, next: FeedCardProps): boolean {
+  if (prev.variant !== next.variant) return false;
+  const a = prev.item;
+  const b = next.item;
+  if (a.id !== b.id) return false;
+  if (a.userReaction !== b.userReaction) return false;
+  if (a.isSaved !== b.isSaved) return false;
+  if (a.comments !== b.comments) return false;
+  if ((a.saveCount ?? 0) !== (b.saveCount ?? 0)) return false;
+  if ((a.reactions?.total ?? 0) !== (b.reactions?.total ?? 0)) return false;
+  return true;
+}
+
+export const NewsCard = React.memo<FeedCardProps>(({
   item,
   variant = 'compact',
   onReact,
@@ -82,8 +90,9 @@ export const NewsCard: React.FC<FeedCardProps> = ({
         <Image
           source={{ uri: item.imageUrl }}
           style={styles.heroImage}
+          contentFit="cover"
           accessibilityLabel="Article image"
-          resizeMode="cover"
+          transition={200}
         />
       )}
 
@@ -201,7 +210,7 @@ export const NewsCard: React.FC<FeedCardProps> = ({
       </View>
     </View>
   );
-};
+}, areNewsCardPropsEqual);
 
 const styles = StyleSheet.create({
   container: {

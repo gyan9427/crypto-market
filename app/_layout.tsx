@@ -1,7 +1,7 @@
 import '@/src/polyfills/devtools';
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { Platform, View } from 'react-native';
+import { InteractionManager, Platform, View } from 'react-native';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
@@ -22,16 +22,14 @@ export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Initialize auth on app start
-    console.log('Initializing auth');
     initializeAuth().then(() => {
-      // Sync following coins after auth is initialized
-      console.log('Syncing following coins');
-      syncFollowingCoins();
-      console.log('Syncing following coins done');
       setIsReady(true);
+      // Sync following coins after first paint to avoid blocking initial render
+      InteractionManager.runAfterInteractions(() => {
+        syncFollowingCoins();
+      });
     });
-  }, []);
+  }, [initializeAuth, syncFollowingCoins]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -40,16 +38,15 @@ export default function RootLayout() {
     const isAuthRoute = firstSegment === 'login' || firstSegment === 'register';
 
     if (!isAuthenticated && !isAuthRoute) {
-      // User is not authenticated but is trying to access a protected route
       router.replace('/login');
     } else if (isAuthenticated && isAuthRoute) {
-      // User is authenticated but is on an auth route
       router.replace('/(tabs)');
     }
   }, [isReady, isAuthenticated, segments, router]);
 
+  // Render minimal shell immediately; full Stack mounts when auth is ready
   if (!isReady) {
-    return null;
+    return <RootView style={{ flex: 1, backgroundColor: '#fff' }} />;
   }
 
   return (

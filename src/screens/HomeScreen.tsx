@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, Text, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SegmentToggle } from '../components/SegmentToggle';
@@ -81,19 +81,19 @@ export const HomeScreen: React.FC = () => {
     setRefreshing(false);
   };
 
-  const handleSegmentChange = (index: number) => {
+  const handleSegmentChange = useCallback((index: number) => {
     setFeedFilter(index === 0 ? 'following' : 'explore');
-  };
+  }, [setFeedFilter]);
 
-  const toggleCategory = (category: string) => {
+  const toggleCategory = useCallback((category: string) => {
     setSelectedCategories((prev) =>
       prev.includes(category)
         ? prev.filter((c) => c !== category)
         : [...prev, category]
     );
-  };
+  }, []);
 
-  const handleReact = async (newsId: string, type: ReactionType) => {
+  const handleReact = useCallback(async (newsId: string, type: ReactionType) => {
     const currentReaction = newsReactions[newsId] ?? null;
     const newReaction = currentReaction === type ? null : type;
     setReaction(newsId, newReaction);
@@ -133,35 +133,35 @@ export const HomeScreen: React.FC = () => {
       );
       console.error('Failed to toggle reaction:', error);
     }
-  };
+  }, [newsReactions, setReaction]);
 
-  const handleSave = (newsId: string) => {
+  const handleSave = useCallback((newsId: string) => {
     setSavingNewsId(newsId);
-  };
+  }, []);
 
-  const handleSaved = (newsId: string, saveCount: number) => {
+  const handleSaved = useCallback((newsId: string, saveCount: number) => {
     const update = (item: NewsItem) =>
       item.id === newsId ? { ...item, isSaved: true, saveCount } : item;
     setNewsData((prev) => prev.map(update));
     setSavingNewsId(null);
-  };
+  }, []);
 
-  const handleComment = (newsId: string) => {
+  const handleComment = useCallback((newsId: string) => {
     setCommentingNewsId(newsId);
-  };
+  }, []);
 
-  const handleCommentCountChange = (newsId: string, count: number) => {
+  const handleCommentCountChange = useCallback((newsId: string, count: number) => {
     const update = (item: NewsItem) =>
       item.id === newsId ? { ...item, comments: count } : item;
     setNewsData((prev) => prev.map(update));
-  };
+  }, []);
 
-  const handleShare = (newsId: string) => {
+  const handleShare = useCallback((newsId: string) => {
     // TODO: Implement share functionality
     console.log('Share:', newsId);
-  };
+  }, []);
 
-  const openNewsDetailById = (newsId: string) => {
+  const openNewsDetailById = useCallback((newsId: string) => {
     const allNewsSources: NewsItem[] = [
       ...newsData,
       ...featuredNews,
@@ -183,22 +183,105 @@ export const HomeScreen: React.FC = () => {
       content: newsItem.content || `${newsItem.snippet}\n\n${dummyBody}`,
     });
     setIsDetailVisible(true);
-  };
+  }, [newsData, featuredNews]);
 
-  const handleFeaturedNewsPress = (newsId: string) => {
+  const handleFeaturedNewsPress = useCallback((newsId: string) => {
     openNewsDetailById(newsId);
-  };
+  }, [openNewsDetailById]);
 
-  const handleCloseDetail = () => {
+  const handleCloseDetail = useCallback(() => {
     setIsDetailVisible(false);
     setSelectedNews(null);
-  };
+  }, []);
 
-  const handleCoinPress = (coinId: string) => {
+  const handleCoinPress = useCallback((coinId: string) => {
     router.push(`/coins/${coinId}` as never);
-  };
+  }, [router]);
 
   const displayData = newsData;
+
+  const handleSearchPress = useCallback(() => {
+    router.push('/search?segment=all' as never);
+  }, [router]);
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <>
+        <SearchBar
+          value=""
+          onChangeText={() => {}}
+          editable={false}
+          onPress={handleSearchPress}
+          placeholder="Search news, coins..."
+        />
+        {loading && newsData.length === 0 ? (
+          <FeaturedCarouselSkeleton />
+        ) : (
+          featuredNews.length > 0 && (
+            <FeaturedCarousel items={featuredNews} onItemPress={handleFeaturedNewsPress} />
+          )
+        )}
+        <SegmentToggle
+          options={['Following', 'Explore']}
+          selectedIndex={feedFilter === 'following' ? 0 : 1}
+          onSelect={handleSegmentChange}
+        />
+        <View style={styles.categoryFilterRow}>
+          {['BTC', 'ETH', 'FIAT', 'MARKET', 'CRYPTOCURRENCY'].map((cat) => {
+            const isActive = selectedCategories.includes(cat);
+            return (
+              <Text
+                key={cat}
+                onPress={() => toggleCategory(cat)}
+                style={[
+                  styles.categoryPill,
+                  isActive && styles.categoryPillActive,
+                ]}
+              >
+                {cat}
+              </Text>
+            );
+          })}
+        </View>
+        {error && newsData.length > 0 && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{error}</Text>
+          </View>
+        )}
+      </>
+    ),
+    [
+      loading,
+      newsData.length,
+      featuredNews,
+      selectedCategories,
+      error,
+      feedFilter,
+      handleSearchPress,
+      handleFeaturedNewsPress,
+      handleSegmentChange,
+      toggleCategory,
+    ]
+  );
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: NewsItem | null; index: number }) => {
+      if (loading && newsData.length === 0) {
+        return <NewsCardSkeleton key={`skeleton-${index}`} />;
+      }
+      return (
+        <NewsCard
+          item={item!}
+          onReact={handleReact}
+          onComment={handleComment}
+          onShare={handleShare}
+          onSave={handleSave}
+          onCoinPress={handleCoinPress}
+        />
+      );
+    },
+    [loading, newsData.length, handleReact, handleComment, handleShare, handleSave, handleCoinPress]
+  );
 
   if (error && newsData.length === 0) {
     return (
@@ -216,68 +299,8 @@ export const HomeScreen: React.FC = () => {
       <FlatList
         data={loading && newsData.length === 0 ? Array(5).fill(null) : displayData}
         keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
-        renderItem={({ item, index }) => {
-          if (loading && newsData.length === 0) {
-            return <NewsCardSkeleton key={`skeleton-${index}`} />;
-          }
-          return (
-            <NewsCard
-              item={item}
-              onReact={handleReact}
-              onComment={handleComment}
-              onShare={handleShare}
-              onSave={handleSave}
-              onCoinPress={handleCoinPress}
-            />
-          );
-        }}
-        ListHeaderComponent={
-          <>
-            <SearchBar
-              value=""
-              onChangeText={() => {}}
-              editable={false}
-              onPress={() => {
-                router.push('/search?segment=all' as never);
-              }}
-              placeholder="Search news, coins..."
-            />
-            {loading && newsData.length === 0 ? (
-              <FeaturedCarouselSkeleton />
-            ) : (
-              featuredNews.length > 0 && (
-                <FeaturedCarousel items={featuredNews} onItemPress={handleFeaturedNewsPress} />
-              )
-            )}
-            <SegmentToggle
-              options={['Following', 'Explore']}
-              selectedIndex={feedFilter === 'following' ? 0 : 1}
-              onSelect={handleSegmentChange}
-            />
-            <View style={styles.categoryFilterRow}>
-              {['BTC', 'ETH', 'FIAT', 'MARKET', 'CRYPTOCURRENCY'].map((cat) => {
-                const isActive = selectedCategories.includes(cat);
-                return (
-                  <Text
-                    key={cat}
-                    onPress={() => toggleCategory(cat)}
-                    style={[
-                      styles.categoryPill,
-                      isActive && styles.categoryPillActive,
-                    ]}
-                  >
-                    {cat}
-                  </Text>
-                );
-              })}
-            </View>
-            {error && newsData.length > 0 && (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorBannerText}>{error}</Text>
-              </View>
-            )}
-          </>
-        }
+        renderItem={renderItem}
+        ListHeaderComponent={listHeaderComponent}
         ListEmptyComponent={
           !loading && displayData.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -286,7 +309,10 @@ export const HomeScreen: React.FC = () => {
           ) : null
         }
         contentContainerStyle={styles.listContent}
-        initialNumToRender={50}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
+        removeClippedSubviews={true}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />

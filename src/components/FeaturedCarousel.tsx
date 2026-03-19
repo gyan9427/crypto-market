@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { NewsItem } from '../types';
 import { formatTimeAgo } from '../utils/format';
-import { colors, borderRadius, shadows, spacing, semantic, typography } from '../theme/theme';
+import { colors, shadows, spacing, semantic, typography } from '../theme/theme';
 
 interface FeaturedCarouselProps {
   items: NewsItem[];
@@ -13,42 +14,47 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   items,
   onItemPress,
 }) => {
+  const renderItem = ({ item }: { item: NewsItem }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => onItemPress?.(item.id)}
+      accessibilityRole="button"
+      accessibilityLabel={`Featured: ${item.title}`}
+      activeOpacity={0.9}
+    >
+      {item.imageUrl && (
+        <Image
+          source={{ uri: item.imageUrl }}
+          style={styles.image}
+          contentFit="cover"
+          accessibilityLabel="Featured article image"
+          transition={200}
+        />
+      )}
+      <View style={styles.content}>
+        <Text style={styles.cardTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
+        <Text style={styles.meta}>
+          {item.source} • {formatTimeAgo(item.publishedAt)}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Featured</Text>
-      <ScrollView
+      <FlatList
+        data={items}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-      >
-        {items.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.card}
-            onPress={() => onItemPress?.(item.id)}
-            accessibilityRole="button"
-            accessibilityLabel={`Featured: ${item.title}`}
-            activeOpacity={0.9}
-          >
-            {item.imageUrl && (
-              <Image
-                source={{ uri: item.imageUrl }}
-                style={styles.image}
-                accessibilityLabel="Featured article image"
-                resizeMode="cover"
-              />
-            )}
-            <View style={styles.content}>
-              <Text style={styles.cardTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <Text style={styles.meta}>
-                {item.source} • {formatTimeAgo(item.publishedAt)}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+        initialNumToRender={2}
+        maxToRenderPerBatch={1}
+      />
     </View>
   );
 };

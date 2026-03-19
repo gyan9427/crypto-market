@@ -82,7 +82,7 @@ export function useKlinesCacheState(
     return () => { cancelled = true; };
   }, [symbol, interval, limit, cacheKey]);
 
-  const refreshMs = interval === '1m' ? 15000 : interval === '5m' ? 30000 : 60000;
+  const refreshMs = interval === '1m' ? 30000 : interval === '5m' ? 60000 : 120000;
   usePollingEffect(
     async () => {
       if (!symbol || !cacheKey) return;

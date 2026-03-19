@@ -274,25 +274,29 @@ export const fetchNews = async (
     
     const response = await apiRequest<{ news: BackendNews[] }>(endpoint);
     
-    // Fetch coin details for related coins
+    // Fetch coin details for related coins (limit to 8, bounded concurrency)
     const coinIds = new Set<string>();
     response.news.forEach((news) => {
       news.relatedCoins.forEach((coinId) => coinIds.add(coinId));
     });
 
+    const coinIdArray = Array.from(coinIds).slice(0, 8);
+    const CONCURRENCY = 4;
     const coins: Coin[] = [];
-    // Fetch coin details in parallel (limit to avoid too many requests)
-    const coinIdArray = Array.from(coinIds).slice(0, 20);
-    await Promise.all(
-      coinIdArray.map(async (coinId) => {
-        try {
-          const coin = await fetchCoinDetails(coinId);
-          coins.push(coin);
-        } catch (error) {
-          console.warn(`Failed to fetch coin ${coinId}:`, error);
-        }
-      })
-    );
+    for (let i = 0; i < coinIdArray.length; i += CONCURRENCY) {
+      const batch = coinIdArray.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(
+        batch.map(async (coinId) => {
+          try {
+            return await fetchCoinDetails(coinId);
+          } catch (error) {
+            console.warn(`Failed to fetch coin ${coinId}:`, error);
+            return null;
+          }
+        })
+      );
+      coins.push(...results.filter((c): c is Coin => c !== null));
+    }
 
     return response.news.map((news) => transformBackendNews(news, coins));
   } catch (error: any) {
