@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { openInAppBrowser } from '../utils/browser';
+import { trackEvent } from '../utils/trackEvent';
 import { MessageCircle, Share2, Bookmark } from 'lucide-react-native';
 import { FeedCardProps } from '../types';
 import { CoinChip } from './CoinChip';
@@ -151,7 +152,10 @@ export const NewsCard = React.memo<FeedCardProps>(({
         </Text>
         {(item.url || item.sourceUrl) && (
           <TouchableOpacity
-            onPress={() => openInAppBrowser(item.url || item.sourceUrl!)}
+            onPress={() => {
+              trackEvent({ featureKey: 'news_feed', eventType: 'article_opened', metadata: { newsId: item.id } });
+              openInAppBrowser(item.url || item.sourceUrl!);
+            }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.readFullTouchable}
           >

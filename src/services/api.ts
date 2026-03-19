@@ -18,7 +18,7 @@ function resolveApiBaseUrl(): string {
   return 'http://localhost:4001/api';
 }
 
-const API_BASE_URL = resolveApiBaseUrl();
+export const API_BASE_URL = resolveApiBaseUrl();
 
 // Backend response format
 interface ApiResponse<T> {
