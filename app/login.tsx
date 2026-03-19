@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { colors, spacing, borderRadius, shadows, typography } from '@/src/theme/theme';
 import { login } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
+import { trackEvent } from '@/src/utils/trackEvent';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -27,6 +28,8 @@ export default function LoginScreen() {
       return;
     }
 
+    trackEvent({ featureKey: 'auth', eventType: 'login_attempt', metadata: {} });
+
     try {
       setLoading(true);
       setError(null);
@@ -40,6 +43,7 @@ export default function LoginScreen() {
   };
 
   const goToRegister = () => {
+    trackEvent({ featureKey: 'auth', eventType: 'navigate_to_register', metadata: {} });
     router.push('register');
   };
 

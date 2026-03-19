@@ -5,6 +5,7 @@ import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/src/theme/theme';
 import { FAB } from '@/src/components/FAB';
 import { View } from 'react-native';
+import { hasFeature } from '@/src/utils/features';
 
 const formatSegmentTitle = (rawSegment: string) => {
   return rawSegment
@@ -117,7 +118,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="rewards"
           options={{
-            href: null,
+            href: hasFeature('rewards') ? undefined : null,
           }}
         />
         <Tabs.Screen

@@ -5,6 +5,7 @@ import { InteractionManager, Platform, View } from 'react-native';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
+import { useFeaturesStore } from '@/src/utils/features';
 
 // GestureHandler pulls in Reanimated which crashes on Android (Expo Go).
 // Use View on Android; GestureHandlerRootView on iOS.
@@ -27,6 +28,7 @@ export default function RootLayout() {
       // Sync following coins after first paint to avoid blocking initial render
       InteractionManager.runAfterInteractions(() => {
         syncFollowingCoins();
+        useFeaturesStore.getState().loadFeatures();
       });
     });
   }, [initializeAuth, syncFollowingCoins]);
