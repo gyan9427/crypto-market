@@ -1,7 +1,7 @@
 import '@/src/polyfills/devtools';
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { InteractionManager, Platform, View } from 'react-native';
+import { AppState, InteractionManager, Platform, View } from 'react-native';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
@@ -32,6 +32,15 @@ export default function RootLayout() {
       });
     });
   }, [initializeAuth, syncFollowingCoins]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        useFeaturesStore.getState().refetchFeatures();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (!isReady) return;

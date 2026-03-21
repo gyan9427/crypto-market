@@ -36,3 +36,7 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# local Android / SDK downloads (never commit)
+commandlinetools-linux-*_latest.zip
+latest/

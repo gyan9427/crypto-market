@@ -1,11 +1,11 @@
-import React from 'react';
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Tabs, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/src/theme/theme';
 import { FAB } from '@/src/components/FAB';
 import { View } from 'react-native';
-import { hasFeature } from '@/src/utils/features';
+import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
 
 const formatSegmentTitle = (rawSegment: string) => {
   return rawSegment
@@ -43,6 +43,27 @@ const getHeaderTitle = (routeName: string, params?: Record<string, unknown>) => 
 };
 
 export default function TabsLayout() {
+  const router = useRouter();
+  const segments = useSegments();
+  const hasNewsFeed = useHasFeature('news_feed');
+  const hasPortfolioTracking = useHasFeature('portfolio_tracking');
+  const hasMarketData = useHasFeature('market_data');
+  const hasRewards = useHasFeature('rewards');
+
+  useEffect(() => {
+    useFeaturesStore.getState().refetchFeatures();
+  }, []);
+
+  useEffect(() => {
+    const tab = segments[0] as string | undefined;
+    if (!tab) return;
+    const fallback = hasNewsFeed ? '/(tabs)' : hasMarketData ? '/(tabs)/market' : '/(tabs)/profile';
+    if (tab === 'portfolio' && !hasPortfolioTracking) router.replace(fallback as any);
+    else if (tab === 'index' && !hasNewsFeed) router.replace(hasMarketData ? '/(tabs)/market' : '/(tabs)/profile');
+    else if (tab === 'market' && !hasMarketData) router.replace(hasNewsFeed ? '/(tabs)' : '/(tabs)/profile');
+    else if (tab === 'rewards' && !hasRewards) router.replace(fallback as any);
+  }, [segments, hasPortfolioTracking, hasNewsFeed, hasMarketData, hasRewards, router]);
+
   return (
     <View style={{ flex: 1 }}>
       <StatusBar style="auto" />
@@ -84,6 +105,7 @@ export default function TabsLayout() {
           options={{
             title: 'Home',
             tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+            href: hasNewsFeed ? undefined : null,
           }}
         />
         <Tabs.Screen
@@ -91,6 +113,7 @@ export default function TabsLayout() {
           options={{
             title: 'Portfolio',
             tabBarIcon: ({ color, size }) => <Briefcase size={size} color={color} />,
+            href: hasPortfolioTracking ? undefined : null,
           }}
         />
         <Tabs.Screen
@@ -106,6 +129,7 @@ export default function TabsLayout() {
           options={{
             title: 'Market',
             tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
+            href: hasMarketData ? undefined : null,
           }}
         />
         <Tabs.Screen
@@ -118,7 +142,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="rewards"
           options={{
-            href: hasFeature('rewards') ? undefined : null,
+            href: hasRewards ? undefined : null,
           }}
         />
         <Tabs.Screen

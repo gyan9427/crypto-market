@@ -11,12 +11,15 @@ import {
 import { useRouter } from 'expo-router';
 import { Plus, Bell, PlusCircle, FileText, Gift } from 'lucide-react-native';
 import { colors, shadows, spacing, semantic, typography, borderRadius } from '../theme/theme';
+import { useHasFeature } from '../utils/features';
 
 interface FABProps {
   onPress?: () => void;
 }
 
 export const FAB: React.FC<FABProps> = ({ onPress }) => {
+  const hasRewards = useHasFeature('rewards');
+  const hasFollow = useHasFeature('follow');
   const [visible, setVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(400)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
@@ -90,20 +93,22 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.sheetAction}
-              onPress={() => handleAction('watchlist')}
-              accessibilityRole="button"
-              accessibilityLabel="Add to Watchlist"
-            >
-              <View style={styles.sheetIconContainer}>
-                <PlusCircle size={24} color={colors.accent[500]} />
-              </View>
-              <View style={styles.sheetActionText}>
-                <Text style={styles.sheetActionTitle}>Add to Watchlist</Text>
-                <Text style={styles.sheetActionSubtitle}>Track your favorite coins</Text>
-              </View>
-            </TouchableOpacity>
+            {hasFollow && (
+              <TouchableOpacity
+                style={styles.sheetAction}
+                onPress={() => handleAction('watchlist')}
+                accessibilityRole="button"
+                accessibilityLabel="Add to Watchlist"
+              >
+                <View style={styles.sheetIconContainer}>
+                  <PlusCircle size={24} color={colors.accent[500]} />
+                </View>
+                <View style={styles.sheetActionText}>
+                  <Text style={styles.sheetActionTitle}>Add to Watchlist</Text>
+                  <Text style={styles.sheetActionSubtitle}>Track your favorite coins</Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.sheetAction}
@@ -120,20 +125,22 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.sheetAction}
-              onPress={() => handleAction('rewards')}
-              accessibilityRole="button"
-              accessibilityLabel="Rewards"
-            >
-              <View style={styles.sheetIconContainer}>
-                <Gift size={24} color={colors.primary[500]} />
-              </View>
-              <View style={styles.sheetActionText}>
-                <Text style={styles.sheetActionTitle}>Rewards</Text>
-                <Text style={styles.sheetActionSubtitle}>View and claim your rewards</Text>
-              </View>
-            </TouchableOpacity>
+            {hasRewards && (
+              <TouchableOpacity
+                style={styles.sheetAction}
+                onPress={() => handleAction('rewards')}
+                accessibilityRole="button"
+                accessibilityLabel="Rewards"
+              >
+                <View style={styles.sheetIconContainer}>
+                  <Gift size={24} color={colors.primary[500]} />
+                </View>
+                <View style={styles.sheetActionText}>
+                  <Text style={styles.sheetActionTitle}>Rewards</Text>
+                  <Text style={styles.sheetActionSubtitle}>View and claim your rewards</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
         </Animated.View>
       </Modal>

@@ -25,10 +25,13 @@ import { openInAppBrowser } from '../utils/browser';
 import { formatTimeAgo } from '../utils/format';
 import { colors, borderRadius, shadows, spacing } from '../theme/theme';
 import { useAppStore } from '../state/useAppStore';
+import { useHasFeature } from '../utils/features';
 
 export const CoinProfileScreen: React.FC = () => {
   const { coinId } = useLocalSearchParams<{ coinId: string }>();
   const router = useRouter();
+  const hasFollow = useHasFeature('follow');
+  const hasCharts = useHasFeature('charts');
   const [coin, setCoin] = useState<Coin | null>(null);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [stats, setStats] = useState<CoinStats | null>(null);
@@ -191,25 +194,33 @@ export const CoinProfileScreen: React.FC = () => {
               )}
             </View>
             <Text style={styles.coinSymbol}>@{coin.symbol.toLowerCase()}</Text>
-            {typeof followersCount === 'number' && (
+            {hasFollow && typeof followersCount === 'number' && (
               <Text style={styles.followersText}>{followersCount.toLocaleString()} followers</Text>
             )}
           </View>
-          <TouchableOpacity
-            onPress={handleFollowToggle}
-            style={[styles.followButton, isFollowing && styles.followingButton]}
-            activeOpacity={0.8}
-            disabled={followLoading}
-          >
-            <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
-              {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
-            </Text>
-          </TouchableOpacity>
+          {hasFollow && (
+            <TouchableOpacity
+              onPress={handleFollowToggle}
+              style={[styles.followButton, isFollowing && styles.followingButton]}
+              activeOpacity={0.8}
+              disabled={followLoading}
+            >
+              <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
+                {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
       <View style={styles.fixedSegment}>
-        <CoinPriceChart symbol={coin.symbol} />
+        {hasCharts ? (
+          <CoinPriceChart symbol={coin.symbol} />
+        ) : (
+          <View style={styles.chartPlaceholder}>
+            <Text style={styles.chartPlaceholderText}>Charts unavailable</Text>
+          </View>
+        )}
         <CoinStatSegment stats={stats} coinSymbol={coin.symbol} />
       </View>
 
@@ -383,6 +394,19 @@ const styles = StyleSheet.create({
   fixedSegment: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.lg,
+  },
+  chartPlaceholder: {
+    height: 220,
+    backgroundColor: colors.neutral[100],
+    borderRadius: borderRadius.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  chartPlaceholderText: {
+    fontSize: 14,
+    color: colors.neutral[500],
+    fontWeight: '500',
   },
   newsSection: {
     paddingTop: spacing.sm,
