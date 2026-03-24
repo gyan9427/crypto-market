@@ -3,7 +3,7 @@ import { Platform, View, StyleSheet, Text } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import type { KlineInterval } from '../types';
 import { useKlinesCacheState } from '../../hooks/useKlinesCache';
-import { colors } from '../../theme/theme';
+import { colors, borderRadius, shadows } from '../../theme/theme';
 
 const SkiaChart = lazy(() => import('./SkiaChart'));
 const WEB_CHART_HEIGHT = 168;
@@ -96,7 +96,11 @@ const styles = StyleSheet.create({
     minHeight: WEB_CHART_HEIGHT,
     justifyContent: 'flex-start',
     alignItems: 'stretch',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.surface.base,
+    borderRadius: borderRadius.card,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
+    ...shadows.card,
   },
   chartSkeleton: {
     flex: 1,
@@ -109,5 +113,6 @@ const styles = StyleSheet.create({
   stateText: {
     fontSize: 12,
     color: colors.neutral[500],
+    fontFamily: 'JetBrainsMono_500Medium',
   },
 });

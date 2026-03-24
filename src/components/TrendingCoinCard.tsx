@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { TrendingCoin } from '../types';
 import { formatPrice, formatPercentage } from '../utils/format';
-import { colors, spacing, semantic, typography, borderRadius } from '../theme/theme';
+import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 import { SparklineChart } from './SparklineChart';
 import { useKlinesCache } from '../hooks/useKlinesCache';
 
@@ -66,14 +66,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginHorizontal: semantic.listMarginH,
-    marginBottom: semantic.listGap,
-    backgroundColor: semantic.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
+    backgroundColor: colors.surface.base,
     borderWidth: 1,
-    borderColor: colors.neutral[100],
-    ...semantic.cardShadow,
+    borderColor: colors.border.soft,
+    borderRadius: borderRadius.card,
+    padding: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    ...shadows.card,
   },
   leftSection: {
     flexDirection: 'row',
@@ -82,24 +82,28 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   symbolBadge: {
-    backgroundColor: colors.primary[100],
+    backgroundColor: colors.surface.tintedPrimary,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
     borderRadius: 12,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     marginRight: spacing.sm,
   },
   symbolBadgeText: {
-    fontSize: typography.fontSizes.badge,
-    fontWeight: typography.fontWeights.bold,
+    fontSize: 10,
+    fontWeight: '700',
     color: colors.primary[700],
+    fontFamily: 'JetBrainsMono_500Medium',
   },
   coinDetails: {
     flex: 1,
   },
   coinName: {
-    fontSize: typography.fontSizes.base,
-    fontWeight: typography.fontWeights.medium,
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.neutral[800],
+    fontFamily: 'Manrope_600SemiBold',
   },
   rightSection: {
     alignItems: 'flex-end',
@@ -113,8 +117,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   change: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'JetBrainsMono_500Medium',
   },
   changePositive: {
     color: colors.success[500],
@@ -123,14 +128,16 @@ const styles = StyleSheet.create({
     color: colors.danger[500],
   },
   price: {
-    fontSize: typography.fontSizes.base,
-    fontWeight: typography.fontWeights.semibold,
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.neutral[800],
     marginTop: 2,
+    fontFamily: 'Manrope_600SemiBold',
   },
   rank: {
-    fontSize: typography.fontSizes.xs,
+    fontSize: 12,
     color: colors.neutral[400],
     marginTop: 2,
+    fontFamily: 'JetBrainsMono_500Medium',
   },
 });

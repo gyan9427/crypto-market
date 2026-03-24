@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Animated, LayoutChangeEvent } from 'react-native';
-import { colors, borderRadius } from '../theme/theme';
+import { colors, borderRadius, shadows } from '../theme/theme';
 
 interface SegmentToggleProps {
   options: string[];
@@ -72,19 +72,24 @@ export const SegmentToggle: React.FC<SegmentToggleProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: colors.neutral[100],
+    backgroundColor: colors.surface.base,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
     borderRadius: borderRadius.button,
     padding: 4,
     position: 'relative',
     marginHorizontal: 16,
     marginBottom: 16,
+    ...shadows.card,
   },
   indicator: {
     position: 'absolute',
     left: 4,
     top: 4,
     bottom: 4,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface.tintedPrimary,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
     borderRadius: borderRadius.button - 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -104,9 +109,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: colors.neutral[500],
+    fontFamily: 'Manrope_500Medium',
   },
   segmentTextActive: {
-    color: colors.neutral[800],
+    color: colors.primary[700],
     fontWeight: '600',
+    fontFamily: 'Manrope_600SemiBold',
   },
 });

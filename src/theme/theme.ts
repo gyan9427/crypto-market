@@ -54,7 +54,19 @@ export const colors = {
     900: '#171717',
     950: '#0a0a0a',
   },
-  surface: '#fff',
+  surface: {
+    base: '#ffffff',
+    muted: '#f5f5f5',
+    elevated: '#ffffff',
+    tintedPrimary: 'rgba(168, 85, 247, 0.06)',
+    tintedAccent: 'rgba(217, 70, 239, 0.06)',
+  },
+  border: {
+    soft: '#e5e5e5',
+    strong: '#d4d4d4',
+    primary: 'rgba(168, 85, 247, 0.2)',
+    primarySoft: 'rgba(168, 85, 247, 0.15)',
+  },
   white: '#fff',
   backdrop: 'rgba(0,0,0,0.45)',
 };
@@ -77,6 +89,19 @@ export const darkColors = {
     900: '#f5f5f5',
     950: '#fafafa',
   },
+  surface: {
+    base: '#171717',
+    muted: '#262626',
+    elevated: '#171717',
+    tintedPrimary: 'rgba(168, 85, 247, 0.2)',
+    tintedAccent: 'rgba(217, 70, 239, 0.2)',
+  },
+  border: {
+    soft: '#404040',
+    strong: '#525252',
+    primary: 'rgba(168, 85, 247, 0.4)',
+    primarySoft: 'rgba(168, 85, 247, 0.3)',
+  },
 };
 
 export const spacing = {
@@ -89,70 +114,63 @@ export const spacing = {
 };
 
 export const borderRadius = {
-  xs: 8,
-  sm: 12,
-  md: 16,
-  lg: 24,
-  card: 32,
-  button: 24,
-  fab: 28,
-};
-
-import { Platform } from 'react-native';
-
-// Use boxShadow on web (shadow* is deprecated); shadow* on native
-const shadowStyles = {
-  sm: Platform.select({
-    web: { boxShadow: '0px 2px 4px rgba(0,0,0,0.06)' } as const,
-    default: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.06,
-      shadowRadius: 4,
-      elevation: 2,
-    },
-  }),
-  md: Platform.select({
-    web: { boxShadow: '0px 4px 6px rgba(0,0,0,0.1)' } as const,
-    default: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 6,
-      elevation: 4,
-    },
-  }),
-  lg: Platform.select({
-    web: { boxShadow: '0px 8px 16px rgba(0,0,0,0.15)' } as const,
-    default: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.15,
-      shadowRadius: 16,
-      elevation: 8,
-    },
-  }),
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  card: 12,
+  button: 8,
+  fab: 24,
+  pill: 16,
+  phone: 40,
 };
 
 export const shadows = {
-  sm: shadowStyles.sm!,
-  md: shadowStyles.md!,
-  lg: shadowStyles.lg!,
-};
-
-export const semantic = {
-  surface: colors.surface,
-  backdrop: colors.backdrop,
-  cardRadius: borderRadius.md,
-  cardRadiusSmall: borderRadius.xs,
-  sheetRadius: borderRadius.lg,
-  cardShadow: shadows.sm,
-  cardPadding: spacing.md,
-  listMarginH: spacing.lg,
-  listGap: spacing.sm,
+  sm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2.5,
+    elevation: 2,
+  },
+  md: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4.5,
+    elevation: 4,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  card: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  glowPrimary: {
+    shadowColor: '#a855f7',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 0,
+  },
 };
 
 export const typography = {
+  fontFamily: {
+    display: 'Manrope_600SemiBold',
+    body: 'Manrope_400Regular',
+    bodyMedium: 'Manrope_500Medium',
+    bodyBold: 'Manrope_700Bold',
+    mono: 'JetBrainsMono_500Medium',
+  },
   fontSizes: {
     xs: 12,
     badge: 10,
@@ -174,6 +192,30 @@ export const typography = {
     tight: 1.1, // tighter lines
     normal: 1.5,
     relaxed: 1.75,
+  },
+};
+
+export const semantic = {
+  backdrop: colors.backdrop,
+  cardRadius: borderRadius.md,
+  cardRadiusSmall: borderRadius.xs,
+  sheetRadius: borderRadius.lg,
+  cardShadow: shadows.sm,
+  cardPadding: spacing.md,
+  listMarginH: spacing.lg,
+  listGap: spacing.sm,
+  surface: {
+    app: colors.neutral[50],
+    screen: colors.neutral[100],
+    card: colors.surface.base,
+    cardTinted: colors.surface.tintedPrimary,
+    cardTintedAccent: colors.surface.tintedAccent,
+  },
+  border: {
+    card: colors.border.soft,
+    cardStrong: colors.border.strong,
+    accent: colors.border.primary,
+    accentSoft: colors.border.primarySoft,
   },
 };
 

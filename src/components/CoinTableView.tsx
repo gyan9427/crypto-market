@@ -4,7 +4,7 @@ import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
 import { TrendingCoin } from '../types';
 import { formatPrice, formatPercentage, formatMarketCap } from '../utils/format';
-import { colors } from '../theme/theme';
+import { colors, borderRadius, shadows } from '../theme/theme';
 
 // Only import CSS on web platform
 if (Platform.OS === 'web') {
@@ -194,11 +194,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     width: '100%',
+    backgroundColor: colors.neutral[50],
   },
   gridWrapper: {
     height: 500,
     width: '100%',
     minHeight: 400,
+    borderRadius: borderRadius.card,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
+    overflow: 'hidden',
+    ...shadows.card,
   },
   fallbackContainer: {
     flex: 1,
@@ -210,5 +216,6 @@ const styles = StyleSheet.create({
     color: colors.neutral[600],
     fontSize: 14,
     textAlign: 'center',
+    fontFamily: 'Manrope_500Medium',
   },
 });

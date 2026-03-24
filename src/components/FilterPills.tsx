@@ -55,10 +55,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   pill: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 9999,
-    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: borderRadius.button,
+    backgroundColor: colors.surface.base,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
     marginRight: spacing.xs,
     minHeight: 32,
     justifyContent: 'center',
@@ -66,14 +68,16 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   pillActive: {
-    backgroundColor: colors.primary[500],
+    backgroundColor: colors.surface.tintedPrimary,
+    borderColor: colors.border.primary,
   },
   pillText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.neutral[500],
+    color: colors.neutral[600],
+    fontFamily: 'JetBrainsMono_500Medium',
   },
   pillTextActive: {
-    color: '#fff',
+    color: colors.primary[700],
   },
 });

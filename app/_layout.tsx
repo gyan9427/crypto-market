@@ -2,6 +2,15 @@ import '@/src/polyfills/devtools';
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { InteractionManager, Platform, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import {
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+} from '@expo-google-fonts/manrope';
+import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
@@ -21,6 +30,13 @@ export default function RootLayout() {
   const syncFollowingCoins = useAppStore((state) => state.syncFollowingCoins);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const [isReady, setIsReady] = useState(false);
+  const [fontsLoaded] = useFonts({
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    JetBrainsMono_500Medium,
+  });
 
   useEffect(() => {
     initializeAuth().then(() => {
@@ -47,7 +63,7 @@ export default function RootLayout() {
   }, [isReady, isAuthenticated, segments, router]);
 
   // Render minimal shell immediately; full Stack mounts when auth is ready
-  if (!isReady) {
+  if (!isReady || !fontsLoaded) {
     return <RootView style={{ flex: 1, backgroundColor: '#fff' }} />;
   }
 
@@ -59,6 +75,7 @@ export default function RootLayout() {
         <Stack.Screen name="register" />
         <Stack.Screen name="+not-found" />
       </Stack>
+      <StatusBar style="auto" />
     </RootView>
   );
 }

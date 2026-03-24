@@ -2,7 +2,7 @@ import React from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import type { NativeSyntheticEvent, TextInputPressEventData } from 'react-native';
 import { Search, X } from 'lucide-react-native';
-import { colors, shadows } from '../theme/theme';
+import { colors, shadows, borderRadius } from '../theme/theme';
 
 interface SearchBarProps {
   value: string;
@@ -74,12 +74,14 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutral[100],
-    borderRadius: 9999,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    ...shadows.sm,
-    marginHorizontal: 24,
+    backgroundColor: colors.surface.base,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
+    borderRadius: borderRadius.button,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    ...shadows.card,
+    marginHorizontal: 16,
     marginBottom: 16,
   },
   icon: {
@@ -90,6 +92,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.neutral[800],
     padding: 0,
+    fontFamily: 'Manrope_500Medium',
   },
   clearButton: {
     padding: 4,
