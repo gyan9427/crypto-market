@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Constants from 'expo-constants';
+import { resolveApiBaseUrl } from '@/src/config/apiBaseUrl';
 
 export interface LivePriceQuote {
   price: number;
@@ -23,20 +23,12 @@ interface PriceUpdateMessage {
 type StreamMessage = SnapshotMessage | PriceUpdateMessage;
 
 function resolveWsUrl(): string {
-  const explicit = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (explicit) {
-    const parsed = new URL(explicit);
-    parsed.protocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
-    parsed.pathname = '/ws';
-    parsed.search = '';
-    return parsed.toString();
-  }
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const host = hostUri.split(':')[0];
-    return `ws://${host}:4001/ws`;
-  }
-  return 'ws://localhost:4001/ws';
+  const base = resolveApiBaseUrl();
+  const parsed = new URL(base.startsWith('http') ? base : `https://${base}`);
+  parsed.protocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+  parsed.pathname = '/ws';
+  parsed.search = '';
+  return parsed.toString();
 }
 
 /**

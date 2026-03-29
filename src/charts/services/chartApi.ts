@@ -1,18 +1,22 @@
 import type { KlineRecord, TradeRecord, KlinesParams, KlineInterval } from '../types';
+import { resolveApiBaseUrl } from '@/src/config/apiBaseUrl';
 
-/** Resolve REST API base URL (override via env or config) */
-export function resolveApiBaseUrl(): string {
-  if (typeof process !== 'undefined' && (process as { env?: Record<string, string> }).env?.EXPO_PUBLIC_API_URL) {
-    return (process as { env?: Record<string, string> }).env.EXPO_PUBLIC_API_URL!;
-  }
-  return 'http://localhost:4001';
-}
+/** Re-export for callers that need the same origin as REST API */
+export { resolveApiBaseUrl };
 
-/** Resolve WebSocket URL for market trades */
+/** Resolve WebSocket URL for market trades (same rules as useMarketPriceStream: /ws on host). */
 export function resolveWsUrl(): string {
   const base = resolveApiBaseUrl();
-  const ws = base.replace(/^http/, 'ws');
-  return `${ws}/ws`;
+  try {
+    const u = new URL(base);
+    u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+    u.pathname = '/ws';
+    u.search = '';
+    return u.toString();
+  } catch {
+    const ws = base.replace(/^http/, 'ws');
+    return `${ws.replace(/\/$/, '')}/ws`;
+  }
 }
 
 function parseKline(raw: Record<string, unknown>): KlineRecord {

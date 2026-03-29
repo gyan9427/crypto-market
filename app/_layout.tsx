@@ -23,14 +23,18 @@ export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    initializeAuth().then(() => {
-      setIsReady(true);
-      // Sync following coins after first paint to avoid blocking initial render
-      InteractionManager.runAfterInteractions(() => {
-        syncFollowingCoins();
-        useFeaturesStore.getState().loadFeatures();
+    initializeAuth()
+      .then(() => {
+        setIsReady(true);
+        InteractionManager.runAfterInteractions(() => {
+          syncFollowingCoins();
+          useFeaturesStore.getState().loadFeatures();
+        });
+      })
+      .catch((err) => {
+        console.error('initializeAuth failed:', err);
+        setIsReady(true);
       });
-    });
   }, [initializeAuth, syncFollowingCoins]);
 
   useEffect(() => {

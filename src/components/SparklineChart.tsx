@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Canvas, Path, Skia } from '@shopify/react-native-skia';
+import Svg, { Polyline } from 'react-native-svg';
 
 interface SparklineChartProps {
   data: number[];
@@ -9,25 +9,19 @@ interface SparklineChartProps {
   height?: number;
 }
 
-function buildSparklinePath(
-  data: number[],
-  width: number,
-  height: number
-) {
+function buildPoints(data: number[], width: number, height: number): string | null {
   if (data.length < 2) return null;
-  const path = Skia.Path.Make();
   const min = Math.min(...data);
   const max = Math.max(...data);
   const range = max - min || 1;
   const stepX = (width - 1) / (data.length - 1);
-
-  path.moveTo(0, height - ((data[0] - min) / range) * height);
-  for (let i = 1; i < data.length; i++) {
+  const parts: string[] = [];
+  for (let i = 0; i < data.length; i++) {
     const x = i * stepX;
     const y = height - ((data[i] - min) / range) * height;
-    path.lineTo(x, y);
+    parts.push(`${x},${y}`);
   }
-  return path;
+  return parts.join(' ');
 }
 
 export const SparklineChart: React.FC<SparklineChartProps> = ({
@@ -36,24 +30,31 @@ export const SparklineChart: React.FC<SparklineChartProps> = ({
   width = 60,
   height = 24,
 }) => {
-  const path = useMemo(
-    () => (data.length >= 2 ? buildSparklinePath(data, width, height) : null),
+  const points = useMemo(
+    () => (data.length >= 2 ? buildPoints(data, width, height) : null),
     [data, width, height]
   );
 
-  if (!path || data.length < 2) {
+  if (!points || data.length < 2) {
     return <View style={[styles.placeholder, { width, height }]} />;
   }
 
   return (
-    <Canvas style={[styles.canvas, { width, height }]}>
-      <Path path={path} color={color} style="stroke" strokeWidth={1.5} />
-    </Canvas>
+    <Svg width={width} height={height} style={styles.svg}>
+      <Polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
   );
 };
 
 const styles = StyleSheet.create({
-  canvas: {
+  svg: {
     overflow: 'hidden',
   },
   placeholder: {

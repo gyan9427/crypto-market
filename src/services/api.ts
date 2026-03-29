@@ -1,22 +1,6 @@
 import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts } from '../types';
 import { useAuthStore } from '../state/useAuthStore';
-import Constants from 'expo-constants';
-
-// API Configuration
-// In Expo Go on a physical device, "localhost" refers to the device itself, not the dev machine.
-// We read the dev server host from Expo's runtime config and replace the port with the backend port.
-// Priority: explicit env var → dynamic Expo host → localhost fallback (web/simulator only)
-function resolveApiBaseUrl(): string {
-  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
-    return process.env.EXPO_PUBLIC_API_BASE_URL;
-  }
-  const hostUri = Constants.expoConfig?.hostUri; // e.g. "192.168.0.9:8081"
-  if (hostUri) {
-    const host = hostUri.split(':')[0]; // strip the Metro port
-    return `http://${host}:4001/api`;
-  }
-  return 'http://localhost:4001/api';
-}
+import { resolveApiBaseUrl } from '../config/apiBaseUrl';
 
 export const API_BASE_URL = resolveApiBaseUrl();
 
@@ -149,12 +133,31 @@ async function apiRequest<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const url = `${API_BASE_URL}${endpoint}`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === 'Network request failed') {
+      throw new Error(
+        'Network request failed. Check EXPO_PUBLIC_API_BASE_URL: use https or your PC LAN IP (not localhost on a phone). ' +
+          'For http:// on Android you need a dev build with usesCleartextTraffic (see app.json); Expo Go may still block some http targets.'
+      );
+    }
+    throw err instanceof Error ? err : new Error(msg);
+  }
 
-  const data: ApiResponse<T> = await response.json();
+  let data: ApiResponse<T>;
+  try {
+    const text = await response.text();
+    data = text ? (JSON.parse(text) as ApiResponse<T>) : ({} as ApiResponse<T>);
+  } catch {
+    throw new Error(`Invalid response from server (HTTP ${response.status})`);
+  }
 
   if (!response.ok || !data.success) {
     // Handle 401 unauthorized

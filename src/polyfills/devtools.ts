@@ -63,13 +63,17 @@ if (typeof window !== 'undefined') {
   if ((window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__) {
     install();
   } else {
-    const observer = new MutationObserver(() => {
-      if ((window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__) {
-        install();
-        observer.disconnect();
-      }
-    });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    const docEl =
+      typeof document !== 'undefined' && document.documentElement ? document.documentElement : null;
+    if (docEl) {
+      const observer = new MutationObserver(() => {
+        if ((window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+          install();
+          observer.disconnect();
+        }
+      });
+      observer.observe(docEl, { childList: true, subtree: true });
+    }
     setTimeout(install, 0);
   }
 }

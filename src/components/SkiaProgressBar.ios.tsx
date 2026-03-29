@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, LayoutChangeEvent, Platform } from 'react-native';
+import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
 import { Canvas, RoundedRect, Fill } from '@shopify/react-native-skia';
 
 interface SkiaProgressBarProps {
@@ -10,6 +10,7 @@ interface SkiaProgressBarProps {
   borderRadius?: number;
 }
 
+/** iOS: Skia canvas (Reanimated/Skia stack stable here). */
 export const SkiaProgressBar: React.FC<SkiaProgressBarProps> = ({
   fillRatio,
   height = 6,
@@ -21,36 +22,11 @@ export const SkiaProgressBar: React.FC<SkiaProgressBarProps> = ({
   const ratio = Math.max(0, Math.min(1, fillRatio));
   const fillWidth = width * ratio;
 
-  if (Platform.OS === 'web') {
-    return (
-      <View style={[styles.container, { height }]}>
-        <View
-          style={[
-            styles.webTrack,
-            { height, borderRadius, backgroundColor: trackColor },
-          ]}
-        >
-          <View
-            style={[
-              styles.webFill,
-              {
-                width: `${ratio * 100}%`,
-                backgroundColor: fillColor,
-                borderRadius,
-              },
-            ]}
-          />
-        </View>
-      </View>
-    );
-  }
-
   const onLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
     if (w > 0) setWidth(w);
   };
 
-  // Skia Canvas on web expects a plain style object, not a style array.
   const canvasStyle = StyleSheet.flatten([styles.canvas, { width, height }]);
 
   if (width <= 0) {
@@ -89,12 +65,5 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#e5e5e5',
     borderRadius: 3,
-  },
-  webTrack: {
-    width: '100%',
-    overflow: 'hidden',
-  },
-  webFill: {
-    height: '100%',
   },
 });
