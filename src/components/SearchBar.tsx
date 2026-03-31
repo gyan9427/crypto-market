@@ -14,6 +14,8 @@ interface SearchBarProps {
   onPressIn?: (event: NativeSyntheticEvent<TextInputPressEventData>) => void;
   /** When provided with editable=false, the whole bar acts as a button (navigates to search). Prevents focus on the input so user doesn't think they can type. */
   onPress?: () => void;
+  /** `header`: tighter margins for use inside navigation headerTitle */
+  variant?: 'default' | 'header';
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({
@@ -25,10 +27,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   editable = true,
   onPressIn,
   onPress,
+  variant = 'default',
 }) => {
   const isFakeBar = !editable && onPress != null;
   const content = (
-    <View style={styles.container}>
+    <View style={[styles.container, variant === 'header' ? styles.containerHeader : undefined]}>
       <Search size={20} color={colors.neutral[400]} style={styles.icon} />
       <TextInput
         style={styles.input}
@@ -97,5 +100,11 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  containerHeader: {
+    marginHorizontal: 0,
+    marginBottom: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
 });

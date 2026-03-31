@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/src/theme/theme';
 import { FAB } from '@/src/components/FAB';
+import { NavHeaderSearch } from '@/src/components/NavHeaderSearch';
 import { View } from 'react-native';
 import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
 
@@ -17,7 +18,7 @@ const formatSegmentTitle = (rawSegment: string) => {
 };
 
 const getHeaderTitle = (routeName: string, params?: Record<string, unknown>) => {
-  if (routeName === 'index') return 'NAYFT';
+  if (routeName === 'index' || routeName === 'market' || routeName === 'profile') return '';
 
   if (routeName === 'news-boards/[boardId]') {
     const boardName = params?.name;
@@ -26,8 +27,6 @@ const getHeaderTitle = (routeName: string, params?: Record<string, unknown>) => 
 
   const routeTitleMap: Record<string, string> = {
     portfolio: 'Portfolio',
-    market: 'Market',
-    profile: 'Profile',
     'search/index': 'Search',
     rewards: 'Rewards',
     'coin/[coinId]': 'Coin',
@@ -48,7 +47,6 @@ export default function TabsLayout() {
   const hasNewsFeed = useHasFeature('news_feed');
   const hasPortfolioTracking = useHasFeature('portfolio_tracking');
   const hasMarketData = useHasFeature('market_data');
-  const hasRewards = useHasFeature('rewards');
 
   useEffect(() => {
     useFeaturesStore.getState().refetchFeatures();
@@ -61,8 +59,7 @@ export default function TabsLayout() {
     if (tab === 'portfolio' && !hasPortfolioTracking) router.replace(fallback as any);
     else if (tab === 'index' && !hasNewsFeed) router.replace(hasMarketData ? '/(tabs)/market' : '/(tabs)/profile');
     else if (tab === 'market' && !hasMarketData) router.replace(hasNewsFeed ? '/(tabs)' : '/(tabs)/profile');
-    else if (tab === 'rewards' && !hasRewards) router.replace(fallback as any);
-  }, [segments, hasPortfolioTracking, hasNewsFeed, hasMarketData, hasRewards, router]);
+  }, [segments, hasPortfolioTracking, hasNewsFeed, hasMarketData, router]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -104,6 +101,8 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: 'Home',
+            headerTitle: () => <NavHeaderSearch />,
+            headerTitleAlign: 'left',
             tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
             href: hasNewsFeed ? undefined : null,
           }}
@@ -128,6 +127,13 @@ export default function TabsLayout() {
           name="market"
           options={{
             title: 'Market',
+            headerTitle: () => (
+              <NavHeaderSearch
+                segment="all"
+                placeholder="Search all: coins, news, users, boards, portfolio..."
+              />
+            ),
+            headerTitleAlign: 'left',
             tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
             href: hasMarketData ? undefined : null,
           }}
@@ -136,13 +142,17 @@ export default function TabsLayout() {
           name="profile"
           options={{
             title: 'Profile',
+            headerTitle: () => (
+              <NavHeaderSearch segment="users" placeholder="Search users to follow..." />
+            ),
+            headerTitleAlign: 'left',
             tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
           }}
         />
         <Tabs.Screen
           name="rewards"
           options={{
-            href: hasRewards ? undefined : null,
+            href: null,
           }}
         />
         <Tabs.Screen

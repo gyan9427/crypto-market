@@ -23,8 +23,6 @@
     "@react-navigation/native": "^7.0.14",
     "@shopify/react-native-skia": "2.2.12",
     "@supabase/supabase-js": "^2.58.0",
-    "ag-grid-community": "^35.0.1",
-    "ag-grid-react": "^35.0.1",
     "date-fns": "^4.1.0",
     "expo": "~54.0.33",
     "expo-blur": "~15.0.8",
