@@ -11,7 +11,6 @@ import {
   getFollowedUsers,
   getUserFollowStats,
 } from '@/src/services/api';
-import { SearchBar } from '@/src/components/SearchBar';
 
 const getInitials = (name?: string | null) => {
   if (!name) return '?';
@@ -53,7 +52,6 @@ export default function ProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const [searchPreview, setSearchPreview] = React.useState('');
   const [followingUsers, setFollowingUsers] = React.useState<{ id: string; username: string }[]>([]);
   const [stats, setStats] = React.useState<{
     followersCount: number;
@@ -146,16 +144,6 @@ export default function ProfileScreen() {
               </View>
             </View>
           )}
-          <View style={styles.searchWrap}>
-            <SearchBar
-              value={searchPreview}
-              onChangeText={setSearchPreview}
-              placeholder="Search users to follow..."
-              onFocus={() => {
-                router.push('/search?segment=users' as never);
-              }}
-            />
-          </View>
           {followingUsers.length > 0 && (
             <View style={styles.followingList}>
               <Text style={styles.subSectionTitle}>Following</Text>
@@ -305,19 +293,6 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[900],
-  },
-  searchWrap: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  searchInput: {
-    height: 40,
-    borderRadius: borderRadius.button,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
-    backgroundColor: colors.neutral[50],
-    paddingHorizontal: spacing.md,
     color: colors.neutral[900],
   },
   followRow: {

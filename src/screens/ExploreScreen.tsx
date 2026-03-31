@@ -6,7 +6,6 @@ import { FilterPills } from '../components/FilterPills';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
-import { SearchBar } from '../components/SearchBar';
 import { useAppStore } from '../state/useAppStore';
 import { fetchTrendingCoins } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
@@ -17,7 +16,6 @@ import { useMarketPriceStream } from '../hooks/useMarketPriceStream';
 export const ExploreScreen: React.FC = () => {
   const router = useRouter();
   const isFocused = useIsFocused();
-  const [searchPreview, setSearchPreview] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState<TrendingCoin[]>([]);
@@ -77,14 +75,6 @@ export const ExploreScreen: React.FC = () => {
 
   const renderHeader = () => (
     <View style={styles.headerSection}>
-      <SearchBar
-        value={searchPreview}
-        onChangeText={setSearchPreview}
-        onFocus={() => {
-          router.push('/search?segment=all' as never);
-        }}
-        placeholder="Search all: coins, news, users, boards, portfolio..."
-      />
       <MarketCapPlaceholder liveUpdatesEnabled={isFocused} />
       <FilterPills
         categories={categories}

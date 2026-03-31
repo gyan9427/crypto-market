@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/src/theme/theme';
 import { FAB } from '@/src/components/FAB';
-import { HomeHeaderSearch } from '@/src/components/HomeHeaderSearch';
+import { NavHeaderSearch } from '@/src/components/NavHeaderSearch';
 import { View } from 'react-native';
 import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
 
@@ -18,7 +18,7 @@ const formatSegmentTitle = (rawSegment: string) => {
 };
 
 const getHeaderTitle = (routeName: string, params?: Record<string, unknown>) => {
-  if (routeName === 'index') return '';
+  if (routeName === 'index' || routeName === 'market' || routeName === 'profile') return '';
 
   if (routeName === 'news-boards/[boardId]') {
     const boardName = params?.name;
@@ -27,8 +27,6 @@ const getHeaderTitle = (routeName: string, params?: Record<string, unknown>) => 
 
   const routeTitleMap: Record<string, string> = {
     portfolio: 'Portfolio',
-    market: 'Market',
-    profile: 'Profile',
     'search/index': 'Search',
     rewards: 'Rewards',
     'coin/[coinId]': 'Coin',
@@ -103,7 +101,7 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: 'Home',
-            headerTitle: () => <HomeHeaderSearch />,
+            headerTitle: () => <NavHeaderSearch />,
             headerTitleAlign: 'left',
             tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
             href: hasNewsFeed ? undefined : null,
@@ -129,6 +127,13 @@ export default function TabsLayout() {
           name="market"
           options={{
             title: 'Market',
+            headerTitle: () => (
+              <NavHeaderSearch
+                segment="all"
+                placeholder="Search all: coins, news, users, boards, portfolio..."
+              />
+            ),
+            headerTitleAlign: 'left',
             tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
             href: hasMarketData ? undefined : null,
           }}
@@ -137,6 +142,10 @@ export default function TabsLayout() {
           name="profile"
           options={{
             title: 'Profile',
+            headerTitle: () => (
+              <NavHeaderSearch segment="users" placeholder="Search users to follow..." />
+            ),
+            headerTitleAlign: 'left',
             tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
           }}
         />
