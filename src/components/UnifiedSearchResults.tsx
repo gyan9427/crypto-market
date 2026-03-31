@@ -1,7 +1,7 @@
 import React from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Bookmark, Newspaper, User as UserIcon, Wallet } from 'lucide-react-native';
-import { SearchSegment, UnifiedSearchResult } from '../services/api';
+import { SearchSegment, SearchSegmentKey, UnifiedSearchResult } from '../services/api';
 import { borderRadius, colors, spacing, typography } from '../theme/theme';
 
 const AVATAR_SIZE = 36;
@@ -122,6 +122,18 @@ function buildRows(result: UnifiedSearchResult, selectedSegment: SearchSegment):
   return rows;
 }
 
+function emptyStateMessage(result: UnifiedSearchResult, selectedSegment: SearchSegment): string {
+  if (selectedSegment === 'all' && result.meta.degraded) {
+    return "Some results couldn't load. Try again.";
+  }
+  if (selectedSegment !== 'all') {
+    const st = result.meta.segmentStatus?.[selectedSegment as SearchSegmentKey];
+    if (st === 'timeout') return "Couldn't load this section (timed out).";
+    if (st === 'error') return "Couldn't load this section.";
+  }
+  return 'No results found';
+}
+
 export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
   result,
   selectedSegment,
@@ -132,6 +144,8 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
   renderUserAction,
 }) => {
   const rows = React.useMemo(() => buildRows(result, selectedSegment), [result, selectedSegment]);
+  const showDegradedBanner =
+    Boolean(result.meta.degraded) && selectedSegment === 'all' && rows.length > 0;
 
   if (!isActive) return null;
 
@@ -141,9 +155,16 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
         data={rows}
         keyExtractor={(item) => item.key}
         keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={
+          showDegradedBanner ? (
+            <View style={styles.degradedBanner}>
+              <Text style={styles.degradedText}>Some categories didn&apos;t load completely.</Text>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>No results found</Text>
+            <Text style={styles.emptyText}>{emptyStateMessage(result, selectedSegment)}</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -224,6 +245,18 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
 };
 
 const styles = StyleSheet.create({
+  degradedBanner: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.neutral[100],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[200],
+  },
+  degradedText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.neutral[600],
+  },
   resultsWrap: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,

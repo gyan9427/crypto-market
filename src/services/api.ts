@@ -78,12 +78,20 @@ export type SearchSegment =
   | 'newsBoards'
   | 'portfolioAssets';
 
+export type SearchSegmentRunStatus = 'ok' | 'empty' | 'timeout' | 'error';
+
+export type SearchSegmentKey = Exclude<SearchSegment, 'all'>;
+
 export interface SearchMeta {
   tookMs: number;
   query: string;
   segments: SearchSegment[];
   partialFailures?: string[];
   nextCursor?: string;
+  segmentStatus?: Partial<Record<SearchSegmentKey, SearchSegmentRunStatus>>;
+  segmentTookMs?: Partial<Record<SearchSegmentKey, number>>;
+  cacheHit?: boolean;
+  degraded?: boolean;
 }
 
 export interface SearchBoardResult {
@@ -674,6 +682,10 @@ const DEFAULT_SEARCH_META: SearchMeta = {
   query: '',
   segments: ['all'],
   partialFailures: [],
+  segmentStatus: undefined,
+  segmentTookMs: undefined,
+  cacheHit: undefined,
+  degraded: undefined,
 };
 
 function normalizeSegments(segments?: SearchSegment[]): SearchSegment[] {
