@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, Text, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SegmentToggle } from '../components/SegmentToggle';
-import { SearchBar } from '../components/SearchBar';
 import { NewsCard } from '../components/NewsCard';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { FeaturedCarouselSkeleton } from '../components/FeaturedCarouselSkeleton';
@@ -15,6 +14,37 @@ import { NewsItem, ReactionType } from '../types';
 import { NewsDetailModal } from './NewsDetailModal';
 import { colors, spacing, semantic } from '../theme/theme';
 
+/** After this many article cards, insert the Featured carousel (sixth vertical block). */
+const FEATURE_INSERT_AFTER = 5;
+
+type FeaturedRow = { type: 'featured' };
+type FeedRow = NewsItem | FeaturedRow | null;
+
+function buildFeedRows(
+  news: NewsItem[],
+  hasFeaturedContent: boolean,
+  loadingInitial: boolean
+): FeedRow[] {
+  if (loadingInitial && news.length === 0) {
+    return Array(FEATURE_INSERT_AFTER).fill(null);
+  }
+  if (!hasFeaturedContent) {
+    return news;
+  }
+  if (news.length >= FEATURE_INSERT_AFTER) {
+    return [
+      ...news.slice(0, FEATURE_INSERT_AFTER),
+      { type: 'featured' as const },
+      ...news.slice(FEATURE_INSERT_AFTER),
+    ];
+  }
+  return [...news, { type: 'featured' as const }];
+}
+
+function isFeaturedRow(item: FeedRow): item is FeaturedRow {
+  return item != null && typeof item === 'object' && 'type' in item && item.type === 'featured';
+}
+
 export const HomeScreen: React.FC = () => {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
@@ -24,7 +54,6 @@ export const HomeScreen: React.FC = () => {
   const [featuredNews, setFeaturedNews] = useState<NewsItem[]>([]);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [isDetailVisible, setIsDetailVisible] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [savingNewsId, setSavingNewsId] = useState<string | null>(null);
   const [commentingNewsId, setCommentingNewsId] = useState<string | null>(null);
 
@@ -32,31 +61,20 @@ export const HomeScreen: React.FC = () => {
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
   const setReaction = useAppStore((state) => state.setReaction);
   const newsReactions = useAppStore((state) => state.newsReactions);
-  const isSavedToAnyBoard = useAppStore((state) => state.isSavedToAnyBoard);
 
-  // Fetch news when filter or categories change
-  useEffect(() => {
-    loadNews();
-  }, [feedFilter, selectedCategories]);
-
-  // Featured section only depends on feed filter
-  useEffect(() => {
-    loadFeaturedNews();
-  }, [feedFilter]);
-
-  const loadNews = async () => {
+  const loadNews = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      // Fetch a full page of news items from the backend (up to 50)
-      const news = await fetchNews(feedFilter, 1, 50, selectedCategories);
-      
+      const news = await fetchNews(feedFilter, 1, 50, []);
+      const { newsReactions: reactions, isSavedToAnyBoard: savedFn } = useAppStore.getState();
+
       const newsWithState = news.map((item) => ({
         ...item,
-        userReaction: newsReactions[item.id] ?? item.userReaction ?? null,
-        isSaved: isSavedToAnyBoard(item.id),
+        userReaction: reactions[item.id] ?? item.userReaction ?? null,
+        isSaved: savedFn(item.id),
       }));
-      
+
       setNewsData(newsWithState);
     } catch (err: any) {
       setError(err.message || 'Failed to load news');
@@ -64,34 +82,42 @@ export const HomeScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [feedFilter]);
 
-  const loadFeaturedNews = async () => {
-    try {
-      const news = await fetchNews('explore', 1, 3); // Get 3 featured news items
-      setFeaturedNews(news.slice(0, 3));
-    } catch (err: any) {
-      console.error('Error loading featured news:', err);
-    }
-  };
+  useEffect(() => {
+    loadNews();
+  }, [loadNews]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const news = await fetchNews('explore', 1, 3);
+        if (!cancelled) setFeaturedNews(news.slice(0, 3));
+      } catch (err: any) {
+        console.error('Error loading featured news:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [feedFilter]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadNews();
+    try {
+      const news = await fetchNews('explore', 1, 3);
+      setFeaturedNews(news.slice(0, 3));
+    } catch (err: any) {
+      console.error('Error loading featured news:', err);
+    }
     setRefreshing(false);
   };
 
   const handleSegmentChange = useCallback((index: number) => {
     setFeedFilter(index === 0 ? 'following' : 'explore');
   }, [setFeedFilter]);
-
-  const toggleCategory = useCallback((category: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category]
-    );
-  }, []);
 
   const handleReact = useCallback(async (newsId: string, type: ReactionType) => {
     const currentReaction = newsReactions[newsId] ?? null;
@@ -157,15 +183,11 @@ export const HomeScreen: React.FC = () => {
   }, []);
 
   const handleShare = useCallback((newsId: string) => {
-    // TODO: Implement share functionality
     console.log('Share:', newsId);
   }, []);
 
   const openNewsDetailById = useCallback((newsId: string) => {
-    const allNewsSources: NewsItem[] = [
-      ...newsData,
-      ...featuredNews,
-    ];
+    const allNewsSources: NewsItem[] = [...newsData, ...featuredNews];
 
     const newsItem = allNewsSources.find((item) => item.id === newsId);
     if (!newsItem) {
@@ -185,9 +207,12 @@ export const HomeScreen: React.FC = () => {
     setIsDetailVisible(true);
   }, [newsData, featuredNews]);
 
-  const handleFeaturedNewsPress = useCallback((newsId: string) => {
-    openNewsDetailById(newsId);
-  }, [openNewsDetailById]);
+  const handleFeaturedNewsPress = useCallback(
+    (newsId: string) => {
+      openNewsDetailById(newsId);
+    },
+    [openNewsDetailById]
+  );
 
   const handleCloseDetail = useCallback(() => {
     setIsDetailVisible(false);
@@ -198,51 +223,20 @@ export const HomeScreen: React.FC = () => {
     router.push(`/coins/${coinId}` as never);
   }, [router]);
 
-  const displayData = newsData;
-
-  const handleSearchPress = useCallback(() => {
-    router.push('/search?segment=all' as never);
-  }, [router]);
+  const hasFeaturedContent = featuredNews.length > 0;
+  const feedRows = useMemo(
+    () => buildFeedRows(newsData, hasFeaturedContent, loading && newsData.length === 0),
+    [newsData, hasFeaturedContent, loading]
+  );
 
   const listHeaderComponent = useMemo(
     () => (
       <>
-        <SearchBar
-          value=""
-          onChangeText={() => {}}
-          editable={false}
-          onPress={handleSearchPress}
-          placeholder="Search news, coins..."
-        />
-        {loading && newsData.length === 0 ? (
-          <FeaturedCarouselSkeleton />
-        ) : (
-          featuredNews.length > 0 && (
-            <FeaturedCarousel items={featuredNews} onItemPress={handleFeaturedNewsPress} />
-          )
-        )}
         <SegmentToggle
           options={['Following', 'Explore']}
           selectedIndex={feedFilter === 'following' ? 0 : 1}
           onSelect={handleSegmentChange}
         />
-        <View style={styles.categoryFilterRow}>
-          {['BTC', 'ETH', 'FIAT', 'MARKET', 'CRYPTOCURRENCY'].map((cat) => {
-            const isActive = selectedCategories.includes(cat);
-            return (
-              <Text
-                key={cat}
-                onPress={() => toggleCategory(cat)}
-                style={[
-                  styles.categoryPill,
-                  isActive && styles.categoryPillActive,
-                ]}
-              >
-                {cat}
-              </Text>
-            );
-          })}
-        </View>
         {error && newsData.length > 0 && (
           <View style={styles.errorBanner}>
             <Text style={styles.errorBannerText}>{error}</Text>
@@ -250,28 +244,27 @@ export const HomeScreen: React.FC = () => {
         )}
       </>
     ),
-    [
-      loading,
-      newsData.length,
-      featuredNews,
-      selectedCategories,
-      error,
-      feedFilter,
-      handleSearchPress,
-      handleFeaturedNewsPress,
-      handleSegmentChange,
-      toggleCategory,
-    ]
+    [error, newsData.length, feedFilter, handleSegmentChange]
   );
 
   const renderItem = useCallback(
-    ({ item, index }: { item: NewsItem | null; index: number }) => {
+    ({ item, index }: { item: FeedRow; index: number }) => {
       if (loading && newsData.length === 0) {
         return <NewsCardSkeleton key={`skeleton-${index}`} />;
       }
+      if (item === null) {
+        return <NewsCardSkeleton key={`skeleton-${index}`} />;
+      }
+      if (isFeaturedRow(item)) {
+        return featuredNews.length === 0 ? (
+          <FeaturedCarouselSkeleton />
+        ) : (
+          <FeaturedCarousel items={featuredNews} onItemPress={handleFeaturedNewsPress} />
+        );
+      }
       return (
         <NewsCard
-          item={item!}
+          item={item}
           onReact={handleReact}
           onComment={handleComment}
           onShare={handleShare}
@@ -280,8 +273,24 @@ export const HomeScreen: React.FC = () => {
         />
       );
     },
-    [loading, newsData.length, handleReact, handleComment, handleShare, handleSave, handleCoinPress]
+    [
+      loading,
+      newsData.length,
+      featuredNews,
+      handleFeaturedNewsPress,
+      handleReact,
+      handleComment,
+      handleShare,
+      handleSave,
+      handleCoinPress,
+    ]
   );
+
+  const keyExtractor = useCallback((item: FeedRow, index: number) => {
+    if (item === null) return `skeleton-${index}`;
+    if (isFeaturedRow(item)) return 'featured-row';
+    return item.id;
+  }, []);
 
   if (error && newsData.length === 0) {
     return (
@@ -297,12 +306,12 @@ export const HomeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <FlatList
-        data={loading && newsData.length === 0 ? Array(5).fill(null) : displayData}
-        keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
+        data={feedRows}
+        keyExtractor={keyExtractor}
         renderItem={renderItem}
         ListHeaderComponent={listHeaderComponent}
         ListEmptyComponent={
-          !loading && displayData.length === 0 ? (
+          !loading && newsData.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No results found</Text>
             </View>
@@ -341,7 +350,7 @@ export const HomeScreen: React.FC = () => {
         newsId={commentingNewsId}
         commentCount={
           commentingNewsId
-            ? (displayData.find((n) => n?.id === commentingNewsId)?.comments ?? 0)
+            ? (newsData.find((n) => n.id === commentingNewsId)?.comments ?? 0)
             : 0
         }
         onClose={() => setCommentingNewsId(null)}
@@ -391,30 +400,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   listContent: {
-    paddingTop: spacing.lg,
-    paddingBottom: 120,
-  },
-  categoryFilterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
-  },
-  categoryPill: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.neutral[300],
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.neutral[700],
-  },
-  categoryPillActive: {
-    backgroundColor: colors.primary[50],
-    borderColor: colors.primary[500],
-    color: colors.primary[700],
+    paddingBottom: 120,
   },
 });

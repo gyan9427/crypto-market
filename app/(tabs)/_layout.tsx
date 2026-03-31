@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/src/theme/theme';
 import { FAB } from '@/src/components/FAB';
+import { HomeHeaderSearch } from '@/src/components/HomeHeaderSearch';
 import { View } from 'react-native';
 import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
 
@@ -17,7 +18,7 @@ const formatSegmentTitle = (rawSegment: string) => {
 };
 
 const getHeaderTitle = (routeName: string, params?: Record<string, unknown>) => {
-  if (routeName === 'index') return 'NAYFT';
+  if (routeName === 'index') return '';
 
   if (routeName === 'news-boards/[boardId]') {
     const boardName = params?.name;
@@ -48,7 +49,6 @@ export default function TabsLayout() {
   const hasNewsFeed = useHasFeature('news_feed');
   const hasPortfolioTracking = useHasFeature('portfolio_tracking');
   const hasMarketData = useHasFeature('market_data');
-  const hasRewards = useHasFeature('rewards');
 
   useEffect(() => {
     useFeaturesStore.getState().refetchFeatures();
@@ -61,8 +61,7 @@ export default function TabsLayout() {
     if (tab === 'portfolio' && !hasPortfolioTracking) router.replace(fallback as any);
     else if (tab === 'index' && !hasNewsFeed) router.replace(hasMarketData ? '/(tabs)/market' : '/(tabs)/profile');
     else if (tab === 'market' && !hasMarketData) router.replace(hasNewsFeed ? '/(tabs)' : '/(tabs)/profile');
-    else if (tab === 'rewards' && !hasRewards) router.replace(fallback as any);
-  }, [segments, hasPortfolioTracking, hasNewsFeed, hasMarketData, hasRewards, router]);
+  }, [segments, hasPortfolioTracking, hasNewsFeed, hasMarketData, router]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -104,6 +103,8 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: 'Home',
+            headerTitle: () => <HomeHeaderSearch />,
+            headerTitleAlign: 'left',
             tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
             href: hasNewsFeed ? undefined : null,
           }}
@@ -142,7 +143,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="rewards"
           options={{
-            href: hasRewards ? undefined : null,
+            href: null,
           }}
         />
         <Tabs.Screen

@@ -8,7 +8,7 @@ import { FeedCardProps } from '../types';
 import { CoinChip } from './CoinChip';
 import { ReactionPicker } from './ReactionPicker';
 import { formatTimeAgo, abbreviateNumber } from '../utils/format';
-import { colors, borderRadius, shadows, spacing, semantic, typography } from '../theme/theme';
+import { colors, borderRadius, spacing, semantic, typography } from '../theme/theme';
 import { useHasFeature } from '../utils/features';
 
 const COLLAPSED_LINES = 3;
@@ -58,21 +58,54 @@ export const NewsCard = React.memo<FeedCardProps>(({
     );
   }
 
+  const primaryCoin = item.coins[0];
+  const headerTitle =
+    primaryCoin != null
+      ? `${primaryCoin.name}${primaryCoin.symbol ? ` · ${primaryCoin.symbol}` : ''}`
+      : item.source || 'Crypto';
+
+  const headerLeft = (
+    <>
+      {primaryCoin?.logo ? (
+        <Image
+          source={{ uri: primaryCoin.logo }}
+          style={styles.coinAvatarImage}
+          contentFit="cover"
+          accessibilityLabel={`${primaryCoin.name} logo`}
+        />
+      ) : (
+        <View style={styles.coinAvatarPlaceholder}>
+          <Text style={styles.coinAvatarText}>
+            {primaryCoin?.symbol?.[0] || item.source?.[0] || 'C'}
+          </Text>
+        </View>
+      )}
+      <View style={styles.headerTitles}>
+        <Text style={styles.coinName} numberOfLines={1}>
+          {headerTitle}
+        </Text>
+        <Text style={styles.timeAgo}>{formatTimeAgo(item.publishedAt)}</Text>
+      </View>
+    </>
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.coinAvatarPlaceholder}>
-            <Text style={styles.coinAvatarText}>
-              {item.coins[0]?.symbol[0] || 'C'}
-            </Text>
-          </View>
-          <View>
-            <Text style={styles.coinName}>{item.coins[0]?.name || 'Crypto'}</Text>
-            <Text style={styles.timeAgo}>{formatTimeAgo(item.publishedAt)}</Text>
-          </View>
-        </View>
-        {hasFollow && item.coins[0]?.isFollowing && (
+        {primaryCoin != null ? (
+          <TouchableOpacity
+            style={styles.headerLeft}
+            onPress={() => onCoinPress?.(primaryCoin.id)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${primaryCoin.name} profile`}
+          >
+            {headerLeft}
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerLeft}>{headerLeft}</View>
+        )}
+        {hasFollow && primaryCoin?.isFollowing && (
           <View style={styles.followingBadge}>
             <Text style={styles.followingText}>Following</Text>
           </View>
@@ -221,6 +254,8 @@ export const NewsCard = React.memo<FeedCardProps>(({
   );
 }, areNewsCardPropsEqual);
 
+NewsCard.displayName = 'NewsCard';
+
 const styles = StyleSheet.create({
   container: {
     backgroundColor: semantic.surface,
@@ -264,6 +299,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  headerTitles: {
+    flex: 1,
+    minWidth: 0,
+  },
+  coinAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: spacing.sm,
+    backgroundColor: colors.neutral[200],
   },
   coinAvatarPlaceholder: {
     width: 40,
