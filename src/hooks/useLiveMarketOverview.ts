@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import { fetchMarketTrend, KlineRecord } from '../services/api';
 import { usePollingEffect } from './usePollingEffect';
 
@@ -28,6 +29,8 @@ export function useLiveMarketOverview(
   options: LiveMarketOverviewOptions = {}
 ): { data: MarketOverviewState; hasFetched: boolean } {
   const { enabled = true } = options;
+  const isFocused = useIsFocused();
+  const pollEnabled = enabled && isFocused;
   const [data, setData] = useState<MarketOverviewState>(EMPTY_OVERVIEW);
   const [hasFetched, setHasFetched] = useState(false);
 
@@ -49,8 +52,8 @@ export function useLiveMarketOverview(
       });
       setHasFetched(true);
     },
-    [enabled],
-    { enabled, intervalMs: 15000, immediate: true }
+    [pollEnabled],
+    { enabled: pollEnabled, intervalMs: 30000, immediate: true }
   );
 
   return useMemo(() => ({ data, hasFetched }), [data, hasFetched]);

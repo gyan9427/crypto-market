@@ -76,6 +76,17 @@ export const HomeScreen: React.FC = () => {
       }));
 
       setNewsData(newsWithState);
+
+      if (feedFilter === 'explore') {
+        setFeaturedNews(newsWithState.slice(0, 3));
+      } else {
+        try {
+          const exploreTop = await fetchNews('explore', 1, 3, []);
+          setFeaturedNews(exploreTop.slice(0, 3));
+        } catch (err: any) {
+          console.error('Error loading featured news:', err);
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load news');
       console.error('Error loading news:', err);
@@ -88,30 +99,9 @@ export const HomeScreen: React.FC = () => {
     loadNews();
   }, [loadNews]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const news = await fetchNews('explore', 1, 3);
-        if (!cancelled) setFeaturedNews(news.slice(0, 3));
-      } catch (err: any) {
-        console.error('Error loading featured news:', err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [feedFilter]);
-
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadNews();
-    try {
-      const news = await fetchNews('explore', 1, 3);
-      setFeaturedNews(news.slice(0, 3));
-    } catch (err: any) {
-      console.error('Error loading featured news:', err);
-    }
     setRefreshing(false);
   };
 

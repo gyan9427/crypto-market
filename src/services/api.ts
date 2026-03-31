@@ -1,6 +1,7 @@
 import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts } from '../types';
 import { useAuthStore } from '../state/useAuthStore';
 import { resolveApiBaseUrl } from '../config/apiBaseUrl';
+import { fetchJsonCached } from './requestCache';
 
 export const API_BASE_URL = resolveApiBaseUrl();
 
@@ -256,6 +257,26 @@ function transformBackendUser(backendUser: BackendUser): User {
 /**
  * Fetch news articles from API
  */
+export const fetchCoinsByIds = async (coinIds: string[]): Promise<Coin[]> => {
+  const unique = [...new Set(coinIds.map((id) => String(id).trim()).filter(Boolean))].slice(0, 50);
+  if (unique.length === 0) return [];
+
+  let followingIds: Set<string> = new Set();
+  if (useAuthStore.getState().isAuthenticated) {
+    try {
+      const wishlist = await getWishlist();
+      followingIds = new Set(wishlist.map((c) => c.id));
+    } catch {
+      followingIds = new Set();
+    }
+  }
+
+  const response = await apiRequest<{ coins: BackendCoin[] }>(
+    `/coins/batch?ids=${encodeURIComponent(unique.join(','))}`
+  );
+  return response.coins.map((c) => transformBackendCoin(c, followingIds.has(c.coinId)));
+};
+
 export const fetchNews = async (
   filter: 'following' | 'explore',
   page: number = 1,
@@ -277,28 +298,19 @@ export const fetchNews = async (
     
     const response = await apiRequest<{ news: BackendNews[] }>(endpoint);
     
-    // Fetch coin details for related coins (limit to 8, bounded concurrency)
     const coinIds = new Set<string>();
     response.news.forEach((news) => {
       news.relatedCoins.forEach((coinId) => coinIds.add(coinId));
     });
 
-    const coinIdArray = Array.from(coinIds).slice(0, 8);
-    const CONCURRENCY = 4;
-    const coins: Coin[] = [];
-    for (let i = 0; i < coinIdArray.length; i += CONCURRENCY) {
-      const batch = coinIdArray.slice(i, i + CONCURRENCY);
-      const results = await Promise.all(
-        batch.map(async (coinId) => {
-          try {
-            return await fetchCoinDetails(coinId);
-          } catch (error) {
-            console.warn(`Failed to fetch coin ${coinId}:`, error);
-            return null;
-          }
-        })
-      );
-      coins.push(...results.filter((c): c is Coin => c !== null));
+    const coinIdArray = Array.from(coinIds).slice(0, 50);
+    let coins: Coin[] = [];
+    if (coinIdArray.length > 0) {
+      try {
+        coins = await fetchCoinsByIds(coinIdArray);
+      } catch (e) {
+        console.warn('fetchCoinsByIds failed:', e);
+      }
     }
 
     return response.news.map((news) => transformBackendNews(news, coins));
@@ -403,19 +415,16 @@ export const fetchCoinStats = async (coinId: string): Promise<CoinStats | null> 
 export const fetchNewsDetails = async (newsId: string): Promise<NewsItem> => {
   try {
     const response = await apiRequest<{ news: BackendNews }>(`/news/${newsId}`);
-    
-    // Fetch related coins
-    const coins: Coin[] = [];
-    await Promise.all(
-      response.news.relatedCoins.slice(0, 10).map(async (coinId) => {
-        try {
-          const coin = await fetchCoinDetails(coinId);
-          coins.push(coin);
-        } catch (error) {
-          console.warn(`Failed to fetch coin ${coinId}:`, error);
-        }
-      })
-    );
+
+    const ids = response.news.relatedCoins.slice(0, 50);
+    let coins: Coin[] = [];
+    if (ids.length > 0) {
+      try {
+        coins = await fetchCoinsByIds(ids);
+      } catch (error) {
+        console.warn('fetchCoinsByIds in fetchNewsDetails:', error);
+      }
+    }
 
     return transformBackendNews(response.news, coins);
   } catch (error: any) {
@@ -966,17 +975,35 @@ export function toChartSymbol(symbol: string): string {
 export const fetchKlines = async (
   symbol: string,
   interval: KlineInterval = '1h',
-  limit: number = 500
+  limit: number = 500,
+  opts?: { from?: string; to?: string }
 ): Promise<KlineRecord[]> => {
   const chartSymbol = toChartSymbol(symbol);
   if (!chartSymbol) return [];
-  const url = `${API_BASE_URL}/charts/klines?symbol=${encodeURIComponent(chartSymbol)}&interval=${interval}&limit=${limit}`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch klines: ${response.status}`);
-  }
-  const data = await response.json();
-  return Array.isArray(data) ? data : [];
+  const search = new URLSearchParams();
+  search.set('symbol', chartSymbol);
+  search.set('interval', interval);
+  search.set('limit', String(limit));
+  search.set('fields', 'minimal');
+  if (opts?.from) search.set('from', opts.from);
+  if (opts?.to) search.set('to', opts.to);
+  const url = `${API_BASE_URL}/charts/klines?${search.toString()}`;
+  const data = await fetchJsonCached<unknown>(url, { cacheTtlMs: 45_000 });
+  const arr = Array.isArray(data) ? data : [];
+  return arr.map((raw) => {
+    const r = raw as Record<string, unknown>;
+    const ot = r.openTime;
+    return {
+      openTime: typeof ot === 'number' ? new Date(ot) : (ot as string | Date),
+      open: Number(r.open),
+      high: Number(r.high),
+      low: Number(r.low),
+      close: Number(r.close),
+      volume: Number(r.volume),
+      quoteVolume: r.quoteVolume != null ? Number(r.quoteVolume) : undefined,
+      tradeCount: r.tradeCount != null ? Number(r.tradeCount) : undefined,
+    };
+  });
 };
 
 /**
@@ -987,12 +1014,9 @@ export const fetchMarketTrend = async (
   limit: number = 240
 ): Promise<MarketTrendResponse> => {
   const url = `${API_BASE_URL}/charts/market-trend?interval=${interval}&limit=${limit}`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch market trend: ${response.status}`);
-  }
-
-  const data = await response.json();
+  const data = (await fetchJsonCached<Record<string, unknown>>(url, {
+    cacheTtlMs: 45_000,
+  })) as Record<string, unknown>;
   const pointsRaw = Array.isArray(data?.points) ? data.points : [];
   const points = pointsRaw
     .map((point: any) => ({
@@ -1001,6 +1025,8 @@ export const fetchMarketTrend = async (
     }))
     .filter((point: MarketTrendPoint) => Number.isFinite(point.value) && point.value > 0 && Boolean(point.openTime));
 
+  const range = data.range as Record<string, unknown> | undefined;
+
   return {
     points,
     latestValue: Number.isFinite(Number(data?.latestValue)) ? Number(data.latestValue) : 0,
@@ -1008,9 +1034,9 @@ export const fetchMarketTrend = async (
     relativeChange24h: Number.isFinite(Number(data?.relativeChange24h)) ? Number(data.relativeChange24h) : 0,
     range: {
       interval,
-      from: data?.range?.from ?? '',
-      to: data?.range?.to ?? '',
-      limit: Number.isFinite(Number(data?.range?.limit)) ? Number(data.range.limit) : limit,
+      from: range?.from ?? '',
+      to: range?.to ?? '',
+      limit: Number.isFinite(Number(range?.limit)) ? Number(range.limit) : limit,
     },
     constituents: Number.isFinite(Number(data?.constituents)) ? Number(data.constituents) : 0,
   };
