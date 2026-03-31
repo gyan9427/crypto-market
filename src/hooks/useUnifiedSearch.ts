@@ -10,6 +10,7 @@ type UseUnifiedSearchOptions = {
 };
 
 const CACHE_TTL_MS = 20_000;
+const FETCH_TIMEOUT_MS = 8000;
 const inMemoryCache = new Map<string, { expiresAt: number; value: UnifiedSearchResult }>();
 
 const emptyResult = (segments: SearchSegment[]): UnifiedSearchResult => ({
@@ -69,6 +70,7 @@ export function useUnifiedSearch(query: string, options: UseUnifiedSearchOptions
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<UnifiedSearchResult>(() => emptyResult(segments));
   const latestRequestRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setResult(emptyResult(segments));
@@ -87,12 +89,13 @@ export function useUnifiedSearch(query: string, options: UseUnifiedSearchOptions
 
     const requestId = latestRequestRef.current + 1;
     latestRequestRef.current = requestId;
-    const controller = new AbortController();
+    abortRef.current?.abort();
 
-    const run = async () => {
+    const debounceTimer = setTimeout(() => {
       const key = cacheKey(trimmed, segments, limit);
       const cached = readCache(key);
       if (cached) {
+        if (latestRequestRef.current !== requestId) return;
         setResult(cached);
         setError(null);
         setLoading(false);
@@ -101,31 +104,47 @@ export function useUnifiedSearch(query: string, options: UseUnifiedSearchOptions
 
       setLoading(true);
       setError(null);
-      try {
-        const response = await unifiedSearch(trimmed, {
-          segments,
-          limit,
-          signal: controller.signal,
-        });
-        if (latestRequestRef.current !== requestId) return;
-        writeCache(key, response);
-        setResult(response);
-      } catch (err: any) {
-        if (controller.signal.aborted) return;
-        if (latestRequestRef.current !== requestId) return;
-        setResult(emptyResult(segments));
-        setError(err?.message || 'Search failed');
-      } finally {
-        if (latestRequestRef.current === requestId) {
-          setLoading(false);
-        }
-      }
-    };
 
-    const timeout = setTimeout(run, debounceMs);
+      const runFetch = async (isRetry: boolean): Promise<void> => {
+        const controller = new AbortController();
+        abortRef.current = controller;
+        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        try {
+          const response = await unifiedSearch(trimmed, {
+            segments,
+            limit,
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          if (latestRequestRef.current !== requestId) return;
+          writeCache(key, response);
+          setResult(response);
+          setError(null);
+        } catch (err: unknown) {
+          clearTimeout(timeoutId);
+          if (controller.signal.aborted) return;
+          if (latestRequestRef.current !== requestId) return;
+          if (!isRetry) {
+            await runFetch(true);
+            return;
+          }
+          setError(err instanceof Error ? err.message : 'Search failed');
+        } finally {
+          if (abortRef.current === controller) {
+            abortRef.current = null;
+          }
+          if (latestRequestRef.current === requestId) {
+            setLoading(false);
+          }
+        }
+      };
+
+      void runFetch(false);
+    }, debounceMs);
+
     return () => {
-      clearTimeout(timeout);
-      controller.abort();
+      clearTimeout(debounceTimer);
+      abortRef.current?.abort();
     };
   }, [query, segments, segmentsKey, limit, minQueryLength, debounceMs, enabled]);
 

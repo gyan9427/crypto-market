@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useMemo, useState } from 'react';
 import { Platform, View, StyleSheet, Text } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import type { KlineInterval } from '../types';
 import { useKlinesCacheState } from '../../hooks/useKlinesCache';
@@ -15,8 +16,11 @@ export interface ProfessionalChartProps {
 }
 
 function UniversalLineChart({ symbol, interval, style }: ProfessionalChartProps) {
+  const isFocused = useIsFocused();
   const limit = interval === '1m' ? 240 : 72;
-  const { data, isLoading, hasFetched } = useKlinesCacheState(symbol, interval, limit);
+  const { data, isLoading, hasFetched } = useKlinesCacheState(symbol, interval, limit, {
+    enabled: isFocused,
+  });
   const [width, setWidth] = useState(0);
   const height = WEB_CHART_HEIGHT;
   const padding = 10;

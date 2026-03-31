@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
+import { setPerformanceScreen } from '../services/requestCache';
 import {
   View,
   FlatList,
@@ -28,6 +29,10 @@ const GRAPH_ANIM_MS = 280;
 export const ExploreScreen: React.FC = () => {
   const router = useRouter();
   const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (isFocused) setPerformanceScreen('Explore');
+  }, [isFocused]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState<TrendingCoin[]>([]);

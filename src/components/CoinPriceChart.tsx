@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import Svg, { Line, Path, Circle } from 'react-native-svg';
 import { fetchKlines, KlineInterval, KlineRecord } from '../services/api';
 import { colors, spacing, typography, borderRadius } from '../theme/theme';
@@ -42,6 +43,7 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
   symbol,
   height = 220,
 }) => {
+  const isFocused = useIsFocused();
   const { width } = useWindowDimensions();
   const chartWidth = Math.max(200, width - spacing.md * 2);
   const chartHeight = Math.max(120, height - 60);
@@ -80,8 +82,8 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
         setLoading(false);
       }
     },
-    [symbol, interval],
-    { enabled: Boolean(symbol), intervalMs: refreshMs, immediate: true }
+    [symbol, interval, isFocused],
+    { enabled: Boolean(symbol) && isFocused, intervalMs: refreshMs, immediate: true }
   );
 
   const chartView = useMemo(() => {

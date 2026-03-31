@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { fetchKlines, toSparklineData, KlineInterval } from '../services/api';
 import { usePollingEffect } from './usePollingEffect';
 
+export interface UseKlinesCacheOptions {
+  enabled?: boolean;
+}
+
 const cache = new Map<string, { data: number[]; ts: number }>();
 const CACHE_TTL_MS = 60 * 1000;
 
@@ -30,16 +34,19 @@ function setCached(cacheKey: string, data: number[]) {
 export function useKlinesCache(
   symbol: string | undefined,
   interval: KlineInterval = '1d',
-  limit: number = 48
+  limit: number = 48,
+  options?: UseKlinesCacheOptions
 ): number[] {
-  return useKlinesCacheState(symbol, interval, limit).data;
+  return useKlinesCacheState(symbol, interval, limit, options).data;
 }
 
 export function useKlinesCacheState(
   symbol: string | undefined,
   interval: KlineInterval = '1d',
-  limit: number = 48
+  limit: number = 48,
+  options: UseKlinesCacheOptions = {}
 ): { data: number[]; isLoading: boolean; hasFetched: boolean } {
+  const { enabled: pollEnabled = true } = options;
   const cacheKey = symbol ? buildCacheKey(symbol, interval, limit) : '';
   const initialCached = cacheKey ? getCached(cacheKey) ?? [] : [];
   const [data, setData] = useState<number[]>(initialCached);
@@ -94,8 +101,8 @@ export function useKlinesCacheState(
         setHasFetched(true);
       }
     },
-    [symbol, interval, limit, cacheKey],
-    { enabled: Boolean(symbol && cacheKey), intervalMs: refreshMs, immediate: false }
+    [symbol, interval, limit, cacheKey, pollEnabled],
+    { enabled: Boolean(symbol && cacheKey && pollEnabled), intervalMs: refreshMs, immediate: false }
   );
 
   return { data, isLoading, hasFetched };
