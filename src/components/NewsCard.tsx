@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,8 @@ import { ReactionPicker } from './ReactionPicker';
 import { formatTimeAgo, abbreviateNumber } from '../utils/format';
 import { colors, borderRadius, spacing, semantic, typography } from '../theme/theme';
 import { useHasFeature } from '../utils/features';
+import { useAppStore } from '../state/useAppStore';
 
-const MAX_CATEGORY_TAGS = 3;
 const TITLE_LINES_FEED = 2;
 const SNIPPET_LINES_FEED = 2;
 
@@ -39,6 +39,10 @@ function rawSnippetFields(item: { subtitle?: string; content?: string; snippet: 
   return item.subtitle || item.content || item.snippet || '';
 }
 
+function coinHeaderTitle(coin: { name: string; symbol: string }): string {
+  return `${coin.name}${coin.symbol ? ` · ${coin.symbol}` : ''}`;
+}
+
 function areNewsCardPropsEqual(prev: FeedCardProps, next: FeedCardProps): boolean {
   if (prev.variant !== next.variant) return false;
   if (prev.onPress !== next.onPress) return false;
@@ -56,6 +60,11 @@ function areNewsCardPropsEqual(prev: FeedCardProps, next: FeedCardProps): boolea
   if (a.subtitle !== b.subtitle) return false;
   if (a.imageUrl !== b.imageUrl) return false;
   if (a.source !== b.source) return false;
+  const ac = a.coins[0];
+  const bc = b.coins[0];
+  if ((ac?.id ?? '') !== (bc?.id ?? '')) return false;
+  if ((ac?.name ?? '') !== (bc?.name ?? '')) return false;
+  if ((ac?.isFollowing ?? false) !== (bc?.isFollowing ?? false)) return false;
   return true;
 }
 
@@ -76,6 +85,10 @@ export const NewsCard = React.memo<FeedCardProps>(({
   const isExpandedLayout = variant === 'expanded';
   const articleSaveCount = item.saveCount ?? 0;
 
+  const followingCoins = useAppStore((s) => s.followingCoins);
+  const toggleFollowCoin = useAppStore((s) => s.toggleFollowCoin);
+  const [followBusy, setFollowBusy] = useState(false);
+
   const feedSnippet = useMemo(() => {
     const raw = rawSnippetFields(item);
     if (!raw.trim()) return '';
@@ -83,14 +96,23 @@ export const NewsCard = React.memo<FeedCardProps>(({
     return raw;
   }, [item]);
 
-  const categories = item.categories ?? [];
-  const visibleCategories = categories.slice(0, MAX_CATEGORY_TAGS);
-  const overflowTagCount = Math.max(0, categories.length - visibleCategories.length);
+  const handleFollowToggle = useCallback(async () => {
+    const coin = item.coins[0];
+    if (!coin) return;
+    setFollowBusy(true);
+    try {
+      await toggleFollowCoin(coin.id);
+    } finally {
+      setFollowBusy(false);
+    }
+  }, [item.coins, toggleFollowCoin]);
 
   if (isGrid) {
+    const gCoin = item.coins[0];
+    const gridAttribution = gCoin ? coinHeaderTitle(gCoin) : item.source;
     return (
       <View style={[styles.container, styles.gridContainer]}>
-        <Text style={styles.gridSource}>{item.source}</Text>
+        <Text style={styles.gridSource}>{gridAttribution}</Text>
         <Text style={styles.gridTitle} numberOfLines={2}>
           {item.title}
         </Text>
@@ -104,6 +126,10 @@ export const NewsCard = React.memo<FeedCardProps>(({
   const primaryCoin = item.coins[0];
   const showRelatedInCard = isExpandedLayout && item.relatedCoins && item.relatedCoins.length > 0;
 
+  const isFollowingCoin =
+    primaryCoin != null &&
+    (followingCoins.includes(primaryCoin.id) || Boolean(primaryCoin.isFollowing));
+
   const openExternalArticle = () => {
     trackEvent({
       featureKey: 'news_feed',
@@ -112,6 +138,14 @@ export const NewsCard = React.memo<FeedCardProps>(({
     });
     openInAppBrowser(item.url || item.sourceUrl!);
   };
+
+  const avatarInitial = primaryCoin
+    ? (primaryCoin.symbol?.[0] || primaryCoin.name?.[0] || 'C').toUpperCase()
+    : (item.source?.[0] ?? 'C').toUpperCase();
+
+  const headerPrimaryLine = primaryCoin
+    ? coinHeaderTitle(primaryCoin)
+    : item.source || 'Crypto';
 
   const headerAvatar = primaryCoin?.logo ? (
     <Image
@@ -122,9 +156,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
     />
   ) : (
     <View style={styles.coinAvatarPlaceholder}>
-      <Text style={styles.coinAvatarText}>
-        {(item.source?.[0] ?? 'C').toUpperCase()}
-      </Text>
+      <Text style={styles.coinAvatarText}>{avatarInitial}</Text>
     </View>
   );
 
@@ -133,7 +165,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
       {headerAvatar}
       <View style={styles.headerTitles}>
         <Text style={styles.sourceAttribution} numberOfLines={1}>
-          {item.source || 'Crypto'}
+          {headerPrimaryLine}
         </Text>
         <Text style={styles.timeAgo}>{formatTimeAgo(item.publishedAt)}</Text>
       </View>
@@ -154,18 +186,13 @@ export const NewsCard = React.memo<FeedCardProps>(({
             {headerAvatar}
             <View style={styles.headerTitles}>
               <Text style={styles.sourceAttribution} numberOfLines={1}>
-                {item.source || 'Crypto'}
+                {headerPrimaryLine}
               </Text>
               <Text style={styles.timeAgo}>{formatTimeAgo(item.publishedAt)}</Text>
             </View>
           </TouchableOpacity>
         ) : (
           attributionBlock
-        )}
-        {hasFollow && primaryCoin?.isFollowing && (
-          <View style={styles.followingBadge}>
-            <Text style={styles.followingText}>Following</Text>
-          </View>
         )}
       </View>
 
@@ -180,6 +207,51 @@ export const NewsCard = React.memo<FeedCardProps>(({
         </View>
       )}
 
+      <View style={styles.heroOuter}>
+        <Pressable
+          onPress={() => onPress?.(item.id)}
+          disabled={!onPress}
+          style={({ pressed }) => [
+            styles.heroPressable,
+            pressed && onPress && styles.cardPressablePressed,
+          ]}
+          accessibilityRole={onPress ? 'button' : undefined}
+          accessibilityLabel={onPress ? `Open article: ${item.title}` : undefined}
+        >
+          <View style={styles.heroWrap}>
+            {item.imageUrl ? (
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={styles.heroImage}
+                contentFit="cover"
+                accessibilityLabel="Article image"
+                transition={200}
+              />
+            ) : (
+              <View style={styles.heroPlaceholder} accessibilityLabel="No article image">
+                <Text style={styles.heroPlaceholderText}>
+                  {(item.source?.[0] ?? 'N').toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+        </Pressable>
+        {hasFollow && primaryCoin != null && (
+          <TouchableOpacity
+            style={[styles.heroFollowButton, isFollowingCoin && styles.heroFollowButtonFollowing]}
+            onPress={handleFollowToggle}
+            disabled={followBusy}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={isFollowingCoin ? 'Unfollow coin' : 'Follow coin'}
+          >
+            <Text style={[styles.heroFollowText, isFollowingCoin && styles.heroFollowTextFollowing]}>
+              {followBusy ? '...' : isFollowingCoin ? 'Following' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <Pressable
         onPress={() => onPress?.(item.id)}
         disabled={!onPress}
@@ -187,42 +259,10 @@ export const NewsCard = React.memo<FeedCardProps>(({
         accessibilityRole={onPress ? 'button' : undefined}
         accessibilityLabel={onPress ? `Open article: ${item.title}` : undefined}
       >
-        <View style={styles.heroWrap}>
-          {item.imageUrl ? (
-            <Image
-              source={{ uri: item.imageUrl }}
-              style={styles.heroImage}
-              contentFit="cover"
-              accessibilityLabel="Article image"
-              transition={200}
-            />
-          ) : (
-            <View style={styles.heroPlaceholder} accessibilityLabel="No article image">
-              <Text style={styles.heroPlaceholderText}>
-                {(item.source?.[0] ?? 'N').toUpperCase()}
-              </Text>
-            </View>
-          )}
-        </View>
-
         <View style={styles.content}>
           <Text style={styles.title} numberOfLines={TITLE_LINES_FEED}>
             {item.title}
           </Text>
-          {categories.length > 0 && (
-            <View style={styles.categoriesRow}>
-              {visibleCategories.map((cat) => (
-                <View key={cat.key} style={styles.categoryBadge}>
-                  <Text style={styles.categoryBadgeText}>{cat.name}</Text>
-                </View>
-              ))}
-              {overflowTagCount > 0 && (
-                <View style={styles.categoryBadgeMuted}>
-                  <Text style={styles.categoryBadgeMutedText}>+{overflowTagCount}</Text>
-                </View>
-              )}
-            </View>
-          )}
           {showRelatedInCard && (
             <View style={styles.relatedCoinsSection}>
               <Text style={styles.relatedCoinsHeader}>Related Coins</Text>
@@ -245,6 +285,9 @@ export const NewsCard = React.memo<FeedCardProps>(({
               {feedSnippet}
             </Text>
           )}
+          <Text style={styles.sourceMeta} numberOfLines={1}>
+            @{item.source}
+          </Text>
         </View>
       </Pressable>
 
@@ -424,17 +467,6 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
     marginTop: 2,
   },
-  followingBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    backgroundColor: colors.primary[100],
-    borderRadius: borderRadius.sm,
-  },
-  followingText: {
-    fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.primary[700],
-  },
   coinsRow: {
     flexDirection: 'row',
     paddingHorizontal: spacing.md,
@@ -446,6 +478,13 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
     alignSelf: 'center',
     marginLeft: spacing.xs,
+  },
+  heroOuter: {
+    position: 'relative',
+    width: '100%',
+  },
+  heroPressable: {
+    width: '100%',
   },
   heroWrap: {
     width: '100%',
@@ -469,6 +508,30 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeights.bold,
     color: colors.neutral[500],
   },
+  heroFollowButton: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    zIndex: 2,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.button,
+    backgroundColor: colors.primary[500],
+    borderWidth: 1,
+    borderColor: colors.primary[500],
+  },
+  heroFollowButtonFollowing: {
+    backgroundColor: semantic.surface,
+    borderColor: colors.neutral[300],
+  },
+  heroFollowText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.surface,
+  },
+  heroFollowTextFollowing: {
+    color: colors.neutral[700],
+  },
   content: {
     padding: spacing.md,
   },
@@ -485,33 +548,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: spacing.xs,
   },
-  categoriesRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  categoryBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: semantic.cardRadiusSmall,
-    backgroundColor: colors.primary[100],
-  },
-  categoryBadgeText: {
-    fontSize: typography.fontSizes.badge,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.primary[700],
-  },
-  categoryBadgeMuted: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: semantic.cardRadiusSmall,
-    backgroundColor: colors.neutral[100],
-  },
-  categoryBadgeMutedText: {
-    fontSize: typography.fontSizes.badge,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[600],
+  sourceMeta: {
+    marginTop: spacing.sm,
+    fontSize: typography.fontSizes.xs,
+    color: colors.neutral[500],
+    fontWeight: typography.fontWeights.medium,
   },
   relatedCoinsSection: {
     marginBottom: spacing.sm,

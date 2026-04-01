@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Skeleton } from './Skeleton';
 import { borderRadius, spacing, semantic, colors } from '../theme/theme';
 
-/** Mirrors NewsCard layout: header, optional coin chips, hero 16:9, two-line title, footer strip, actions. */
+/** Mirrors NewsCard layout: header, optional coin chips, hero + follow overlay, title, source meta, footer, actions. */
 export const NewsCardSkeleton: React.FC = () => {
   return (
     <View style={styles.container}>
@@ -15,7 +15,6 @@ export const NewsCardSkeleton: React.FC = () => {
             <Skeleton width={64} height={12} />
           </View>
         </View>
-        <Skeleton width={70} height={22} borderRadius={11} />
       </View>
 
       <View style={styles.coinsRow}>
@@ -24,17 +23,19 @@ export const NewsCardSkeleton: React.FC = () => {
         <Skeleton width={56} height={28} borderRadius={14} />
       </View>
 
-      <View style={styles.heroWrap}>
-        <Skeleton width="100%" height={180} borderRadius={0} />
+      <View style={styles.heroOuter}>
+        <View style={styles.heroWrap}>
+          <Skeleton width="100%" height={200} borderRadius={0} />
+        </View>
+        <View style={styles.heroFollowSkel} pointerEvents="none">
+          <Skeleton width={88} height={30} borderRadius={borderRadius.button} />
+        </View>
       </View>
 
       <View style={styles.content}>
         <Skeleton width="100%" height={20} style={styles.marginBottom} />
         <Skeleton width="92%" height={20} style={styles.marginBottom} />
-        <View style={styles.tagRow}>
-          <Skeleton width={48} height={22} borderRadius={8} style={styles.marginRight} />
-          <Skeleton width={56} height={22} borderRadius={8} />
-        </View>
+        <Skeleton width={140} height={12} style={styles.sourceMetaSkel} />
       </View>
 
       <View style={styles.footerRow}>
@@ -88,16 +89,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
+  heroOuter: {
+    position: 'relative',
+    width: '100%',
+  },
   heroWrap: {
     width: '100%',
     height: 200,
     backgroundColor: colors.neutral[200],
   },
+  heroFollowSkel: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    zIndex: 2,
+  },
   content: {
     padding: spacing.md,
   },
-  tagRow: {
-    flexDirection: 'row',
+  sourceMetaSkel: {
     marginTop: spacing.sm,
   },
   footerRow: {
