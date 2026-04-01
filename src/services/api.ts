@@ -241,7 +241,7 @@ function transformBackendCoin(backendCoin: BackendCoin, isFollowing: boolean = f
 
 function transformBackendTrendingCoin(
   backendCoin: BackendCoin,
-  category: 'trending' | 'top' | 'nft' | 'defi' = 'trending',
+  category: 'trending' | 'top' = 'trending',
   isFollowing: boolean = false
 ): TrendingCoin {
   return {
@@ -331,17 +331,13 @@ export const fetchNews = async (
  * Fetch trending coins from API
  */
 export const fetchTrendingCoins = async (
-  category?: 'trending' | 'top' | 'nft' | 'defi'
+  category?: 'trending' | 'top'
 ): Promise<TrendingCoin[]> => {
   try {
     let endpoint = '/market/trending';
-    
-    // Map category to appropriate endpoint
+
     if (category === 'top') {
       endpoint = '/market/trending'; // Use trending for now, or could use top-gainers
-    } else if (category === 'nft' || category === 'defi') {
-      // These categories don't have specific endpoints, use trending
-      endpoint = '/market/trending';
     }
 
     const response = await apiRequest<{ coins: BackendCoin[] }>(endpoint);

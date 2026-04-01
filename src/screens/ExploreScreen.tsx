@@ -56,21 +56,14 @@ export const ExploreScreen: React.FC = () => {
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
 
-  const categories: ExploreCategory[] = ['trending', 'top', 'nft', 'defi'];
+  const categories: ExploreCategory[] = ['trending', 'top'];
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const categoryMap: Record<ExploreCategory, 'trending' | 'top' | 'nft' | 'defi'> = {
-        trending: 'trending',
-        top: 'top',
-        nft: 'trending',
-        defi: 'trending',
-      };
-
-      const trendingCoins = await fetchTrendingCoins(categoryMap[exploreCategory]);
+      const trendingCoins = await fetchTrendingCoins(exploreCategory);
       setCoins(trendingCoins);
     } catch (err: any) {
       setError(err.message || 'Failed to load data');

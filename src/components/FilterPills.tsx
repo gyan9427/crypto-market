@@ -17,8 +17,6 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
   const categoryLabels: Record<ExploreCategory, string> = {
     trending: 'Trending',
     top: 'Top',
-    nft: 'NFT',
-    defi: 'DeFi',
   };
 
   return (
