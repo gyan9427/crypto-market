@@ -260,6 +260,7 @@ export const HomeScreen: React.FC = () => {
           onShare={handleShare}
           onSave={handleSave}
           onCoinPress={handleCoinPress}
+          onPress={openNewsDetailById}
         />
       );
     },
@@ -273,6 +274,7 @@ export const HomeScreen: React.FC = () => {
       handleShare,
       handleSave,
       handleCoinPress,
+      openNewsDetailById,
     ]
   );
 

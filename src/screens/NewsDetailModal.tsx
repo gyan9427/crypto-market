@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { openInAppBrowser } from '../utils/browser';
 import { X, Share2, Bookmark, BookmarkCheck } from 'lucide-react-native';
 import { NewsItem, ReactionType } from '../types';
@@ -27,6 +28,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   newsItem,
   onClose,
 }) => {
+  const router = useRouter();
   const [isSaved, setIsSaved] = useState(newsItem.isSaved ?? false);
   const [saveCount, setSaveCount] = useState(newsItem.saveCount ?? 0);
   const [saveBoardOpen, setSaveBoardOpen] = useState(false);
@@ -84,12 +86,18 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {newsItem.imageUrl && (
+        {newsItem.imageUrl ? (
           <Image
             source={{ uri: newsItem.imageUrl }}
             style={styles.heroImage}
             resizeMode="cover"
           />
+        ) : (
+          <View style={styles.heroPlaceholder} accessibilityLabel="No article image">
+            <Text style={styles.heroPlaceholderText}>
+              {(newsItem.source?.[0] ?? 'N').toUpperCase()}
+            </Text>
+          </View>
         )}
 
         <View style={styles.content}>
@@ -157,8 +165,26 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             </View>
           )}
 
+          {newsItem.relatedCoins && newsItem.relatedCoins.length > 0 && (
+            <View style={styles.coinsSection}>
+              <Text style={styles.sectionTitle}>Related tickers</Text>
+              <View style={styles.relatedTickersRow}>
+                {newsItem.relatedCoins.map((coinId) => (
+                  <TouchableOpacity
+                    key={coinId}
+                    style={styles.relatedTickerBadge}
+                    onPress={() => router.push(`/coins/${coinId}` as never)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.relatedTickerText}>{coinId}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
           <Text style={styles.bodyText}>
-            {newsItem.subtitle || newsItem.content || newsItem.snippet}
+            {newsItem.content ?? newsItem.subtitle ?? newsItem.snippet}
           </Text>
 
           {(newsItem.url || newsItem.sourceUrl) && (
@@ -214,6 +240,18 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
     backgroundColor: colors.neutral[200],
+  },
+  heroPlaceholder: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: colors.neutral[300],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroPlaceholderText: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: colors.neutral[500],
   },
   content: {
     padding: spacing.lg,
@@ -276,6 +314,22 @@ const styles = StyleSheet.create({
   coinsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  relatedTickersRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  relatedTickerBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#FEF08A',
+  },
+  relatedTickerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#854D0E',
   },
   bodyText: {
     fontSize: 16,
