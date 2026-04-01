@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   ScrollView,
   ImageBackground,
   useWindowDimensions,
+  Animated,
+  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -20,13 +22,23 @@ import { colors, spacing, borderRadius, shadows, typography } from '@/src/theme/
 import { login } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { trackEvent } from '@/src/utils/trackEvent';
+import {
+  FloatingFieldFocusLayer,
+  FLOATING_FIELD_FOCUS_OPEN_DELAY_MS,
+  type FloatingFieldFocusLayerRef,
+} from '@/src/components/auth/FloatingFieldFocusLayer';
 
 const OPENING_BG = require('../assets/images/nayft_opening.png');
 
 /** Bottom sheet height as fraction of screen — keeps hero art + overlays visible */
 const LOGIN_CARD_HEIGHT_RATIO = 0.44;
 
+/** Ignore focus-open briefly after keyboardDidHide to reduce IME/focus races */
+const KEYBOARD_SETTLE_MS = 80;
+
 const PLACEHOLDER_MUTED = 'rgba(0,0,0,0.5)';
+
+type ActiveField = 'email' | 'password' | null;
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -39,7 +51,112 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [activeField, setActiveField] = useState<ActiveField>(null);
+  const [sourceCenter, setSourceCenter] = useState<{ cx: number; cy: number } | null>(null);
+
+  const emailMeasureRef = useRef<View>(null);
+  const passwordMeasureRef = useRef<View>(null);
+  const floatingEmailRef = useRef<TextInput>(null);
+  const floatingPasswordRef = useRef<TextInput>(null);
+  const floatingLayerRef = useRef<FloatingFieldFocusLayerRef>(null);
+  /** Shared with FloatingFieldFocusLayer — 0 = base form full strength, 1 = focus overlay active */
+  const focusProgress = useRef(new Animated.Value(0)).current;
+
+  const focusOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Soft keyboard visibility from system events */
+  const keyboardVisibleRef = useRef(false);
+  /** Used to skip opening the overlay immediately after IME dismiss (focus churn) */
+  const lastKeyboardHideAtRef = useRef(0);
+
   const cardMaxHeight = Math.round(windowHeight * LOGIN_CARD_HEIGHT_RATIO);
+
+  const baseFormAnimatedStyle = useMemo(
+    () => ({
+      opacity: focusProgress.interpolate({
+        inputRange: [0, 1],
+        outputRange: [1, 0.16],
+      }),
+      transform: [
+        {
+          scale: focusProgress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 0.98],
+          }),
+        },
+      ],
+    }),
+    [focusProgress]
+  );
+
+  const handleDismissComplete = useCallback(() => {
+    setActiveField(null);
+    setSourceCenter(null);
+  }, []);
+
+  const openFieldFromMeasure = useCallback((field: 'email' | 'password') => {
+    if (floatingLayerRef.current?.isAnimating?.()) return;
+    const measureRef = field === 'email' ? emailMeasureRef : passwordMeasureRef;
+    measureRef.current?.measureInWindow((x, y, w, h) => {
+      setSourceCenter({ cx: x + w / 2, cy: y + h / 2 });
+      setActiveField(field);
+    });
+  }, []);
+
+  const scheduleOpenField = useCallback(
+    (field: 'email' | 'password') => {
+      if (focusOpenTimerRef.current) {
+        clearTimeout(focusOpenTimerRef.current);
+        focusOpenTimerRef.current = null;
+      }
+      focusOpenTimerRef.current = setTimeout(() => {
+        focusOpenTimerRef.current = null;
+        if (floatingLayerRef.current?.isAnimating?.()) return;
+        if (Date.now() - lastKeyboardHideAtRef.current < KEYBOARD_SETTLE_MS) return;
+        openFieldFromMeasure(field);
+      }, FLOATING_FIELD_FOCUS_OPEN_DELAY_MS);
+    },
+    [openFieldFromMeasure]
+  );
+
+  const onBottomEmailFocus = useCallback(() => {
+    scheduleOpenField('email');
+  }, [scheduleOpenField]);
+
+  const onBottomPasswordFocus = useCallback(() => {
+    scheduleOpenField('password');
+  }, [scheduleOpenField]);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => {
+      keyboardVisibleRef.current = true;
+      lastKeyboardHideAtRef.current = 0;
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardVisibleRef.current = false;
+      lastKeyboardHideAtRef.current = Date.now();
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (focusOpenTimerRef.current) {
+        clearTimeout(focusOpenTimerRef.current);
+      }
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!activeField) return;
+    if (activeField === 'email') {
+      floatingEmailRef.current?.focus();
+    } else {
+      floatingPasswordRef.current?.focus();
+    }
+  }, [activeField]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -72,6 +189,14 @@ export default function LoginScreen() {
     router.push('register');
   };
 
+  const floatingEmailHidden = activeField === 'email';
+  const floatingPasswordHidden = activeField === 'password';
+
+  const inputProps = {
+    placeholderTextColor: PLACEHOLDER_MUTED,
+    underlineColorAndroid: 'transparent' as const,
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -79,7 +204,6 @@ export default function LoginScreen() {
     >
       <StatusBar style="light" />
       <View style={styles.layerRoot}>
-        {/* Zone 1: full-bleed art — cover preserves aspect ratio; no stretch */}
         <ImageBackground
           source={OPENING_BG}
           style={styles.bgImage}
@@ -87,7 +211,6 @@ export default function LoginScreen() {
           imageStyle={styles.bgImageInner}
         />
 
-        {/* Zone 2: readability fade — replaces heavy full-screen blur */}
         <LinearGradient
           pointerEvents="none"
           colors={['transparent', 'rgba(255,255,255,0.42)']}
@@ -96,8 +219,7 @@ export default function LoginScreen() {
           style={styles.fadeOverlay}
         />
 
-        {/* Zone 3: bottom-aligned form (not vertically centered) */}
-        <View style={styles.formColumn}>
+        <Animated.View style={[styles.formColumn, baseFormAnimatedStyle]}>
           <ScrollView
             style={[styles.scrollView, { maxHeight: cardMaxHeight }]}
             keyboardShouldPersistTaps="handled"
@@ -115,32 +237,34 @@ export default function LoginScreen() {
                 </View>
               )}
 
-              <View style={styles.field}>
+              <View ref={emailMeasureRef} style={styles.field} collapsable={false}>
                 <Text style={styles.label}>Email</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, floatingEmailHidden && styles.inputHidden]}
                   value={email}
                   onChangeText={setEmail}
+                  onFocus={onBottomEmailFocus}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete="email"
                   placeholder="Enter your email"
-                  placeholderTextColor={PLACEHOLDER_MUTED}
-                  underlineColorAndroid="transparent"
+                  editable={!floatingEmailHidden}
+                  {...inputProps}
                 />
               </View>
 
-              <View style={styles.field}>
+              <View ref={passwordMeasureRef} style={styles.field} collapsable={false}>
                 <Text style={styles.label}>Password</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, floatingPasswordHidden && styles.inputHidden]}
                   value={password}
                   onChangeText={setPassword}
+                  onFocus={onBottomPasswordFocus}
                   secureTextEntry
                   autoCapitalize="none"
                   placeholder="Enter your password"
-                  placeholderTextColor={PLACEHOLDER_MUTED}
-                  underlineColorAndroid="transparent"
+                  editable={!floatingPasswordHidden}
+                  {...inputProps}
                 />
               </View>
 
@@ -174,7 +298,50 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </View>
+        </Animated.View>
+
+        {activeField && sourceCenter && (
+          <FloatingFieldFocusLayer
+            ref={floatingLayerRef}
+            activeField={activeField}
+            sourceCenter={sourceCenter}
+            onDismissComplete={handleDismissComplete}
+            progress={focusProgress}
+          >
+            {activeField === 'email' ? (
+              <>
+                <Text style={styles.floatingLabel}>Email</Text>
+                <TextInput
+                  ref={floatingEmailRef}
+                  style={styles.floatingInput}
+                  value={email}
+                  onChangeText={setEmail}
+                  onBlur={() => floatingLayerRef.current?.dismiss()}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  placeholder="Enter your email"
+                  {...inputProps}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.floatingLabel}>Password</Text>
+                <TextInput
+                  ref={floatingPasswordRef}
+                  style={styles.floatingInput}
+                  value={password}
+                  onChangeText={setPassword}
+                  onBlur={() => floatingLayerRef.current?.dismiss()}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  placeholder="Enter your password"
+                  {...inputProps}
+                />
+              </>
+            )}
+          </FloatingFieldFocusLayer>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -196,7 +363,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  /** Ensures cover crops naturally (resizeMode is on ImageBackground) */
   bgImageInner: {
     width: '100%',
     height: '100%',
@@ -207,6 +373,7 @@ const styles = StyleSheet.create({
   formColumn: {
     flex: 1,
     justifyContent: 'flex-end',
+    zIndex: 0,
   },
   scrollView: {
     flexGrow: 0,
@@ -240,6 +407,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 6,
     minHeight: 36,
+    fontSize: typography.fontSizes.base,
+    color: colors.neutral[900],
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.25)',
+  },
+  inputHidden: {
+    opacity: 0,
+  },
+  floatingLabel: {
+    fontSize: 13,
+    fontWeight: typography.fontWeights.medium,
+    color: 'rgba(0,0,0,0.5)',
+    marginBottom: spacing.xs,
+  },
+  floatingInput: {
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    minHeight: 40,
     fontSize: typography.fontSizes.base,
     color: colors.neutral[900],
     backgroundColor: 'transparent',

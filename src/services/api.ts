@@ -172,6 +172,8 @@ async function apiRequest<T>(
     // Handle 401 unauthorized
     if (response.status === 401) {
       await useAuthStore.getState().logout();
+      const { useAppStore } = await import('../state/useAppStore');
+      useAppStore.getState().setFeedFilter('explore');
       throw new Error('Unauthorized. Please login again.');
     }
     throw new Error(data.error || `HTTP error! status: ${response.status}`);
@@ -293,14 +295,18 @@ export const fetchNews = async (
   mode: 'all' | 'coin' | 'users' = 'all'
 ): Promise<NewsItem[]> => {
   try {
+    // Backend `/news/following` requires auth; avoid 401 when logged out or token cleared.
+    const resolvedFilter: 'following' | 'explore' =
+      filter === 'following' && !useAuthStore.getState().isAuthenticated ? 'explore' : filter;
+
     const categoryParam =
       categories && categories.length
         ? `&categories=${encodeURIComponent(categories.join(','))}`
         : '';
-    const modeParam = filter === 'following' ? `&mode=${encodeURIComponent(mode)}` : '';
+    const modeParam = resolvedFilter === 'following' ? `&mode=${encodeURIComponent(mode)}` : '';
 
     const endpoint =
-      filter === 'following'
+      resolvedFilter === 'following'
         ? `/news/following?page=${page}&limit=${limit}${categoryParam}${modeParam}`
         : `/news?page=${page}&limit=${limit}${categoryParam}`;
     

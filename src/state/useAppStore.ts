@@ -4,7 +4,8 @@ import { getWishlist } from '../services/api';
 import { useAuthStore } from './useAuthStore';
 
 export const useAppStore = create<AppState>((set, get) => ({
-  feedFilter: 'following',
+  /** Default explore: `/news/following` requires login; anonymous users must not hit it on first load. */
+  feedFilter: 'explore',
   exploreCategory: 'trending',
   isDarkMode: false,
   likedNews: [],

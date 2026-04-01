@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/src/state/useAuthStore';
+import { useAppStore } from '@/src/state/useAppStore';
 import { colors, spacing, borderRadius, typography, shadows, semantic } from '@/src/theme/theme';
 import { LogOut, Shield, Info, User as UserIcon, Bookmark } from 'lucide-react-native';
 import {
@@ -52,6 +53,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const setFeedFilter = useAppStore((state) => state.setFeedFilter);
   const [followingUsers, setFollowingUsers] = React.useState<{ id: string; username: string }[]>([]);
   const [stats, setStats] = React.useState<{
     followersCount: number;
@@ -63,6 +65,7 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     await logout();
+    setFeedFilter('explore');
     router.replace('/login');
   };
 
