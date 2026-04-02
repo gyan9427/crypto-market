@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   ImageBackground,
   useWindowDimensions,
@@ -198,10 +196,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={styles.container}>
       <StatusBar style="light" />
       <View style={styles.layerRoot}>
         <ImageBackground
@@ -343,7 +338,7 @@ export default function LoginScreen() {
           </FloatingFieldFocusLayer>
         )}
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
