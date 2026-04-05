@@ -4,9 +4,7 @@ import {
   Text,
   FlatList,
   StyleSheet,
-  ActivityIndicator,
   RefreshControl,
-  TouchableOpacity,
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +14,7 @@ import { colors, spacing, typography } from '@/src/theme/theme';
 import { NewsCard } from '@/src/components/NewsCard';
 import { NewsCardSkeleton } from '@/src/components/NewsCardSkeleton';
 import { NewsDetailModal } from '@/src/screens/NewsDetailModal';
+import { ServiceUnavailableState } from '@/src/components/ServiceUnavailableState';
 import { getBoardNews } from '@/src/services/api';
 import { NewsItem } from '@/src/types';
 
@@ -69,10 +68,7 @@ export default function BoardDetailScreen() {
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       {error ? (
         <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={fetchNews}>
-            <Text style={styles.retryText}>Tap to retry</Text>
-          </TouchableOpacity>
+          <ServiceUnavailableState onRetry={fetchNews} />
         </View>
       ) : (
         <FlatList
@@ -135,17 +131,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,
-  },
-  errorText: {
-    color: colors.error[600],
-    fontSize: typography.fontSizes.md,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  retryText: {
-    color: colors.primary[500],
-    fontSize: typography.fontSizes.sm,
-    textDecorationLine: 'underline',
   },
   listContent: {
     paddingTop: spacing.md,

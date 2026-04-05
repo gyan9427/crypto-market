@@ -17,6 +17,7 @@ import { FilterPills } from '../components/FilterPills';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
+import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import { useAppStore } from '../state/useAppStore';
 import { fetchTrendingCoins } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
@@ -194,11 +195,8 @@ export const ExploreScreen: React.FC = () => {
 
   if (error && coins.length === 0) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.retryText} onPress={loadData}>
-          Tap to retry
-        </Text>
+      <View style={styles.container}>
+        <ServiceUnavailableState onRetry={loadData} />
       </View>
     );
   }
@@ -252,21 +250,6 @@ const styles = StyleSheet.create({
   },
   graphClip: {
     marginBottom: 0,
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: colors.error[500],
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  retryText: {
-    color: colors.primary[500],
-    fontSize: 14,
-    textDecorationLine: 'underline',
   },
   errorBanner: {
     backgroundColor: colors.error[50],

@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronRight, Bookmark, BookmarkX } from 'lucide-react-native';
 import { colors, spacing, borderRadius, typography, shadows } from '@/src/theme/theme';
+import { ServiceUnavailableState } from '@/src/components/ServiceUnavailableState';
 import { useAppStore } from '@/src/state/useAppStore';
 import { getNewsBoards } from '@/src/services/api';
 import { NewsBoard } from '@/src/types';
@@ -68,10 +69,7 @@ export default function NewsBoardsScreen() {
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       {error ? (
         <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={fetchBoards}>
-            <Text style={styles.retryText}>Tap to retry</Text>
-          </TouchableOpacity>
+          <ServiceUnavailableState onRetry={fetchBoards} />
         </View>
       ) : (
         <FlatList
@@ -128,17 +126,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  errorText: {
-    color: colors.error[600],
-    fontSize: typography.fontSizes.md,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  retryText: {
-    color: colors.primary[500],
-    fontSize: typography.fontSizes.sm,
-    textDecorationLine: 'underline',
   },
   listContent: {
     paddingHorizontal: spacing.lg,
