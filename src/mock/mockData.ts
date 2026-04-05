@@ -162,7 +162,7 @@ export const mockTrendingCoins: TrendingCoin[] = [
   {
     ...mockCoins[1],
     rank: 3,
-    category: 'defi',
+    category: 'trending',
   },
   {
     ...mockCoins[2],

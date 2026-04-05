@@ -139,11 +139,11 @@ export interface Comment {
 
 export interface TrendingCoin extends Coin {
   rank: number;
-  category?: 'trending' | 'top' | 'nft' | 'defi';
+  category?: 'trending' | 'top';
 }
 
 export type FeedFilter = 'following' | 'explore';
-export type ExploreCategory = 'trending' | 'top' | 'nft' | 'defi';
+export type ExploreCategory = 'trending' | 'top';
 
 // ── Portfolio / wallet monitoring ────────────────────────────────────────────
 

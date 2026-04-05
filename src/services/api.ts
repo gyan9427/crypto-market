@@ -172,6 +172,8 @@ async function apiRequest<T>(
     // Handle 401 unauthorized
     if (response.status === 401) {
       await useAuthStore.getState().logout();
+      const { useAppStore } = await import('../state/useAppStore');
+      useAppStore.getState().setFeedFilter('explore');
       throw new Error('Unauthorized. Please login again.');
     }
     throw new Error(data.error || `HTTP error! status: ${response.status}`);
@@ -241,7 +243,7 @@ function transformBackendCoin(backendCoin: BackendCoin, isFollowing: boolean = f
 
 function transformBackendTrendingCoin(
   backendCoin: BackendCoin,
-  category: 'trending' | 'top' | 'nft' | 'defi' = 'trending',
+  category: 'trending' | 'top' = 'trending',
   isFollowing: boolean = false
 ): TrendingCoin {
   return {
@@ -293,14 +295,18 @@ export const fetchNews = async (
   mode: 'all' | 'coin' | 'users' = 'all'
 ): Promise<NewsItem[]> => {
   try {
+    // Backend `/news/following` requires auth; avoid 401 when logged out or token cleared.
+    const resolvedFilter: 'following' | 'explore' =
+      filter === 'following' && !useAuthStore.getState().isAuthenticated ? 'explore' : filter;
+
     const categoryParam =
       categories && categories.length
         ? `&categories=${encodeURIComponent(categories.join(','))}`
         : '';
-    const modeParam = filter === 'following' ? `&mode=${encodeURIComponent(mode)}` : '';
+    const modeParam = resolvedFilter === 'following' ? `&mode=${encodeURIComponent(mode)}` : '';
 
     const endpoint =
-      filter === 'following'
+      resolvedFilter === 'following'
         ? `/news/following?page=${page}&limit=${limit}${categoryParam}${modeParam}`
         : `/news?page=${page}&limit=${limit}${categoryParam}`;
     
@@ -331,17 +337,13 @@ export const fetchNews = async (
  * Fetch trending coins from API
  */
 export const fetchTrendingCoins = async (
-  category?: 'trending' | 'top' | 'nft' | 'defi'
+  category?: 'trending' | 'top'
 ): Promise<TrendingCoin[]> => {
   try {
     let endpoint = '/market/trending';
-    
-    // Map category to appropriate endpoint
+
     if (category === 'top') {
       endpoint = '/market/trending'; // Use trending for now, or could use top-gainers
-    } else if (category === 'nft' || category === 'defi') {
-      // These categories don't have specific endpoints, use trending
-      endpoint = '/market/trending';
     }
 
     const response = await apiRequest<{ coins: BackendCoin[] }>(endpoint);

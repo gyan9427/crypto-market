@@ -1,11 +1,13 @@
 import '@/src/polyfills/devtools';
 import { useEffect, useState } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
-import { AppState, InteractionManager, Platform, View } from 'react-native';
+import { Stack, useRouter, useSegments, type Href } from 'expo-router';
+import { AppState, InteractionManager, Platform, View, useColorScheme } from 'react-native';
+import { colors, darkColors } from '@/src/theme/theme';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
-import { useFeaturesStore } from '@/src/utils/features';
+import { useOnboardingStore } from '@/src/state/useOnboardingStore';
+import { useFeaturesStore, isOnboardingFeatureEnabled } from '@/src/utils/features';
 
 // GestureHandler pulls in Reanimated which crashes on Android (Expo Go).
 // Use View on Android; GestureHandlerRootView on iOS.
@@ -15,26 +17,30 @@ const RootView = Platform.OS === 'android'
 
 export default function RootLayout() {
   useFrameworkReady();
+  const colorScheme = useColorScheme();
   const router = useRouter();
   const segments = useSegments();
   const initializeAuth = useAuthStore((state) => state.initialize);
   const syncFollowingCoins = useAppStore((state) => state.syncFollowingCoins);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const hasSeenOnboarding = useOnboardingStore((state) => state.hasSeenOnboarding);
+  const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
+  const featuresLoaded = useFeaturesStore((state) => state.loaded);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    initializeAuth()
-      .then(() => {
-        setIsReady(true);
-        InteractionManager.runAfterInteractions(() => {
-          syncFollowingCoins();
-          useFeaturesStore.getState().loadFeatures();
-        });
-      })
-      .catch((err) => {
+    Promise.all([
+      initializeAuth().catch((err) => {
         console.error('initializeAuth failed:', err);
-        setIsReady(true);
+      }),
+      useOnboardingStore.getState().hydrate(),
+      useFeaturesStore.getState().loadFeatures(),
+    ]).then(() => {
+      setIsReady(true);
+      InteractionManager.runAfterInteractions(() => {
+        syncFollowingCoins();
       });
+    });
   }, [initializeAuth, syncFollowingCoins]);
 
   useEffect(() => {
@@ -47,21 +53,53 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || !onboardingHydrated || !featuresLoaded) return;
 
     const firstSegment = segments[0] as string | undefined;
-    const isAuthRoute = firstSegment === 'login' || firstSegment === 'register';
 
-    if (!isAuthenticated && !isAuthRoute) {
-      router.replace('/login');
-    } else if (isAuthenticated && isAuthRoute) {
-      router.replace('/(tabs)');
+    if (isAuthenticated) {
+      if (
+        firstSegment === 'login' ||
+        firstSegment === 'register' ||
+        firstSegment === 'onboarding'
+      ) {
+        router.replace('/(tabs)');
+      }
+      return;
     }
-  }, [isReady, isAuthenticated, segments, router]);
 
-  // Render minimal shell immediately; full Stack mounts when auth is ready
+    if (hasSeenOnboarding && firstSegment === 'onboarding') {
+      router.replace('/login');
+      return;
+    }
+
+    if (!hasSeenOnboarding && isOnboardingFeatureEnabled()) {
+      if (firstSegment !== 'onboarding' && firstSegment !== 'register') {
+        router.replace('/onboarding' as Href);
+      }
+      return;
+    }
+
+    const isPublicAuth =
+      firstSegment === 'login' || firstSegment === 'register' || firstSegment === 'onboarding';
+    if (!isPublicAuth) {
+      router.replace('/login');
+    }
+  }, [
+    isReady,
+    onboardingHydrated,
+    featuresLoaded,
+    isAuthenticated,
+    hasSeenOnboarding,
+    segments,
+    router,
+  ]);
+
+  const shellBg = colorScheme === 'dark' ? darkColors.neutral[900] : colors.surface;
+
+  // Render minimal shell until auth, onboarding hydrate, and features have loaded
   if (!isReady) {
-    return <RootView style={{ flex: 1, backgroundColor: '#fff' }} />;
+    return <RootView style={{ flex: 1, backgroundColor: shellBg }} />;
   }
 
   return (
@@ -70,6 +108,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" />
         <Stack.Screen name="register" />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
     </RootView>

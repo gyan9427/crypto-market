@@ -12,6 +12,7 @@ import { useAppStore } from '../state/useAppStore';
 import { fetchNews, toggleReaction } from '../services/api';
 import { NewsItem, ReactionType } from '../types';
 import { NewsDetailModal } from './NewsDetailModal';
+import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import { colors, spacing, semantic } from '../theme/theme';
 
 /** After this many article cards, insert the Featured carousel (sixth vertical block). */
@@ -260,6 +261,7 @@ export const HomeScreen: React.FC = () => {
           onShare={handleShare}
           onSave={handleSave}
           onCoinPress={handleCoinPress}
+          onPress={openNewsDetailById}
         />
       );
     },
@@ -273,6 +275,7 @@ export const HomeScreen: React.FC = () => {
       handleShare,
       handleSave,
       handleCoinPress,
+      openNewsDetailById,
     ]
   );
 
@@ -284,11 +287,8 @@ export const HomeScreen: React.FC = () => {
 
   if (error && newsData.length === 0) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.retryText} onPress={loadNews}>
-          Tap to retry
-        </Text>
+      <View style={styles.container}>
+        <ServiceUnavailableState onRetry={loadNews} />
       </View>
     );
   }
@@ -354,21 +354,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.neutral[50],
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: colors.error[500],
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  retryText: {
-    color: colors.primary[500],
-    fontSize: 14,
-    textDecorationLine: 'underline',
   },
   errorBanner: {
     backgroundColor: colors.error[50],

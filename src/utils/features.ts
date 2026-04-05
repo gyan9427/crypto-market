@@ -63,3 +63,14 @@ export function useHasFeature(featureKey: string): boolean {
   if (!loaded) return true; // Fail-open
   return features.has(featureKey);
 }
+
+/**
+ * Onboarding flow: fail-open when `onboarding` is absent from the enabled set (plan §4).
+ * After `loaded` is true, treat as enabled unless explicitly gated later.
+ */
+export function isOnboardingFeatureEnabled(): boolean {
+  const { features, loaded } = useFeaturesStore.getState();
+  if (!loaded) return false;
+  if (!features.has('onboarding')) return true;
+  return features.has('onboarding');
+}
