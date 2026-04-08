@@ -36,7 +36,7 @@ export function useLiveMarketOverview(
 
   usePollingEffect(
     async () => {
-      const trend = await fetchMarketTrend('1m', 240);
+      const trend = await fetchMarketTrend('1m', 240, { cacheTtlMs: 10_000 });
       setData({
         klines: trend.points.map((point) => ({
           openTime: point.openTime,
@@ -53,7 +53,7 @@ export function useLiveMarketOverview(
       setHasFetched(true);
     },
     [pollEnabled],
-    { enabled: pollEnabled, intervalMs: 30000, immediate: true }
+    { enabled: pollEnabled, intervalMs: 12_000, immediate: true }
   );
 
   return useMemo(() => ({ data, hasFetched }), [data, hasFetched]);

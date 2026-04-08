@@ -1020,16 +1020,24 @@ export const fetchKlines = async (
   });
 };
 
+export type FetchMarketTrendOptions = {
+  /** Client-side GET cache TTL (default 45s). Use a shorter value for live overview widgets. */
+  cacheTtlMs?: number;
+  skipMemoryCache?: boolean;
+};
+
 /**
  * Fetch aggregate market trend series and 24h change summary.
  */
 export const fetchMarketTrend = async (
   interval: KlineInterval = '1m',
-  limit: number = 240
+  limit: number = 240,
+  options?: FetchMarketTrendOptions
 ): Promise<MarketTrendResponse> => {
   const url = `${API_BASE_URL}/charts/market-trend?interval=${interval}&limit=${limit}`;
   const data = (await fetchJsonCached<Record<string, unknown>>(url, {
-    cacheTtlMs: 45_000,
+    cacheTtlMs: options?.cacheTtlMs ?? 45_000,
+    skipMemoryCache: options?.skipMemoryCache,
   })) as Record<string, unknown>;
   const pointsRaw = Array.isArray(data?.points) ? data.points : [];
   const points = pointsRaw
