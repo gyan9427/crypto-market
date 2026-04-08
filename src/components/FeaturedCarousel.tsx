@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { NewsItem } from '../types';
 import { formatTimeAgo } from '../utils/format';
-import { colors, shadows, spacing, semantic, typography } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface FeaturedCarouselProps {
   items: NewsItem[];
@@ -14,6 +15,9 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   items,
   onItemPress,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildFeaturedCarouselStyles(tokens), [tokens]);
+
   const renderItem = ({ item }: { item: NewsItem }) => (
     <TouchableOpacity
       style={styles.card}
@@ -59,48 +63,54 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.md,
-  },
-  title: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.neutral[900],
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  card: {
-    width: 280,
-    backgroundColor: semantic.surface,
-    borderRadius: semantic.cardRadius,
-    marginRight: spacing.md,
-    ...semantic.cardShadow,
-    overflow: 'hidden',
-  },
-  image: {
-    width: '100%',
-    height: 140,
-    backgroundColor: colors.neutral[200],
-    borderTopLeftRadius: semantic.cardRadius,
-    borderTopRightRadius: semantic.cardRadius,
-  },
-  content: {
-    padding: spacing.md,
-  },
-  cardTitle: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[900],
-    lineHeight: 20,
-    marginBottom: spacing.sm,
-  },
-  meta: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[500],
-  },
-});
+function buildFeaturedCarouselStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const sem = tokens.semantic;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    container: {
+      marginBottom: s.md,
+    },
+    title: {
+      fontSize: typo.fontSizes.lg,
+      fontWeight: typo.fontWeights.bold,
+      color: tokens.text,
+      paddingHorizontal: s.md,
+      marginBottom: s.sm,
+    },
+    scrollContent: {
+      paddingHorizontal: s.md,
+      paddingVertical: s.xs,
+    },
+    card: {
+      width: 280,
+      backgroundColor: sem.surface,
+      borderRadius: sem.cardRadius,
+      marginRight: s.md,
+      ...sem.cardShadow,
+      overflow: 'hidden',
+    },
+    image: {
+      width: '100%',
+      height: 140,
+      backgroundColor: c.neutral[200],
+      borderTopLeftRadius: sem.cardRadius,
+      borderTopRightRadius: sem.cardRadius,
+    },
+    content: {
+      padding: s.md,
+    },
+    cardTitle: {
+      fontSize: typo.fontSizes.md,
+      fontWeight: typo.fontWeights.semibold,
+      color: tokens.text,
+      lineHeight: 20,
+      marginBottom: s.sm,
+    },
+    meta: {
+      fontSize: typo.fontSizes.xs,
+      color: tokens.textMuted,
+    },
+  });
+}

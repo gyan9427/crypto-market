@@ -208,10 +208,12 @@ export interface Holdings {
   positions:        HoldingPosition[];
 }
 
+export type ThemePreference = 'system' | 'light' | 'dark';
+
 export interface AppState {
   feedFilter: FeedFilter;
   exploreCategory: ExploreCategory;
-  isDarkMode: boolean;
+  themePreference: ThemePreference;
   likedNews: string[];
   savedNews: string[];
   followingCoins: string[];
@@ -219,7 +221,8 @@ export interface AppState {
   newsReactions: Record<string, ReactionType>;
   setFeedFilter: (filter: FeedFilter) => void;
   setExploreCategory: (category: ExploreCategory) => void;
-  toggleDarkMode: () => void;
+  setThemePreference: (preference: ThemePreference) => void;
+  hydrateThemePreference: () => Promise<void>;
   toggleLike: (newsId: string) => void;
   toggleSave: (newsId: string) => void;
   toggleFollowCoin: (coinId: string) => Promise<void>;

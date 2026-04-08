@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'r
 import { useIsFocused } from '@react-navigation/native';
 import Svg, { Line, Path, Circle } from 'react-native-svg';
 import { fetchKlines, KlineInterval, KlineRecord } from '../services/api';
-import { colors, spacing, typography, borderRadius } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { usePollingEffect } from '../hooks/usePollingEffect';
 
 type DisplayInterval = '1D' | '1W' | '1M';
@@ -43,9 +44,14 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
   symbol,
   height = 220,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildCoinPriceChartStyles(tokens), [tokens]);
+  const c = tokens.colors;
+  const s = tokens.spacing;
+
   const isFocused = useIsFocused();
   const { width } = useWindowDimensions();
-  const chartWidth = Math.max(200, width - spacing.md * 2);
+  const chartWidth = Math.max(200, width - s.md * 2);
   const chartHeight = Math.max(120, height - 60);
   const [interval, setInterval] = useState<DisplayInterval>('1W');
   const [klines, setKlines] = useState<KlineRecord[]>(() => readKlineCache(symbol, '1W') ?? []);
@@ -106,7 +112,7 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
 
     const first = closes[0];
     const last = closes[closes.length - 1];
-    const stroke = last >= first ? colors.success[500] : colors.error[500];
+    const stroke = last >= first ? c.success[500] : c.error[500];
     const marker = points[points.length - 1];
 
     const idxA = 0;
@@ -121,7 +127,7 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
     ];
 
     return { linePath, stroke, marker, labels, last, points };
-  }, [klines, chartHeight, chartWidth]);
+  }, [klines, chartHeight, chartWidth, c]);
 
   const activeIndex = hoverIndex;
   const activePoint = chartView && activeIndex !== null ? chartView.points[activeIndex] : null;
@@ -129,10 +135,10 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
 
   const tooltipPosition = useMemo(() => {
     if (!activePoint) return null;
-    const width = 140;
-    const left = Math.min(Math.max(activePoint.x - width / 2, 6), chartWidth - width - 6);
+    const w = 140;
+    const left = Math.min(Math.max(activePoint.x - w / 2, 6), chartWidth - w - 6);
     const top = Math.max(activePoint.y - 64, 6);
-    return { left, top, width };
+    return { left, top, width: w };
   }, [activePoint, chartWidth]);
 
   const handlePointer = (x: number) => {
@@ -216,7 +222,7 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
       <View style={[styles.chartRegion, { height: chartHeight + 22 }]}>
         <Svg style={{ width: chartWidth, height: chartHeight }} preserveAspectRatio="none" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
           <Line
-            stroke={colors.neutral[300]}
+            stroke={c.neutral[300]}
             strokeDasharray="4"
             strokeWidth="1"
             x1="0"
@@ -232,7 +238,7 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
             strokeLinejoin="round"
             strokeWidth="2.5"
           />
-          <Circle cx={chartView.marker.x} cy={chartView.marker.y} fill={chartView.stroke} r="4" stroke={colors.white} strokeWidth="2" />
+          <Circle cx={chartView.marker.x} cy={chartView.marker.y} fill={chartView.stroke} r="4" stroke={c.white} strokeWidth="2" />
           {activePoint ? (
             <>
               <Line
@@ -240,7 +246,7 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
                 x2={activePoint.x}
                 y1={0}
                 y2={chartHeight}
-                stroke={colors.neutral[400]}
+                stroke={c.neutral[400]}
                 strokeWidth="1"
                 strokeDasharray="3"
               />
@@ -249,23 +255,25 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
                 x2={chartWidth}
                 y1={activePoint.y}
                 y2={activePoint.y}
-                stroke={colors.neutral[400]}
+                stroke={c.neutral[400]}
                 strokeWidth="1"
                 strokeDasharray="3"
               />
-              <Circle cx={activePoint.x} cy={activePoint.y} fill={chartView.stroke} r="4" stroke={colors.white} strokeWidth="2" />
+              <Circle cx={activePoint.x} cy={activePoint.y} fill={chartView.stroke} r="4" stroke={c.white} strokeWidth="2" />
             </>
           ) : null}
         </Svg>
         <View
           style={[styles.chartInteractionLayer, { width: chartWidth, height: chartHeight }]}
-          onMouseMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
-          onMouseLeave={() => setHoverIndex(null)}
           onStartShouldSetResponder={() => true}
           onResponderGrant={(e: any) => handlePointer(e.nativeEvent.locationX)}
           onResponderMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
           onResponderRelease={() => setHoverIndex(null)}
           onResponderTerminate={() => setHoverIndex(null)}
+          {...({
+            onMouseMove: (e: any) => handlePointer(e.nativeEvent.locationX),
+            onMouseLeave: () => setHoverIndex(null),
+          } as object)}
         />
         {activeKline && tooltipPosition ? (
           <View
@@ -309,91 +317,97 @@ function formatPrice(value: number): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.md,
-  },
-  intervalRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  intervalPill: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.neutral[200],
-  },
-  intervalPillActive: {
-    backgroundColor: colors.primary[500],
-  },
-  intervalText: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral[700],
-  },
-  intervalTextActive: {
-    color: colors.white,
-  },
-  loadingContainer: {
-    height: 180,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  chartRegion: {
-    width: '100%',
-    position: 'relative',
-  },
-  chartSkeleton: {
-    width: '100%',
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.neutral[200],
-  },
-  xAxisLabels: {
-    marginTop: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  chartInteractionLayer: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-  },
-  tooltipCard: {
-    position: 'absolute',
-    backgroundColor: colors.neutral[900],
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.neutral[700],
-  },
-  tooltipTime: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[300],
-    marginBottom: 2,
-  },
-  tooltipValue: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[50],
-    fontWeight: typography.fontWeights.medium,
-  },
-  errorText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.error[500],
-  },
-  emptyText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral[500],
-  },
-  priceLabel: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.neutral[900],
-    marginTop: spacing.xs,
-  },
-  datetimeLabel: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[500],
-  },
-});
+function buildCoinPriceChartStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    container: {
+      marginBottom: s.md,
+    },
+    intervalRow: {
+      flexDirection: 'row',
+      gap: s.sm,
+      marginBottom: s.sm,
+    },
+    intervalPill: {
+      paddingHorizontal: s.md,
+      paddingVertical: s.xs,
+      borderRadius: br.sm,
+      backgroundColor: c.neutral[200],
+    },
+    intervalPillActive: {
+      backgroundColor: c.primary[500],
+    },
+    intervalText: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.medium,
+      color: c.neutral[700],
+    },
+    intervalTextActive: {
+      color: c.white,
+    },
+    loadingContainer: {
+      height: 180,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    chartRegion: {
+      width: '100%',
+      position: 'relative',
+    },
+    chartSkeleton: {
+      width: '100%',
+      borderRadius: br.md,
+      backgroundColor: c.neutral[200],
+    },
+    xAxisLabels: {
+      marginTop: 8,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    chartInteractionLayer: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+    },
+    tooltipCard: {
+      position: 'absolute',
+      backgroundColor: c.neutral[900],
+      borderRadius: br.sm,
+      paddingHorizontal: s.sm,
+      paddingVertical: s.xs,
+      borderWidth: 1,
+      borderColor: c.neutral[700],
+    },
+    tooltipTime: {
+      fontSize: typo.fontSizes.xs,
+      color: c.neutral[300],
+      marginBottom: 2,
+    },
+    tooltipValue: {
+      fontSize: typo.fontSizes.xs,
+      color: c.neutral[50],
+      fontWeight: typo.fontWeights.medium,
+    },
+    errorText: {
+      fontSize: typo.fontSizes.sm,
+      color: c.error[500],
+    },
+    emptyText: {
+      fontSize: typo.fontSizes.sm,
+      color: tokens.textMuted,
+    },
+    priceLabel: {
+      fontSize: typo.fontSizes.lg,
+      fontWeight: typo.fontWeights.bold,
+      color: tokens.text,
+      marginTop: s.xs,
+    },
+    datetimeLabel: {
+      fontSize: typo.fontSizes.xs,
+      color: tokens.textMuted,
+    },
+  });
+}

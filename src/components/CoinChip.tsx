@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import { Coin } from '../types';
-import { colors, shadows, borderRadius } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface CoinChipProps {
   coin: Coin;
@@ -9,6 +10,9 @@ interface CoinChipProps {
 }
 
 export const CoinChip: React.FC<CoinChipProps> = ({ coin, onPress }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildCoinChipStyles(tokens), [tokens]);
+
   return (
     <TouchableOpacity
       style={styles.container}
@@ -25,35 +29,39 @@ export const CoinChip: React.FC<CoinChipProps> = ({ coin, onPress }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: colors.neutral[100],
-    borderRadius: borderRadius.button,
-    marginRight: 8,
-    ...shadows.sm,
-    minHeight: 44,
-  },
-  avatarPlaceholder: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.primary[500],
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 6,
-  },
-  avatarText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  symbol: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.neutral[800],
-  },
-});
+function buildCoinChipStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const br = tokens.borderRadius;
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: c.neutral[100],
+      borderRadius: br.button,
+      marginRight: 8,
+      ...tokens.shadows.sm,
+      minHeight: 44,
+    },
+    avatarPlaceholder: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: c.primary[500],
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 6,
+    },
+    avatarText: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: c.white,
+    },
+    symbol: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.neutral[800],
+    },
+  });
+}

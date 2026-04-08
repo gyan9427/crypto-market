@@ -82,6 +82,7 @@ export function useMarketPriceStream(
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(String(event.data)) as StreamMessage;
+          // Server sends snapshot only after subscribe (no full-market dump on connect).
           if (msg.type === 'snapshot' && msg.prices) {
             setQuotes((prev) => ({ ...prev, ...msg.prices }));
             return;

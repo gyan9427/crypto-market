@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,11 +23,16 @@ import { CoinStatSegment } from '../components/CoinStatSegment';
 import { CoinPriceChart } from '../components/CoinPriceChart';
 import { openInAppBrowser } from '../utils/browser';
 import { formatTimeAgo } from '../utils/format';
-import { colors, borderRadius, shadows, spacing } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useAppStore } from '../state/useAppStore';
 import { useHasFeature } from '../utils/features';
 
 export const CoinProfileScreen: React.FC = () => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildCoinProfileScreenStyles(tokens), [tokens]);
+  const c = tokens.colors;
+
   const { coinId } = useLocalSearchParams<{ coinId: string }>();
   const router = useRouter();
   const hasFollow = useHasFeature('follow');
@@ -108,7 +113,7 @@ export const CoinProfileScreen: React.FC = () => {
 
   const handleNewsPress = (item: NewsItem) => {
     const url = item.url || item.sourceUrl;
-    if (url) openInAppBrowser(url);
+    if (url) openInAppBrowser(url, { barTintColor: c.neutral[900] });
   };
 
   const handleFollowToggle = async () => {
@@ -144,7 +149,7 @@ export const CoinProfileScreen: React.FC = () => {
   if (loading && !coin) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary[500]} />
+        <ActivityIndicator size="large" color={c.primary[500]} />
       </View>
     );
   }
@@ -186,7 +191,7 @@ export const CoinProfileScreen: React.FC = () => {
               </Text>
               {stats?.market_cap_rank != null && (
                 <View style={styles.rankBadge}>
-                  <Trophy size={14} color={colors.primary[600]} />
+                  <Trophy size={14} color={c.primary[600]} />
                   <Text style={styles.rankText}>
                     #{stats.market_cap_rank.toLocaleString()}
                   </Text>
@@ -276,10 +281,14 @@ export const CoinProfileScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
+    backgroundColor: tokens.bg,
   },
   centerContent: {
     justifyContent: 'center',
@@ -288,12 +297,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
-    paddingTop: spacing.xl,
-    backgroundColor: '#fff',
+    paddingHorizontal: s.md,
+    paddingVertical: s.lg,
+    paddingTop: s.xl,
+    backgroundColor: tokens.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    borderBottomColor: tokens.borderSubtle,
   },
   headerContent: {
     flex: 1,
@@ -301,7 +310,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarContainer: {
-    marginRight: spacing.md,
+    marginRight: s.md,
   },
   avatar: {
     width: 56,
@@ -312,7 +321,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.primary[500],
+    backgroundColor: c.primary[500],
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -327,54 +336,54 @@ const styles = StyleSheet.create({
   coinNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: s.sm,
     flexWrap: 'wrap',
   },
   coinName: {
     fontSize: 32, // larger text matching stitch 'Buy BTC' style
     fontWeight: '700',
-    color: colors.neutral[900],
+    color: tokens.text,
     letterSpacing: -1.0, // tighter tracking like stitch
   },
   rankBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primary[50],
-    paddingHorizontal: spacing.sm,
+    backgroundColor: c.primary[50],
+    paddingHorizontal: s.sm,
     paddingVertical: 4,
-    borderRadius: borderRadius.sm,
+    borderRadius: br.sm,
   },
   rankText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary[600],
+    color: c.primary[600],
   },
   coinSymbol: {
     fontSize: 16,
     fontWeight: '500',
-    color: colors.neutral[500],
+    color: tokens.textMuted,
     letterSpacing: 2.0, // wider tracking for symbols like the stitch symbol
     marginTop: 2,
   },
   followersText: {
-    marginTop: spacing.xs,
+    marginTop: s.xs,
     fontSize: 12,
     fontWeight: '600',
-    color: colors.neutral[500],
+    color: tokens.textMuted,
   },
   followButton: {
     borderWidth: 1,
-    borderColor: colors.primary[500],
-    borderRadius: borderRadius.button,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginLeft: spacing.sm,
-    backgroundColor: colors.primary[500],
+    borderColor: c.primary[500],
+    borderRadius: br.button,
+    paddingHorizontal: s.md,
+    paddingVertical: s.sm,
+    marginLeft: s.sm,
+    backgroundColor: c.primary[500],
   },
   followingButton: {
-    borderColor: colors.neutral[300],
-    backgroundColor: '#fff',
+    borderColor: c.neutral[300],
+    backgroundColor: tokens.surface,
   },
   followButtonText: {
     color: '#fff',
@@ -382,49 +391,49 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   followingButtonText: {
-    color: colors.neutral[700],
+    color: c.neutral[700],
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xxl,
+    paddingHorizontal: s.md,
+    paddingBottom: s.xxl,
   },
   fixedSegment: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
+    paddingHorizontal: s.md,
+    paddingTop: s.lg,
   },
   chartPlaceholder: {
     height: 220,
-    backgroundColor: colors.neutral[100],
-    borderRadius: borderRadius.card,
+    backgroundColor: c.neutral[100],
+    borderRadius: br.card,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: s.md,
   },
   chartPlaceholderText: {
     fontSize: 14,
-    color: colors.neutral[500],
+    color: tokens.textMuted,
     fontWeight: '500',
   },
   newsSection: {
-    paddingTop: spacing.sm,
+    paddingTop: s.sm,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.neutral[800],
-    marginBottom: spacing.md,
+    color: c.neutral[800],
+    marginBottom: s.md,
   },
   newsList: {
-    paddingBottom: spacing.xxl,
+    paddingBottom: s.xxl,
   },
   newsCard: {
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.card,
-    marginBottom: spacing.md,
-    ...shadows.md,
+    backgroundColor: tokens.surface,
+    borderRadius: br.card,
+    marginBottom: s.md,
+    ...tokens.shadows.md,
     overflow: 'hidden',
   },
   newsCardImageContainer: {
@@ -438,46 +447,47 @@ const styles = StyleSheet.create({
   newsCardImagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
   },
   newsCardContent: {
-    padding: spacing.md,
+    padding: s.md,
   },
   newsCardTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.neutral[900],
+    color: tokens.text,
     lineHeight: 20,
-    marginBottom: spacing.sm,
+    marginBottom: s.sm,
   },
   newsCardMeta: {
     fontSize: 12,
-    color: colors.neutral[500],
+    color: tokens.textMuted,
   },
   errorText: {
-    color: colors.error[500],
+    color: c.error[500],
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginBottom: s.md,
   },
   retryButton: {
-    padding: spacing.md,
+    padding: s.md,
   },
   retryText: {
-    color: colors.primary[500],
+    color: c.primary[500],
     fontSize: 14,
     fontWeight: '600',
   },
   emptyText: {
-    color: colors.neutral[500],
+    color: tokens.textMuted,
     fontSize: 14,
     textAlign: 'center',
-    marginTop: spacing.lg,
+    marginTop: s.lg,
   },
   loadingDetailText: {
-    color: colors.neutral[500],
+    color: tokens.textMuted,
     fontSize: 12,
-    marginTop: -spacing.xs,
-    marginBottom: spacing.sm,
+    marginTop: -s.xs,
+    marginBottom: s.sm,
   },
 });
+}

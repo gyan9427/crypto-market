@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus, Bell, PlusCircle, FileText, Gift } from 'lucide-react-native';
-import { colors, shadows, spacing, semantic, typography, borderRadius } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import type { ThemeTokens } from '@/src/theme/theme';
 import { useHasFeature } from '../utils/features';
 
 interface FABProps {
@@ -18,12 +19,15 @@ interface FABProps {
 }
 
 export const FAB: React.FC<FABProps> = ({ onPress }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildStyles(tokens), [tokens]);
   const hasRewards = useHasFeature('rewards');
   const hasFollow = useHasFeature('follow');
   const [visible, setVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(400)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const router = useRouter();
+  const c = tokens.colors;
 
   const openSheet = () => {
     setVisible(true);
@@ -62,7 +66,7 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
           accessibilityLabel="Add action"
           activeOpacity={0.9}
         >
-          <Plus size={28} color={colors.surface} strokeWidth={2.5} />
+          <Plus size={28} color={c.white} strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
 
@@ -85,7 +89,7 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
               accessibilityLabel="Add Alert"
             >
               <View style={styles.sheetIconContainer}>
-                <Bell size={24} color={colors.primary[500]} />
+                <Bell size={24} color={c.primary[500]} />
               </View>
               <View style={styles.sheetActionText}>
                 <Text style={styles.sheetActionTitle}>Add Alert</Text>
@@ -101,7 +105,7 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
                 accessibilityLabel="Add to Watchlist"
               >
                 <View style={styles.sheetIconContainer}>
-                  <PlusCircle size={24} color={colors.accent[500]} />
+                  <PlusCircle size={24} color={c.accent[500]} />
                 </View>
                 <View style={styles.sheetActionText}>
                   <Text style={styles.sheetActionTitle}>Add to Watchlist</Text>
@@ -117,7 +121,7 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
               accessibilityLabel="Submit News"
             >
               <View style={styles.sheetIconContainer}>
-                <FileText size={24} color={colors.success[500]} />
+                <FileText size={24} color={c.success[500]} />
               </View>
               <View style={styles.sheetActionText}>
                 <Text style={styles.sheetActionTitle}>Submit News</Text>
@@ -133,7 +137,7 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
                 accessibilityLabel="Rewards"
               >
                 <View style={styles.sheetIconContainer}>
-                  <Gift size={24} color={colors.primary[500]} />
+                  <Gift size={24} color={c.primary[500]} />
                 </View>
                 <View style={styles.sheetActionText}>
                   <Text style={styles.sheetActionTitle}>Rewards</Text>
@@ -148,81 +152,87 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  fabContainer: {
-    position: 'absolute',
-    bottom: 42,
-    alignSelf: 'center',
-    zIndex: 1000,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.fab,
-    backgroundColor: colors.primary[500],
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.lg,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: semantic.backdrop,
-  },
-  bottomSheetBackground: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: semantic.surface,
-    borderTopLeftRadius: semantic.sheetRadius,
-    borderTopRightRadius: semantic.sheetRadius,
-    ...shadows.lg,
-  },
-  handleBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.neutral[300],
-    alignSelf: 'center',
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  bottomSheetContent: {
-    padding: semantic.listMarginH,
-    paddingTop: spacing.sm,
-  },
-  sheetTitle: {
-    fontSize: typography.fontSizes.xl,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.neutral[900],
-    marginBottom: spacing.lg,
-  },
-  sheetAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    minHeight: 60,
-  },
-  sheetIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: semantic.sheetRadius,
-    backgroundColor: colors.neutral[100],
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: semantic.cardPadding,
-  },
-  sheetActionText: {
-    flex: 1,
-  },
-  sheetActionTitle: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[900],
-    marginBottom: 2,
-  },
-  sheetActionSubtitle: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral[500],
-  },
-});
+function buildStyles(tokens: ThemeTokens) {
+  const { spacing, typography, borderRadius, semantic, shadows } = tokens;
+  return StyleSheet.create({
+    fabContainer: {
+      position: 'absolute',
+      bottom: 42,
+      alignSelf: 'center',
+      zIndex: 1000,
+    },
+    fab: {
+      width: 56,
+      height: 56,
+      borderRadius: borderRadius.fab,
+      backgroundColor: tokens.colors.primary[500],
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...shadows.lg,
+    },
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: semantic.backdrop,
+    },
+    bottomSheetBackground: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: tokens.bgElevated,
+      borderTopLeftRadius: semantic.sheetRadius,
+      borderTopRightRadius: semantic.sheetRadius,
+      ...shadows.lg,
+    },
+    handleBar: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: tokens.colors.neutral[300],
+      alignSelf: 'center',
+      marginTop: spacing.sm,
+      marginBottom: spacing.xs,
+    },
+    bottomSheetContent: {
+      padding: semantic.listMarginH,
+      paddingTop: spacing.sm,
+    },
+    sheetTitle: {
+      fontSize: typography.fontSizes.xl,
+      fontWeight: typography.fontWeights.bold,
+      color: tokens.text,
+      marginBottom: spacing.lg,
+      fontFamily: typography.fontFamilies.sansBold,
+    },
+    sheetAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      minHeight: 60,
+    },
+    sheetIconContainer: {
+      width: 48,
+      height: 48,
+      borderRadius: semantic.sheetRadius,
+      backgroundColor: tokens.isDark ? tokens.colors.neutral[200] : tokens.colors.neutral[100],
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: semantic.cardPadding,
+    },
+    sheetActionText: {
+      flex: 1,
+    },
+    sheetActionTitle: {
+      fontSize: typography.fontSizes.md,
+      fontWeight: typography.fontWeights.semibold,
+      color: tokens.text,
+      marginBottom: 2,
+      fontFamily: typography.fontFamilies.sansSemiBold,
+    },
+    sheetActionSubtitle: {
+      fontSize: typography.fontSizes.sm,
+      color: tokens.textMuted,
+      fontFamily: typography.fontFamilies.sans,
+    },
+  });
+}

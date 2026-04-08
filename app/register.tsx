@@ -1,14 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { colors, spacing, borderRadius, shadows, typography } from '@/src/theme/theme';
+import type { ThemeTokens } from '@/src/theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { signup } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
 
 export default function RegisterScreen() {
+  const { tokens, effectiveScheme } = useAppTheme();
+  const styles = useMemo(() => buildRegisterStyles(tokens), [tokens]);
   const router = useRouter();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const c = tokens.colors;
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -19,7 +32,7 @@ export default function RegisterScreen() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace('(tabs)');
+      router.replace('/(tabs)' as never);
     }
   }, [isAuthenticated, router]);
 
@@ -43,16 +56,16 @@ export default function RegisterScreen() {
       setLoading(true);
       setError(null);
       await signup(email.trim(), password, username.trim());
-      router.replace('(tabs)');
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign up');
+      router.replace('/(tabs)' as never);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to sign up');
     } finally {
       setLoading(false);
     }
   };
 
   const goToLogin = () => {
-    router.push('login');
+    router.push('/login' as never);
   };
 
   return (
@@ -60,7 +73,7 @@ export default function RegisterScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar style="auto" />
+      <StatusBar style={effectiveScheme === 'dark' ? 'light' : 'dark'} />
       <View style={styles.card}>
         <Text style={styles.title}>Create account</Text>
         <Text style={styles.subtitle}>Sign up to get started</Text>
@@ -79,7 +92,7 @@ export default function RegisterScreen() {
             onChangeText={setUsername}
             autoCapitalize="none"
             placeholder="yourname"
-            placeholderTextColor={colors.neutral[400]}
+            placeholderTextColor={c.neutral[400]}
           />
         </View>
 
@@ -93,7 +106,7 @@ export default function RegisterScreen() {
             autoCapitalize="none"
             autoComplete="email"
             placeholder="you@example.com"
-            placeholderTextColor={colors.neutral[400]}
+            placeholderTextColor={c.neutral[400]}
           />
         </View>
 
@@ -106,7 +119,7 @@ export default function RegisterScreen() {
             secureTextEntry
             autoCapitalize="none"
             placeholder="••••••••"
-            placeholderTextColor={colors.neutral[400]}
+            placeholderTextColor={c.neutral[400]}
           />
         </View>
 
@@ -119,7 +132,7 @@ export default function RegisterScreen() {
             secureTextEntry
             autoCapitalize="none"
             placeholder="••••••••"
-            placeholderTextColor={colors.neutral[400]}
+            placeholderTextColor={c.neutral[400]}
           />
         </View>
 
@@ -147,88 +160,101 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.neutral[50],
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.card,
-    padding: spacing.xxl,
-    ...shadows.lg,
-  },
-  title: {
-    fontSize: typography.fontSizes.xxxl,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.neutral[900],
-    marginBottom: spacing.sm,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: typography.fontSizes.lg,
-    color: colors.neutral[500],
-    marginBottom: spacing.xl,
-  },
-  field: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral[600],
-    marginBottom: spacing.sm,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    fontSize: typography.fontSizes.md,
-    color: colors.neutral[900],
-    backgroundColor: colors.neutral[50],
-  },
-  button: {
-    marginTop: spacing.md,
-    backgroundColor: colors.primary[500],
-    borderRadius: borderRadius.button,
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.md,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
-  },
-  footerLink: {
-    marginTop: spacing.lg,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral[600],
-  },
-  footerTextHighlight: {
-    color: colors.primary[600],
-    fontWeight: typography.fontWeights.semibold,
-  },
-  errorBox: {
-    backgroundColor: colors.error[50],
-    borderRadius: borderRadius.sm,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  errorText: {
-    color: colors.error[700],
-    fontSize: typography.fontSizes.sm,
-  },
-});
-
+function buildRegisterStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const { spacing: s, borderRadius: br, typography: ty } = tokens;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tokens.bg,
+      justifyContent: 'center',
+      paddingHorizontal: s.lg,
+    },
+    card: {
+      backgroundColor: tokens.bgElevated,
+      borderRadius: br.card,
+      padding: s.xxl,
+      ...tokens.shadows.lg,
+      borderWidth: tokens.isDark ? 1 : 0,
+      borderColor: tokens.borderSubtle,
+    },
+    title: {
+      fontSize: ty.fontSizes.xxxl,
+      fontWeight: ty.fontWeights.bold,
+      color: tokens.textStrong,
+      marginBottom: s.sm,
+      letterSpacing: -0.5,
+      fontFamily: tokens.typography.fontFamilies.sansBold,
+    },
+    subtitle: {
+      fontSize: ty.fontSizes.lg,
+      color: tokens.textMuted,
+      marginBottom: s.xl,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    field: {
+      marginBottom: s.md,
+    },
+    label: {
+      fontSize: ty.fontSizes.sm,
+      fontWeight: ty.fontWeights.medium,
+      color: tokens.textMuted,
+      marginBottom: s.sm,
+      fontFamily: tokens.typography.fontFamilies.sansMedium,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: tokens.inputBorder,
+      borderRadius: br.md,
+      paddingHorizontal: s.lg,
+      paddingVertical: s.md,
+      fontSize: ty.fontSizes.md,
+      color: tokens.text,
+      backgroundColor: tokens.inputBg,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    button: {
+      marginTop: s.md,
+      backgroundColor: c.primary[500],
+      borderRadius: br.button,
+      paddingVertical: s.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...tokens.shadows.md,
+    },
+    buttonDisabled: {
+      opacity: 0.7,
+    },
+    buttonText: {
+      color: '#fff',
+      fontSize: ty.fontSizes.md,
+      fontWeight: ty.fontWeights.semibold,
+      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+    },
+    footerLink: {
+      marginTop: s.lg,
+      alignItems: 'center',
+    },
+    footerText: {
+      fontSize: ty.fontSizes.sm,
+      color: tokens.textMuted,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    footerTextHighlight: {
+      color: c.primary[600],
+      fontWeight: ty.fontWeights.semibold,
+      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+    },
+    errorBox: {
+      backgroundColor: c.error[50],
+      borderRadius: br.sm,
+      padding: s.sm,
+      marginBottom: s.md,
+    },
+    errorText: {
+      color: c.error[700],
+      fontSize: ty.fontSizes.sm,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+  });
+}

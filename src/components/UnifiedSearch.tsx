@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SearchSegment, UnifiedSearchResult } from '../services/api';
 import { useUnifiedSearch } from '../hooks/useUnifiedSearch';
-import { colors } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { DEFAULT_SEARCH_SEGMENTS, UnifiedSearchInput } from './UnifiedSearchInput';
 import { UnifiedSearchResults } from './UnifiedSearchResults';
 
@@ -54,6 +54,17 @@ export const UnifiedSearch: React.FC<UnifiedSearchProps> = ({
   renderUserAction,
   onResult,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: tokens.bg,
+        },
+      }),
+    [tokens]
+  );
   const segments = React.useMemo<SearchSegment[]>(() => {
     if (!availableSegments || availableSegments.length === 0) {
       return DEFAULT_SEARCH_SEGMENTS.map((item) => item.id);
@@ -102,9 +113,3 @@ export const UnifiedSearch: React.FC<UnifiedSearchProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.neutral[50],
-  },
-});

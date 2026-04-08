@@ -1,7 +1,8 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View } from 'react-native';
 import Svg, { Rect, Circle } from 'react-native-svg';
-import { colors } from '@/src/theme/theme';
+import type { ThemeTokens } from '@/src/theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 export interface IllustrationPersonalizationProps {
   width: number;
@@ -9,11 +10,11 @@ export interface IllustrationPersonalizationProps {
 }
 
 function IllustrationPersonalizationInner({ width, height }: IllustrationPersonalizationProps) {
+  const { tokens } = useAppTheme();
+  const { primary, accent, neutral } = useMemo(() => buildIllustrationPersonalizationPalette(tokens), [tokens]);
+
   const w = width;
   const h = height;
-  const primary = colors.primary[500];
-  const accent = colors.accent[500];
-  const neutral = colors.neutral;
 
   const tile = (x: number, y: number, tw: number, th: number, fill: string, o: number) => (
     <Rect x={x} y={y} width={tw} height={th} rx={10} fill={fill} opacity={o} stroke={primary} strokeWidth={1.2} />
@@ -43,6 +44,15 @@ function IllustrationPersonalizationInner({ width, height }: IllustrationPersona
       </Svg>
     </View>
   );
+}
+
+function buildIllustrationPersonalizationPalette(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  return {
+    primary: c.primary[500],
+    accent: c.accent[500],
+    neutral: c.neutral,
+  };
 }
 
 export const IllustrationPersonalization = memo(IllustrationPersonalizationInner);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,20 +14,24 @@ import {
 import { X } from 'lucide-react-native';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { ChainPills } from './ChainPills';
-import { colors, spacing, borderRadius, shadows, typography, semantic } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 function truncateAddress(address: string): string {
   if (address.length <= 12) return address;
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
+type SheetStyles = ReturnType<typeof buildMonitorWalletSheetStyles>;
+
 interface WalletListItemProps {
   address: string;
   label?: string;
   onRemove(): void;
+  sheetStyles: SheetStyles;
 }
 
-const WalletListItem: React.FC<WalletListItemProps> = ({ address, label, onRemove }) => (
+const WalletListItem: React.FC<WalletListItemProps> = ({ address, label, onRemove, sheetStyles: styles }) => (
   <View style={styles.walletListItem}>
     <Text style={styles.walletListItemLabel} numberOfLines={1}>
       {label || truncateAddress(address)}
@@ -47,6 +51,10 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
   visible,
   onClose,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildMonitorWalletSheetStyles(tokens), [tokens]);
+  const c = tokens.colors;
+
   const {
     wallets,
     supportedChains,
@@ -107,7 +115,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
 
   const toggleChain = useCallback((chainId: string) => {
     setSelectedChains((prev) =>
-      prev.includes(chainId) ? prev.filter((c) => c !== chainId) : [...prev, chainId]
+      prev.includes(chainId) ? prev.filter((x) => x !== chainId) : [...prev, chainId]
     );
   }, []);
 
@@ -159,7 +167,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
         <View style={styles.header}>
           <Text style={styles.title}>Monitor Wallet</Text>
           <TouchableOpacity onPress={closeSheet} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <X size={24} color={colors.neutral[600]} />
+            <X size={24} color={c.neutral[600]} />
           </TouchableOpacity>
         </View>
 
@@ -178,7 +186,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
           <TextInput
             style={styles.input}
             placeholder="Wallet address (0x…)"
-            placeholderTextColor={colors.neutral[400]}
+            placeholderTextColor={c.neutral[400]}
             value={addressInput}
             onChangeText={setAddressInput}
             autoCapitalize="none"
@@ -189,7 +197,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
           <TextInput
             style={[styles.input, styles.inputSmall]}
             placeholder="Label (optional)"
-            placeholderTextColor={colors.neutral[400]}
+            placeholderTextColor={c.neutral[400]}
             value={labelInput}
             onChangeText={setLabelInput}
             autoCapitalize="none"
@@ -222,6 +230,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
                     address={w.address}
                     label={w.label}
                     onRemove={() => handleRemoveWallet(w.id)}
+                    sheetStyles={styles}
                   />
                 ))}
               </View>
@@ -233,127 +242,134 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: semantic.backdrop,
-  },
-  sheet: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: semantic.surface,
-    borderBottomLeftRadius: semantic.sheetRadius,
-    borderBottomRightRadius: semantic.sheetRadius,
-    maxHeight: '85%',
-    ...shadows.lg,
-  },
-  handleBarContainer: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: semantic.listMarginH,
-    alignItems: 'center',
-  },
-  handleBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.neutral[300],
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: semantic.listMarginH,
-    paddingBottom: semantic.cardPadding,
-  },
-  title: {
-    fontSize:     typography.fontSizes.xl,
-    fontWeight:   typography.fontWeights.bold,
-    color:        colors.neutral[900],
-  },
-  content: {
-    paddingHorizontal: semantic.listMarginH,
-    paddingBottom:     spacing.xxl,
-  },
-  inputLabel: {
-    fontSize:     typography.fontSizes.sm,
-    fontWeight:   typography.fontWeights.medium,
-    color:        colors.neutral[600],
-    marginBottom: spacing.xs,
-  },
-  input: {
-    borderWidth:       1,
-    borderColor:       colors.neutral[200],
-    borderRadius:      semantic.cardRadiusSmall,
-    paddingHorizontal: spacing.md,
-    paddingVertical:   spacing.sm,
-    fontSize:          typography.fontSizes.base,
-    color:             colors.neutral[800],
-    marginTop:         spacing.sm,
-    backgroundColor:   colors.neutral[50],
-  },
-  inputSmall: {
-    paddingVertical: spacing.sm,
-    fontSize:         typography.fontSizes.sm,
-  },
-  errorBanner: {
-    marginTop:       spacing.sm,
-    backgroundColor: colors.error[50],
-    borderRadius:    semantic.cardRadiusSmall,
-    padding:         spacing.sm,
-  },
-  errorBannerText: {
-    color:    colors.error[700],
-    fontSize: typography.fontSizes.sm,
-  },
-  addButton: {
-    marginTop:       spacing.md,
-    backgroundColor: colors.primary[500],
-    borderRadius:   borderRadius.button,
-    paddingVertical: spacing.sm,
-    alignItems:     'center',
-  },
-  addButtonDisabled: {
-    backgroundColor: colors.neutral[300],
-  },
-  addButtonText: {
-    color:      colors.surface,
-    fontWeight: typography.fontWeights.semibold,
-    fontSize:   typography.fontSizes.base,
-  },
-  walletsSection: {
-    marginTop: spacing.xl,
-  },
-  sectionTitle: {
-    fontSize:     typography.fontSizes.md,
-    fontWeight:   typography.fontWeights.semibold,
-    color:        colors.neutral[800],
-    marginBottom: spacing.sm,
-  },
-  walletList: {},
-  walletListItem: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    justifyContent:    'space-between',
-    backgroundColor:   colors.neutral[50],
-    borderColor:       colors.neutral[200],
-    borderWidth:       1,
-    borderRadius:      semantic.cardRadiusSmall,
-    paddingHorizontal: spacing.md,
-    paddingVertical:   spacing.sm,
-    marginBottom:      spacing.xs,
-  },
-  walletListItemLabel: {
-    fontSize:   typography.fontSizes.base,
-    color:      colors.neutral[800],
-    fontWeight: typography.fontWeights.medium,
-    flex:       1,
-  },
-  walletListItemRemove: {
-    fontSize:   typography.fontSizes.base,
-    color:      colors.neutral[400],
-    fontWeight: typography.fontWeights.bold,
-    marginLeft: spacing.sm,
-  },
-});
+function buildMonitorWalletSheetStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const sem = tokens.semantic;
+  const typo = tokens.typography;
+  const br = tokens.borderRadius;
+  return StyleSheet.create({
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: sem.backdrop,
+    },
+    sheet: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: sem.surface,
+      borderBottomLeftRadius: sem.sheetRadius,
+      borderBottomRightRadius: sem.sheetRadius,
+      maxHeight: '85%',
+      ...tokens.shadows.lg,
+    },
+    handleBarContainer: {
+      paddingVertical: s.sm,
+      paddingHorizontal: sem.listMarginH,
+      alignItems: 'center',
+    },
+    handleBar: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.neutral[300],
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: sem.listMarginH,
+      paddingBottom: sem.cardPadding,
+    },
+    title: {
+      fontSize: typo.fontSizes.xl,
+      fontWeight: typo.fontWeights.bold,
+      color: tokens.text,
+    },
+    content: {
+      paddingHorizontal: sem.listMarginH,
+      paddingBottom: s.xxl,
+    },
+    inputLabel: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.medium,
+      color: tokens.textMuted,
+      marginBottom: s.xs,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: tokens.borderSubtle,
+      borderRadius: sem.cardRadiusSmall,
+      paddingHorizontal: s.md,
+      paddingVertical: s.sm,
+      fontSize: typo.fontSizes.base,
+      color: c.neutral[800],
+      marginTop: s.sm,
+      backgroundColor: tokens.inputBg,
+    },
+    inputSmall: {
+      paddingVertical: s.sm,
+      fontSize: typo.fontSizes.sm,
+    },
+    errorBanner: {
+      marginTop: s.sm,
+      backgroundColor: c.error[50],
+      borderRadius: sem.cardRadiusSmall,
+      padding: s.sm,
+    },
+    errorBannerText: {
+      color: c.error[700],
+      fontSize: typo.fontSizes.sm,
+    },
+    addButton: {
+      marginTop: s.md,
+      backgroundColor: c.primary[500],
+      borderRadius: br.button,
+      paddingVertical: s.sm,
+      alignItems: 'center',
+    },
+    addButtonDisabled: {
+      backgroundColor: c.neutral[300],
+    },
+    addButtonText: {
+      color: c.surface,
+      fontWeight: typo.fontWeights.semibold,
+      fontSize: typo.fontSizes.base,
+    },
+    walletsSection: {
+      marginTop: s.xl,
+    },
+    sectionTitle: {
+      fontSize: typo.fontSizes.md,
+      fontWeight: typo.fontWeights.semibold,
+      color: c.neutral[800],
+      marginBottom: s.sm,
+    },
+    walletList: {},
+    walletListItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: tokens.inputBg,
+      borderColor: tokens.borderSubtle,
+      borderWidth: 1,
+      borderRadius: sem.cardRadiusSmall,
+      paddingHorizontal: s.md,
+      paddingVertical: s.sm,
+      marginBottom: s.xs,
+    },
+    walletListItemLabel: {
+      fontSize: typo.fontSizes.base,
+      color: c.neutral[800],
+      fontWeight: typo.fontWeights.medium,
+      flex: 1,
+    },
+    walletListItemRemove: {
+      fontSize: typo.fontSizes.base,
+      color: c.neutral[400],
+      fontWeight: typo.fontWeights.bold,
+      marginLeft: s.sm,
+    },
+  });
+}

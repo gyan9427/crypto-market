@@ -1,21 +1,28 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Bookmark, Newspaper, User as UserIcon, Wallet } from 'lucide-react-native';
 import { SearchSegment, SearchSegmentKey, UnifiedSearchResult } from '../services/api';
-import { borderRadius, colors, spacing, typography } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 const AVATAR_SIZE = 36;
+
+type UnifiedStyles = ReturnType<typeof buildUnifiedSearchResultsStyles>;
 
 function ResultAvatar({
   type,
   logo,
   imageUrl,
   symbol,
+  styles,
+  iconMuted,
 }: {
   type: 'coin' | 'news' | 'user' | 'board' | 'asset';
   logo?: string;
   imageUrl?: string;
   symbol?: string;
+  styles: UnifiedStyles;
+  iconMuted: string;
 }) {
   if (type === 'coin' && logo) {
     return (
@@ -32,13 +39,13 @@ function ResultAvatar({
       {type === 'coin' || type === 'asset' ? (
         <Text style={styles.avatarPlaceholderText}>{symbol?.slice(0, 2)?.toUpperCase() || '?'}</Text>
       ) : type === 'news' ? (
-        <Newspaper size={18} color={colors.neutral[500]} />
+        <Newspaper size={18} color={iconMuted} />
       ) : type === 'user' ? (
-        <UserIcon size={18} color={colors.neutral[500]} />
+        <UserIcon size={18} color={iconMuted} />
       ) : type === 'board' ? (
-        <Bookmark size={18} color={colors.neutral[500]} />
+        <Bookmark size={18} color={iconMuted} />
       ) : (
-        <Wallet size={18} color={colors.neutral[500]} />
+        <Wallet size={18} color={iconMuted} />
       )}
     </View>
   );
@@ -143,6 +150,11 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
   onUserPress,
   renderUserAction,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildUnifiedSearchResultsStyles(tokens), [tokens]);
+  const c = tokens.colors;
+  const iconMuted = c.neutral[500];
+
   const rows = React.useMemo(() => buildRows(result, selectedSegment), [result, selectedSegment]);
   const showDegradedBanner =
     Boolean(result.meta.degraded) && selectedSegment === 'all' && rows.length > 0;
@@ -175,7 +187,7 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
           if (item.type === 'coin') {
             return (
               <TouchableOpacity style={styles.row} onPress={() => onCoinPress?.(item.coinId)} activeOpacity={0.7}>
-                <ResultAvatar type="coin" logo={item.logo} symbol={item.symbol} />
+                <ResultAvatar type="coin" logo={item.logo} symbol={item.symbol} styles={styles} iconMuted={iconMuted} />
                 <View style={styles.rowContent}>
                   <Text style={styles.primaryText}>{item.symbol}</Text>
                   <Text style={styles.secondaryText}>{item.name}</Text>
@@ -187,7 +199,7 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
           if (item.type === 'news') {
             return (
               <TouchableOpacity style={styles.row} onPress={() => onNewsPress?.(item.newsId, item.url)} activeOpacity={0.7}>
-                <ResultAvatar type="news" imageUrl={item.imageUrl} />
+                <ResultAvatar type="news" imageUrl={item.imageUrl} styles={styles} iconMuted={iconMuted} />
                 <View style={styles.rowContent}>
                   <Text style={styles.primaryText} numberOfLines={2}>
                     {item.title}
@@ -204,7 +216,7 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
             return (
               <View style={styles.rowWithAction}>
                 <TouchableOpacity style={styles.rowBody} onPress={() => onUserPress?.(item.userId)} activeOpacity={0.7}>
-                  <ResultAvatar type="user" />
+                  <ResultAvatar type="user" styles={styles} iconMuted={iconMuted} />
                   <View style={styles.rowContent}>
                     <Text style={styles.primaryText}>@{item.username}</Text>
                   </View>
@@ -217,7 +229,7 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
           if (item.type === 'board') {
             return (
               <View style={styles.row}>
-                <ResultAvatar type="board" />
+                <ResultAvatar type="board" styles={styles} iconMuted={iconMuted} />
                 <View style={styles.rowContent}>
                   <Text style={styles.primaryText}>{item.name}</Text>
                   <Text style={styles.secondaryText}>{item.itemCount} saved</Text>
@@ -228,7 +240,7 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
 
           return (
             <View style={styles.row}>
-              <ResultAvatar type="asset" symbol={item.symbol} />
+              <ResultAvatar type="asset" symbol={item.symbol} styles={styles} iconMuted={iconMuted} />
               <View style={styles.rowContent}>
                 <Text style={styles.primaryText}>{item.symbol}</Text>
                 <Text style={styles.secondaryText}>
@@ -244,104 +256,110 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  degradedBanner: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.neutral[100],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
-  },
-  degradedText: {
-    fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral[600],
-  },
-  resultsWrap: {
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
-    flex: 1,
-  },
-  groupTitle: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
-    color: colors.neutral[500],
-    fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.semibold,
-    textTransform: 'uppercase',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.neutral[100],
-  },
-  rowContent: {
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  avatar: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    overflow: 'hidden',
-  },
-  avatarPlaceholder: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: colors.primary[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarPlaceholderNews: {
-    backgroundColor: colors.neutral[100],
-  },
-  avatarPlaceholderText: {
-    fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.primary[600],
-  },
-  rowWithAction: {
-    borderTopWidth: 1,
-    borderTopColor: colors.neutral[100],
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  rowBody: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingRight: spacing.md,
-  },
-  primaryText: {
-    color: colors.neutral[900],
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-  },
-  secondaryText: {
-    color: colors.neutral[500],
-    fontSize: typography.fontSizes.xs,
-    marginTop: 2,
-  },
-  emptyWrap: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: colors.neutral[500],
-    fontSize: typography.fontSizes.sm,
-  },
-});
+function buildUnifiedSearchResultsStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    degradedBanner: {
+      paddingHorizontal: s.md,
+      paddingVertical: s.sm,
+      backgroundColor: c.neutral[100],
+      borderBottomWidth: 1,
+      borderBottomColor: c.neutral[200],
+    },
+    degradedText: {
+      fontSize: typo.fontSizes.xs,
+      fontWeight: typo.fontWeights.medium,
+      color: c.neutral[600],
+    },
+    resultsWrap: {
+      marginHorizontal: s.md,
+      marginBottom: s.sm,
+      borderRadius: br.md,
+      backgroundColor: tokens.surface,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: tokens.borderSubtle,
+      flex: 1,
+    },
+    groupTitle: {
+      paddingHorizontal: s.md,
+      paddingTop: s.md,
+      paddingBottom: s.xs,
+      color: tokens.textMuted,
+      fontSize: typo.fontSizes.xs,
+      fontWeight: typo.fontWeights.semibold,
+      textTransform: 'uppercase',
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: s.md,
+      paddingVertical: s.sm,
+      borderTopWidth: 1,
+      borderTopColor: c.neutral[100],
+    },
+    rowContent: {
+      flex: 1,
+      marginLeft: s.sm,
+    },
+    avatar: {
+      width: AVATAR_SIZE,
+      height: AVATAR_SIZE,
+      borderRadius: AVATAR_SIZE / 2,
+      overflow: 'hidden',
+    },
+    avatarPlaceholder: {
+      width: AVATAR_SIZE,
+      height: AVATAR_SIZE,
+      borderRadius: AVATAR_SIZE / 2,
+      backgroundColor: c.primary[100],
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarPlaceholderNews: {
+      backgroundColor: c.neutral[100],
+    },
+    avatarPlaceholderText: {
+      fontSize: typo.fontSizes.xs,
+      fontWeight: typo.fontWeights.bold,
+      color: c.primary[600],
+    },
+    rowWithAction: {
+      borderTopWidth: 1,
+      borderTopColor: c.neutral[100],
+      paddingHorizontal: s.md,
+      paddingVertical: s.xs,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    rowBody: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: s.xs,
+      paddingRight: s.md,
+    },
+    primaryText: {
+      color: tokens.text,
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.medium,
+    },
+    secondaryText: {
+      color: tokens.textMuted,
+      fontSize: typo.fontSizes.xs,
+      marginTop: 2,
+    },
+    emptyWrap: {
+      paddingVertical: s.xl,
+      alignItems: 'center',
+    },
+    emptyText: {
+      color: tokens.textMuted,
+      fontSize: typo.fontSizes.sm,
+    },
+  });
+}

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { REACTIONS, ReactionType, ReactionCounts } from '../types';
-import { colors } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { abbreviateNumber } from '../utils/format';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -44,6 +45,10 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
   userReaction,
   onReact,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildReactionPickerStyles(tokens), [tokens]);
+  const c = tokens.colors;
+
   const [visible, setVisible] = useState(false);
   const [anchorPos, setAnchorPos] = useState({ x: 0, y: 0, w: 0 });
   const triggerRef = useRef<View>(null);
@@ -107,7 +112,7 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
   const arrowLeft = anchorPos.x + anchorPos.w / 2 - tooltipLeft - TOOLTIP_ARROW;
 
   const triggerGlow = {
-    shadowColor: colors.primary[500],
+    shadowColor: c.primary[500],
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: glowAnim.interpolate({
       inputRange: [0, 1],
@@ -211,99 +216,102 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  triggerWrap: {
-    borderRadius: 12,
-  },
-  trigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    borderRadius: 12,
-  },
-  triggerOpen: {
-    backgroundColor: colors.primary[50],
-  },
-  chipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  chip: {
-    width: CHIP_SIZE,
-    height: CHIP_SIZE,
-    borderRadius: CHIP_SIZE / 2,
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 0.5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-    elevation: 2,
-  },
-  chipEmpty: {
-    borderColor: colors.neutral[200],
-  },
-  chipEmoji: {
-    fontSize: 11,
-  },
-  count: {
-    fontSize: 13,
-    color: colors.neutral[500],
-    marginLeft: 5,
-    fontWeight: '500',
-  },
-  countActive: {
-    color: colors.neutral[700],
-    fontWeight: '600',
-  },
-  backdrop: {
-    flex: 1,
-  },
-  tooltip: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: TOOLTIP_PADDING_H,
-    height: TOOLTIP_HEIGHT,
-    borderRadius: TOOLTIP_HEIGHT / 2,
-    backgroundColor: '#fff',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.16,
-    shadowRadius: 8,
-  },
-  arrow: {
-    position: 'absolute',
-    bottom: -TOOLTIP_ARROW + 1,
-    width: 0,
-    height: 0,
-    borderLeftWidth: TOOLTIP_ARROW,
-    borderRightWidth: TOOLTIP_ARROW,
-    borderTopWidth: TOOLTIP_ARROW,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: '#fff',
-  },
-  emojiBtn: {
-    width: EMOJI_HIT,
-    height: EMOJI_HIT,
-    borderRadius: EMOJI_HIT / 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emojiBtnActive: {
-    backgroundColor: colors.primary[100],
-  },
-  emoji: {
-    fontSize: EMOJI_SIZE,
-  },
-  emojiActive: {
-    fontSize: EMOJI_SIZE + 2,
-  },
-});
+function buildReactionPickerStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  return StyleSheet.create({
+    triggerWrap: {
+      borderRadius: 12,
+    },
+    trigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minWidth: 44,
+      minHeight: 44,
+      justifyContent: 'center',
+      borderRadius: 12,
+    },
+    triggerOpen: {
+      backgroundColor: c.primary[50],
+    },
+    chipRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    chip: {
+      width: CHIP_SIZE,
+      height: CHIP_SIZE,
+      borderRadius: CHIP_SIZE / 2,
+      backgroundColor: tokens.surface,
+      borderWidth: 1.5,
+      borderColor: tokens.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 0.5 },
+      shadowOpacity: 0.1,
+      shadowRadius: 1,
+      elevation: 2,
+    },
+    chipEmpty: {
+      borderColor: tokens.borderSubtle,
+    },
+    chipEmoji: {
+      fontSize: 11,
+    },
+    count: {
+      fontSize: 13,
+      color: tokens.textMuted,
+      marginLeft: 5,
+      fontWeight: '500',
+    },
+    countActive: {
+      color: c.neutral[700],
+      fontWeight: '600',
+    },
+    backdrop: {
+      flex: 1,
+    },
+    tooltip: {
+      position: 'absolute',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: TOOLTIP_PADDING_H,
+      height: TOOLTIP_HEIGHT,
+      borderRadius: TOOLTIP_HEIGHT / 2,
+      backgroundColor: tokens.surface,
+      elevation: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.16,
+      shadowRadius: 8,
+    },
+    arrow: {
+      position: 'absolute',
+      bottom: -TOOLTIP_ARROW + 1,
+      width: 0,
+      height: 0,
+      borderLeftWidth: TOOLTIP_ARROW,
+      borderRightWidth: TOOLTIP_ARROW,
+      borderTopWidth: TOOLTIP_ARROW,
+      borderLeftColor: 'transparent',
+      borderRightColor: 'transparent',
+      borderTopColor: tokens.surface,
+    },
+    emojiBtn: {
+      width: EMOJI_HIT,
+      height: EMOJI_HIT,
+      borderRadius: EMOJI_HIT / 2,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    emojiBtnActive: {
+      backgroundColor: c.primary[100],
+    },
+    emoji: {
+      fontSize: EMOJI_SIZE,
+    },
+    emojiActive: {
+      fontSize: EMOJI_SIZE + 2,
+    },
+  });
+}

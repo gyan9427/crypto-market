@@ -1,13 +1,28 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { AppState, FeedFilter, ExploreCategory, NewsBoard, ReactionType } from '../types';
+import {
+  AppState,
+  FeedFilter,
+  ExploreCategory,
+  NewsBoard,
+  ReactionType,
+  ThemePreference,
+} from '../types';
 import { getWishlist } from '../services/api';
 import { useAuthStore } from './useAuthStore';
+
+const THEME_STORAGE_KEY = '@crypto_app_theme_preference';
+
+function parseThemePreference(raw: string | null): ThemePreference {
+  if (raw === 'light' || raw === 'dark' || raw === 'system') return raw;
+  return 'system';
+}
 
 export const useAppStore = create<AppState>((set, get) => ({
   /** Default explore: `/news/following` requires login; anonymous users must not hit it on first load. */
   feedFilter: 'explore',
   exploreCategory: 'trending',
-  isDarkMode: false,
+  themePreference: 'system' as ThemePreference,
   likedNews: [],
   savedNews: [],
   followingCoins: [],
@@ -18,7 +33,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setExploreCategory: (category: ExploreCategory) => set({ exploreCategory: category }),
 
-  toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
+  setThemePreference: (preference: ThemePreference) => {
+    set({ themePreference: preference });
+    void AsyncStorage.setItem(THEME_STORAGE_KEY, preference);
+  },
+
+  hydrateThemePreference: async () => {
+    try {
+      const raw = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+      const themePreference = parseThemePreference(raw);
+      set({ themePreference });
+    } catch {
+      // keep default
+    }
+  },
 
   toggleLike: (newsId: string) => set((state) => ({
     likedNews: state.likedNews.includes(newsId)

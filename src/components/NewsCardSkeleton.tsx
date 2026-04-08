@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Skeleton } from './Skeleton';
-import { borderRadius, spacing, semantic, colors } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 /** Mirrors NewsCard layout: header, optional coin chips, hero + follow overlay, title, source meta, footer, actions. */
 export const NewsCardSkeleton: React.FC = () => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildNewsCardSkeletonStyles(tokens), [tokens]);
+  const br = tokens.borderRadius;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -28,7 +33,7 @@ export const NewsCardSkeleton: React.FC = () => {
           <Skeleton width="100%" height={200} borderRadius={0} />
         </View>
         <View style={styles.heroFollowSkel} pointerEvents="none">
-          <Skeleton width={88} height={30} borderRadius={borderRadius.button} />
+          <Skeleton width={88} height={30} borderRadius={br.button} />
         </View>
       </View>
 
@@ -39,7 +44,7 @@ export const NewsCardSkeleton: React.FC = () => {
       </View>
 
       <View style={styles.footerRow}>
-        <Skeleton width="100%" height={40} borderRadius={borderRadius.md} style={styles.footerCta} />
+        <Skeleton width="100%" height={40} borderRadius={br.md} style={styles.footerCta} />
         <Skeleton width={56} height={28} borderRadius={8} />
       </View>
 
@@ -54,81 +59,86 @@ export const NewsCardSkeleton: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: semantic.surface,
-    borderRadius: semantic.cardRadius,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    ...semantic.cardShadow,
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  headerText: {
-    marginLeft: spacing.sm,
-    flex: 1,
-  },
-  marginBottom: {
-    marginBottom: 6,
-  },
-  marginRight: {
-    marginRight: spacing.xs,
-  },
-  coinsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  heroOuter: {
-    position: 'relative',
-    width: '100%',
-  },
-  heroWrap: {
-    width: '100%',
-    height: 200,
-    backgroundColor: colors.neutral[200],
-  },
-  heroFollowSkel: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    zIndex: 2,
-  },
-  content: {
-    padding: spacing.md,
-  },
-  sourceMetaSkel: {
-    marginTop: spacing.sm,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.neutral[200],
-  },
-  footerCta: {
-    flex: 1,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    alignItems: 'center',
-  },
-  spacer: {
-    flex: 1,
-  },
-});
+function buildNewsCardSkeletonStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const sem = tokens.semantic;
+  return StyleSheet.create({
+    container: {
+      backgroundColor: sem.surface,
+      borderRadius: sem.cardRadius,
+      marginHorizontal: s.md,
+      marginBottom: s.md,
+      ...sem.cardShadow,
+      overflow: 'hidden',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: s.md,
+    },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    headerText: {
+      marginLeft: s.sm,
+      flex: 1,
+    },
+    marginBottom: {
+      marginBottom: 6,
+    },
+    marginRight: {
+      marginRight: s.xs,
+    },
+    coinsRow: {
+      flexDirection: 'row',
+      paddingHorizontal: s.md,
+      paddingBottom: s.sm,
+    },
+    heroOuter: {
+      position: 'relative',
+      width: '100%',
+    },
+    heroWrap: {
+      width: '100%',
+      height: 200,
+      backgroundColor: c.neutral[200],
+    },
+    heroFollowSkel: {
+      position: 'absolute',
+      top: s.sm,
+      right: s.sm,
+      zIndex: 2,
+    },
+    content: {
+      padding: s.md,
+    },
+    sourceMetaSkel: {
+      marginTop: s.sm,
+    },
+    footerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: s.md,
+      paddingBottom: s.sm,
+      gap: s.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: tokens.borderSubtle,
+    },
+    footerCta: {
+      flex: 1,
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      paddingHorizontal: s.md,
+      paddingBottom: s.md,
+      alignItems: 'center',
+    },
+    spacer: {
+      flex: 1,
+    },
+  });
+}

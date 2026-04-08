@@ -1,6 +1,7 @@
-import React, { memo } from 'react';
-import { View, Text, StyleSheet, useColorScheme } from 'react-native';
-import { colors, darkColors, spacing, typography } from '@/src/theme/theme';
+import React, { memo, useMemo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import type { ThemeTokens } from '@/src/theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { AnimatedIllustration } from '../components/AnimatedIllustration';
 
 export interface OnboardingSlideProps {
@@ -10,41 +11,45 @@ export interface OnboardingSlideProps {
 }
 
 function OnboardingSlideInner({ title, description, illustration }: OnboardingSlideProps) {
-  const scheme = useColorScheme();
-  const dark = scheme === 'dark';
-  const textPrimary = dark ? darkColors.neutral[900] : colors.neutral[900];
-  const textMuted = dark ? darkColors.neutral[500] : colors.neutral[600];
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildOnboardingSlideStyles(tokens), [tokens]);
 
   return (
     <View style={styles.column}>
       <AnimatedIllustration>{illustration}</AnimatedIllustration>
-      <Text style={[styles.title, { color: textPrimary }]}>{title}</Text>
-      <Text style={[styles.desc, { color: textMuted }]}>{description}</Text>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.desc}>{description}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  column: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  title: {
-    fontSize: typography.fontSizes.xxxl,
-    fontWeight: typography.fontWeights.bold,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    lineHeight: typography.fontSizes.xxxl * typography.lineHeights.tight,
-  },
-  desc: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.medium,
-    textAlign: 'center',
-    lineHeight: typography.fontSizes.md * typography.lineHeights.relaxed,
-    maxWidth: 340,
-  },
-});
+function buildOnboardingSlideStyles(tokens: ThemeTokens) {
+  const s = tokens.spacing;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    column: {
+      flex: 1,
+      paddingHorizontal: s.lg,
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+    },
+    title: {
+      fontSize: typo.fontSizes.xxxl,
+      fontWeight: typo.fontWeights.bold,
+      textAlign: 'center',
+      marginBottom: s.md,
+      lineHeight: typo.fontSizes.xxxl * typo.lineHeights.tight,
+      color: tokens.text,
+    },
+    desc: {
+      fontSize: typo.fontSizes.md,
+      fontWeight: typo.fontWeights.medium,
+      textAlign: 'center',
+      lineHeight: typo.fontSizes.md * typo.lineHeights.relaxed,
+      maxWidth: 340,
+      color: tokens.textMuted,
+    },
+  });
+}
 
 export const OnboardingSlide = memo(OnboardingSlideInner);

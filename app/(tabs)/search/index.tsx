@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -6,7 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { SearchSegment } from '@/src/services/api';
 import { UnifiedSearch } from '@/src/components/UnifiedSearch';
-import { borderRadius, colors, spacing } from '@/src/theme/theme';
+import type { ThemeTokens } from '@/src/theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 const ALL_SEGMENTS: SearchSegment[] = [
   'all',
@@ -23,6 +24,10 @@ const normalizeSegment = (value: unknown): SearchSegment => {
 };
 
 export default function SearchScreen() {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildSearchScreenStyles(tokens), [tokens]);
+  const c = tokens.colors;
+
   const router = useRouter();
   const params = useLocalSearchParams<{ query?: string; segment?: string }>();
 
@@ -74,7 +79,7 @@ export default function SearchScreen() {
             accessibilityLabel="Close search"
             activeOpacity={0.8}
           >
-            <X size={18} color={colors.neutral[700]} />
+            <X size={18} color={c.neutral[700]} />
           </TouchableOpacity>
         </View>
         <UnifiedSearch
@@ -92,26 +97,31 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.neutral[50],
-  },
-  container: {
-    flex: 1,
-    backgroundColor: colors.neutral[50],
-  },
-  topBar: {
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.neutral[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+function buildSearchScreenStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: tokens.bg,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: tokens.bg,
+    },
+    topBar: {
+      alignItems: 'flex-end',
+      paddingHorizontal: s.md,
+      paddingTop: s.xs,
+    },
+    closeButton: {
+      width: 36,
+      height: 36,
+      borderRadius: br.sm,
+      backgroundColor: c.neutral[100],
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });
+}

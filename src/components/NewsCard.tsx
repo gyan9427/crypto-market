@@ -14,7 +14,8 @@ import { FeedCardProps } from '../types';
 import { CoinChip } from './CoinChip';
 import { ReactionPicker } from './ReactionPicker';
 import { formatTimeAgo, abbreviateNumber } from '../utils/format';
-import { colors, borderRadius, spacing, semantic, typography } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useHasFeature } from '../utils/features';
 import { useAppStore } from '../state/useAppStore';
 
@@ -78,6 +79,9 @@ export const NewsCard = React.memo<FeedCardProps>(({
   onPress,
   onCoinPress,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildNewsCardStyles(tokens), [tokens]);
+  const c = tokens.colors;
   const hasFollow = useHasFeature('follow');
   const hasComments = useHasFeature('comments');
   const isSaved = item.isSaved || false;
@@ -301,7 +305,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
             accessibilityLabel="Read article"
           >
             <Text style={styles.primaryCtaText}>Read</Text>
-            <ChevronRight size={18} color={colors.primary[600]} />
+            <ChevronRight size={18} color={c.primary[600]} />
           </TouchableOpacity>
         ) : (
           <View style={styles.footerSpacer} />
@@ -314,7 +318,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
             accessibilityRole="link"
             accessibilityLabel="Open full article in browser"
           >
-            <ExternalLink size={16} color={colors.primary[500]} />
+            <ExternalLink size={16} color={c.primary[500]} />
             <Text style={styles.openSiteText}>Full article</Text>
           </TouchableOpacity>
         )}
@@ -335,7 +339,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
             accessibilityLabel="Comment"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MessageCircle size={20} color={colors.neutral[500]} />
+            <MessageCircle size={20} color={tokens.textMuted} />
             {item.comments > 0 && (
               <Text style={styles.actionText}>{abbreviateNumber(item.comments)}</Text>
             )}
@@ -349,7 +353,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
           accessibilityLabel="Share"
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Share2 size={20} color={colors.neutral[500]} />
+          <Share2 size={20} color={tokens.textMuted} />
           {item.shares > 0 && (
             <Text style={styles.actionText}>{abbreviateNumber(item.shares)}</Text>
           )}
@@ -366,8 +370,8 @@ export const NewsCard = React.memo<FeedCardProps>(({
         >
           <Bookmark
             size={20}
-            color={isSaved ? colors.primary[500] : colors.neutral[500]}
-            fill={isSaved ? colors.primary[500] : 'none'}
+            color={isSaved ? c.primary[500] : tokens.textMuted}
+            fill={isSaved ? c.primary[500] : 'none'}
           />
           {(isSaved || articleSaveCount > 0) && (
             <Text style={[styles.actionText, isSaved && styles.actionTextSaved]}>
@@ -382,7 +386,10 @@ export const NewsCard = React.memo<FeedCardProps>(({
 
 NewsCard.displayName = 'NewsCard';
 
-const styles = StyleSheet.create({
+function buildNewsCardStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const { semantic, spacing, typography, borderRadius } = tokens;
+  return StyleSheet.create({
   container: {
     backgroundColor: semantic.surface,
     borderRadius: semantic.cardRadius,
@@ -405,20 +412,20 @@ const styles = StyleSheet.create({
   },
   gridSource: {
     fontSize: typography.fontSizes.badge,
-    color: colors.neutral[500],
+    color: tokens.textMuted,
     fontWeight: typography.fontWeights.semibold,
     marginBottom: spacing.xs,
   },
   gridTitle: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[900],
+    color: c.neutral[900],
     lineHeight: 18,
     marginBottom: spacing.xs,
   },
   gridSnippet: {
     fontSize: typography.fontSizes.xs,
-    color: colors.neutral[600],
+    color: c.neutral[600],
     lineHeight: 16,
   },
   header: {
@@ -439,20 +446,20 @@ const styles = StyleSheet.create({
   sourceAttribution: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[800],
+    color: c.neutral[800],
   },
   coinAvatarImage: {
     width: 40,
     height: 40,
     borderRadius: 20,
     marginRight: spacing.sm,
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
   },
   coinAvatarPlaceholder: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primary[500],
+    backgroundColor: c.primary[500],
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,
@@ -460,11 +467,11 @@ const styles = StyleSheet.create({
   coinAvatarText: {
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.bold,
-    color: colors.surface,
+    color: c.white,
   },
   timeAgo: {
     fontSize: typography.fontSizes.xs,
-    color: colors.neutral[500],
+    color: tokens.textMuted,
     marginTop: 2,
   },
   coinsRow: {
@@ -475,7 +482,7 @@ const styles = StyleSheet.create({
   },
   moreCoins: {
     fontSize: typography.fontSizes.sm,
-    color: colors.neutral[500],
+    color: tokens.textMuted,
     alignSelf: 'center',
     marginLeft: spacing.xs,
   },
@@ -489,24 +496,24 @@ const styles = StyleSheet.create({
   heroWrap: {
     width: '100%',
     aspectRatio: 16 / 9,
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
   },
   heroImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
   },
   heroPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: colors.neutral[300],
+    backgroundColor: c.neutral[300],
     justifyContent: 'center',
     alignItems: 'center',
   },
   heroPlaceholderText: {
     fontSize: 32,
     fontWeight: typography.fontWeights.bold,
-    color: colors.neutral[500],
+    color: c.neutral[500],
   },
   heroFollowButton: {
     position: 'absolute',
@@ -516,21 +523,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.button,
-    backgroundColor: colors.primary[500],
+    backgroundColor: c.primary[500],
     borderWidth: 1,
-    borderColor: colors.primary[500],
+    borderColor: c.primary[500],
   },
   heroFollowButtonFollowing: {
     backgroundColor: semantic.surface,
-    borderColor: colors.neutral[300],
+    borderColor: c.neutral[300],
   },
   heroFollowText: {
     fontSize: typography.fontSizes.xs,
     fontWeight: typography.fontWeights.bold,
-    color: colors.surface,
+    color: c.white,
   },
   heroFollowTextFollowing: {
-    color: colors.neutral[700],
+    color: c.neutral[700],
   },
   content: {
     padding: spacing.md,
@@ -538,20 +545,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.fontSizes.lg,
     fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[900],
+    color: c.neutral[900],
     lineHeight: 24,
     marginBottom: spacing.sm,
   },
   snippet: {
     fontSize: typography.fontSizes.sm,
-    color: colors.neutral[600],
+    color: c.neutral[600],
     lineHeight: 18,
     marginTop: spacing.xs,
   },
   sourceMeta: {
     marginTop: spacing.sm,
     fontSize: typography.fontSizes.xs,
-    color: colors.neutral[500],
+    color: tokens.textMuted,
     fontWeight: typography.fontWeights.medium,
   },
   relatedCoinsSection: {
@@ -560,7 +567,7 @@ const styles = StyleSheet.create({
   relatedCoinsHeader: {
     fontSize: typography.fontSizes.badge,
     fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[600],
+    color: c.neutral[600],
     marginBottom: spacing.xs,
   },
   relatedCoinsRow: {
@@ -588,7 +595,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     gap: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.neutral[200],
+    borderTopColor: c.neutral[200],
   },
   footerSpacer: {
     flex: 1,
@@ -601,16 +608,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     marginRight: spacing.sm,
-    backgroundColor: colors.primary[50],
+    backgroundColor: c.primary[50],
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.primary[200],
+    borderColor: c.primary[200],
     gap: 4,
   },
   primaryCtaText: {
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.semibold,
-    color: colors.primary[700],
+    color: c.primary[700],
   },
   openSiteTouchable: {
     flexDirection: 'row',
@@ -622,7 +629,7 @@ const styles = StyleSheet.create({
   openSiteText: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
-    color: colors.primary[500],
+    color: c.primary[500],
   },
   actionsRow: {
     flexDirection: 'row',
@@ -640,14 +647,15 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: typography.fontSizes.sm,
-    color: colors.neutral[500],
+    color: tokens.textMuted,
     marginLeft: spacing.xs,
     fontWeight: typography.fontWeights.medium,
   },
   actionTextSaved: {
-    color: colors.primary[500],
+    color: c.primary[500],
   },
   spacer: {
     flex: 1,
   },
 });
+}

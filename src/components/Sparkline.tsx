@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
-import { colors } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface SparklineProps {
   data: number[];
@@ -18,6 +18,9 @@ export const Sparkline: React.FC<SparklineProps> = ({
   lineColor,
   isPositive = true,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildSparklineStyles(), []);
+
   if (!data || data.length < 2) {
     return <View style={[styles.container, { width, height }]} />;
   }
@@ -34,7 +37,8 @@ export const Sparkline: React.FC<SparklineProps> = ({
     })
     .join(' ');
 
-  const color = lineColor || (isPositive ? colors.success[500] : colors.danger[500]);
+  const c = tokens.colors;
+  const color = lineColor || (isPositive ? c.success[500] : c.danger[500]);
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -50,9 +54,11 @@ export const Sparkline: React.FC<SparklineProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
+function buildSparklineStyles() {
+  return StyleSheet.create({
+    container: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+  });
+}

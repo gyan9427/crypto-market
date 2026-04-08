@@ -16,7 +16,8 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, borderRadius, shadows, typography } from '@/src/theme/theme';
+import type { ThemeTokens } from '@/src/theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { login } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { trackEvent } from '@/src/utils/trackEvent';
@@ -39,6 +40,8 @@ const PLACEHOLDER_MUTED = 'rgba(0,0,0,0.5)';
 type ActiveField = 'email' | 'password' | null;
 
 export default function LoginScreen() {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildLoginStyles(tokens), [tokens]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -158,7 +161,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace('(tabs)');
+      router.replace('/(tabs)' as never);
     }
   }, [isAuthenticated, router]);
 
@@ -174,7 +177,7 @@ export default function LoginScreen() {
       setLoading(true);
       setError(null);
       await login(email.trim(), password);
-      router.replace('(tabs)');
+      router.replace('/(tabs)' as never);
     } catch (err: any) {
       setError(err.message || 'Failed to login');
     } finally {
@@ -184,7 +187,7 @@ export default function LoginScreen() {
 
   const goToRegister = () => {
     trackEvent({ featureKey: 'auth', eventType: 'navigate_to_register', metadata: {} });
-    router.push('register');
+    router.push('/register' as never);
   };
 
   const floatingEmailHidden = activeField === 'email';
@@ -220,7 +223,10 @@ export default function LoginScreen() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingBottom: Math.max(insets.bottom, spacing.sm) + spacing.sm },
+              {
+                paddingBottom:
+                  Math.max(insets.bottom, tokens.spacing.sm) + tokens.spacing.sm,
+              },
             ]}
             showsVerticalScrollIndicator={false}
             bounces={false}
@@ -272,7 +278,7 @@ export default function LoginScreen() {
                 accessibilityLabel="Log in"
               >
                 <LinearGradient
-                  colors={[colors.primary[700], colors.primary[500]]}
+                  colors={[tokens.colors.primary[700], tokens.colors.primary[500]]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.buttonGradient}
@@ -342,10 +348,13 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function buildLoginStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const { spacing: s, borderRadius: br, typography: ty } = tokens;
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[900],
+    backgroundColor: c.neutral[900],
   },
   layerRoot: {
     flex: 1,
@@ -376,7 +385,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'flex-end',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: s.lg,
   },
   loginCard: {
     width: '100%',
@@ -385,60 +394,64 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 20,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.45)',
+    backgroundColor: tokens.isDark ? 'rgba(18,18,18,0.72)' : 'rgba(255,255,255,0.45)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.38)',
+    borderColor: tokens.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.38)',
   },
   field: {
     marginBottom: 28,
   },
   label: {
     fontSize: 13,
-    fontWeight: typography.fontWeights.medium,
-    color: 'rgba(0,0,0,0.5)',
-    marginBottom: spacing.xs,
+    fontWeight: ty.fontWeights.medium,
+    color: tokens.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)',
+    marginBottom: s.xs,
+    fontFamily: tokens.typography.fontFamilies.sansMedium,
   },
   input: {
     paddingHorizontal: 0,
     paddingVertical: 6,
     minHeight: 36,
-    fontSize: typography.fontSizes.base,
-    color: colors.neutral[900],
+    fontSize: ty.fontSizes.base,
+    color: tokens.isDark ? tokens.text : c.neutral[900],
     backgroundColor: 'transparent',
     borderWidth: 0,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.25)',
+    borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)',
+    fontFamily: tokens.typography.fontFamilies.sans,
   },
   inputHidden: {
     opacity: 0,
   },
   floatingLabel: {
     fontSize: 13,
-    fontWeight: typography.fontWeights.medium,
-    color: 'rgba(0,0,0,0.5)',
-    marginBottom: spacing.xs,
+    fontWeight: ty.fontWeights.medium,
+    color: tokens.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)',
+    marginBottom: s.xs,
+    fontFamily: tokens.typography.fontFamilies.sansMedium,
   },
   floatingInput: {
     paddingHorizontal: 0,
     paddingVertical: 8,
     minHeight: 40,
-    fontSize: typography.fontSizes.base,
-    color: colors.neutral[900],
+    fontSize: ty.fontSizes.base,
+    color: tokens.isDark ? tokens.text : c.neutral[900],
     backgroundColor: 'transparent',
     borderWidth: 0,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.25)',
+    borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)',
+    fontFamily: tokens.typography.fontFamilies.sans,
   },
   buttonTouchable: {
-    marginTop: spacing.sm,
-    borderRadius: borderRadius.md,
+    marginTop: s.sm,
+    borderRadius: br.md,
     overflow: 'hidden',
     alignSelf: 'stretch',
-    ...shadows.sm,
+    ...tokens.shadows.sm,
   },
   buttonGradient: {
     paddingVertical: 11,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: s.lg,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 40,
@@ -448,29 +461,34 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
+    fontSize: ty.fontSizes.md,
+    fontWeight: ty.fontWeights.semibold,
+    fontFamily: tokens.typography.fontFamilies.sansSemiBold,
   },
   footerLink: {
-    marginTop: spacing.lg,
+    marginTop: s.lg,
     alignItems: 'flex-start',
   },
   footerText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral[600],
+    fontSize: ty.fontSizes.sm,
+    color: tokens.isDark ? tokens.textMuted : c.neutral[600],
+    fontFamily: tokens.typography.fontFamilies.sans,
   },
   footerTextHighlight: {
-    color: colors.primary[600],
-    fontWeight: typography.fontWeights.semibold,
+    color: c.primary[600],
+    fontWeight: ty.fontWeights.semibold,
+    fontFamily: tokens.typography.fontFamilies.sansSemiBold,
   },
   errorBox: {
     backgroundColor: 'rgba(254, 226, 226, 0.75)',
-    borderRadius: borderRadius.xs,
-    padding: spacing.sm,
-    marginBottom: spacing.lg,
+    borderRadius: br.xs,
+    padding: s.sm,
+    marginBottom: s.lg,
   },
   errorText: {
-    color: colors.error[700],
-    fontSize: typography.fontSizes.sm,
+    color: c.error[700],
+    fontSize: ty.fontSizes.sm,
+    fontFamily: tokens.typography.fontFamilies.sans,
   },
 });
+}

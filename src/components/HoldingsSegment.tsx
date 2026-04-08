@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { Skeleton } from './Skeleton';
-import { colors, spacing, typography, semantic } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 /** Map MATIC to POL for display (Polygon rebrand) */
 function mapAssetDisplay(text: string | undefined | null): string {
@@ -35,6 +36,9 @@ interface HoldingsSegmentProps {
 }
 
 export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildHoldingsSegmentStyles(tokens), [tokens]);
+
   const { wallets, holdings, holdingsLoading } = usePortfolioStore();
 
   console.log('[Holdings] HoldingsSegment render', { walletsCount: wallets.length, holdingsLoading, hasHoldings: !!holdings, totalValue: holdings?.totalValue });
@@ -128,106 +132,112 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    marginHorizontal: semantic.listMarginH,
-    marginBottom:     semantic.listGap,
-  },
-  sectionTitle: {
-    fontSize:     typography.fontSizes.md,
-    fontWeight:   typography.fontWeights.semibold,
-    color:        colors.neutral[800],
-    marginBottom: spacing.sm,
-  },
-  emptyCard: {
-    backgroundColor:  semantic.surface,
-    borderRadius:     semantic.cardRadiusSmall,
-    padding:          semantic.cardPadding,
-    ...semantic.cardShadow,
-  },
-  emptyText: {
-    fontSize: typography.fontSizes.sm,
-    color:    colors.neutral[500],
-  },
-  summaryCard: {
-    backgroundColor:  semantic.surface,
-    borderRadius:     semantic.cardRadiusSmall,
-    padding:          semantic.cardPadding,
-    marginBottom:     spacing.sm,
-    ...semantic.cardShadow,
-  },
-  summaryRow: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'center',
-  },
-  totalValue: {
-    fontSize:   typography.fontSizes.xxl,
-    fontWeight: typography.fontWeights.bold,
-    color:      colors.neutral[900],
-  },
-  change24h: {
-    fontSize:   typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-    marginTop:  spacing.xs,
-  },
-  changePositive: {
-    color: colors.success[500],
-  },
-  changeNegative: {
-    color: colors.error[500],
-  },
-  skeletonTitle: {
-    marginBottom: spacing.xs,
-  },
-  skeletonSub: {},
-  positionsContainer: {
-    backgroundColor:  semantic.surface,
-    borderRadius:     semantic.cardRadiusSmall,
-    padding:          semantic.cardPadding,
-    marginTop:        spacing.xs,
-    marginBottom:     spacing.sm,
-    ...semantic.cardShadow,
-  },
-  positionRow: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:    'center',
-    paddingVertical: spacing.sm,
-  },
-  positionRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
-  },
-  positionLeft: {
-    flexDirection: 'row',
-    alignItems:    'center',
-  },
-  chainBadge: {
-    backgroundColor:   colors.primary[100],
-    borderRadius:      semantic.cardRadiusSmall,
-    paddingHorizontal: spacing.sm,
-    paddingVertical:   spacing.xs,
-    marginRight:       spacing.sm,
-  },
-  chainBadgeText: {
-    fontSize:   typography.fontSizes.badge,
-    fontWeight: typography.fontWeights.bold,
-    color:      colors.primary[700],
-  },
-  positionSymbol: {
-    fontSize:   typography.fontSizes.base,
-    fontWeight: typography.fontWeights.semibold,
-    color:      colors.neutral[800],
-  },
-  positionQuantity: {
-    fontSize: typography.fontSizes.sm,
-    color:    colors.neutral[500],
-    marginTop: 2,
-  },
-  positionValue: {
-    fontSize:   typography.fontSizes.base,
-    fontWeight: typography.fontWeights.semibold,
-    color:      colors.neutral[800],
-  },
-});
+function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const sem = tokens.semantic;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    container: {
+      marginHorizontal: sem.listMarginH,
+      marginBottom: sem.listGap,
+    },
+    sectionTitle: {
+      fontSize: typo.fontSizes.md,
+      fontWeight: typo.fontWeights.semibold,
+      color: c.neutral[800],
+      marginBottom: s.sm,
+    },
+    emptyCard: {
+      backgroundColor: sem.surface,
+      borderRadius: sem.cardRadiusSmall,
+      padding: sem.cardPadding,
+      ...sem.cardShadow,
+    },
+    emptyText: {
+      fontSize: typo.fontSizes.sm,
+      color: tokens.textMuted,
+    },
+    summaryCard: {
+      backgroundColor: sem.surface,
+      borderRadius: sem.cardRadiusSmall,
+      padding: sem.cardPadding,
+      marginBottom: s.sm,
+      ...sem.cardShadow,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    totalValue: {
+      fontSize: typo.fontSizes.xxl,
+      fontWeight: typo.fontWeights.bold,
+      color: tokens.text,
+    },
+    change24h: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.medium,
+      marginTop: s.xs,
+    },
+    changePositive: {
+      color: c.success[500],
+    },
+    changeNegative: {
+      color: c.error[500],
+    },
+    skeletonTitle: {
+      marginBottom: s.xs,
+    },
+    skeletonSub: {},
+    positionsContainer: {
+      backgroundColor: sem.surface,
+      borderRadius: sem.cardRadiusSmall,
+      padding: sem.cardPadding,
+      marginTop: s.xs,
+      marginBottom: s.sm,
+      ...sem.cardShadow,
+    },
+    positionRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: s.sm,
+    },
+    positionRowBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: c.neutral[100],
+    },
+    positionLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    chainBadge: {
+      backgroundColor: c.primary[100],
+      borderRadius: sem.cardRadiusSmall,
+      paddingHorizontal: s.sm,
+      paddingVertical: s.xs,
+      marginRight: s.sm,
+    },
+    chainBadgeText: {
+      fontSize: typo.fontSizes.badge,
+      fontWeight: typo.fontWeights.bold,
+      color: c.primary[700],
+    },
+    positionSymbol: {
+      fontSize: typo.fontSizes.base,
+      fontWeight: typo.fontWeights.semibold,
+      color: c.neutral[800],
+    },
+    positionQuantity: {
+      fontSize: typo.fontSizes.sm,
+      color: tokens.textMuted,
+      marginTop: 2,
+    },
+    positionValue: {
+      fontSize: typo.fontSizes.base,
+      fontWeight: typo.fontWeights.semibold,
+      color: c.neutral[800],
+    },
+  });
+}

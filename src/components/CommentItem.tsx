@@ -1,19 +1,31 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  type TextStyle,
 } from 'react-native';
 import { MessageCircle, Trash2 } from 'lucide-react-native';
 import { Comment, Mention } from '../types';
 import { fetchReplies } from '../services/api';
 import { formatTimeAgo } from '../utils/format';
 import { useAuthStore } from '../state/useAuthStore';
-import { colors, spacing } from '../theme/theme';
+import type { AppPalette, ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
-function RichCommentBody({ body, mentions }: { body: string; mentions: Mention[] }) {
+type CommentStyles = ReturnType<typeof buildCommentItemStyles>;
+
+function RichCommentBody({
+  body,
+  mentions,
+  styles,
+}: {
+  body: string;
+  mentions: Mention[];
+  styles: CommentStyles;
+}) {
   if (!mentions || mentions.length === 0) {
     return <Text style={styles.text}>{body}</Text>;
   }
@@ -59,16 +71,19 @@ interface CommentItemProps {
 
 const MAX_DEPTH = 1;
 
-const AVATAR_COLORS = [
-  colors.primary[500],
-  colors.accent[500],
-  colors.success[500],
-  '#3b82f6',
-  '#f59e0b',
-  '#06b6d4',
-];
+function avatarPalette(c: AppPalette): string[] {
+  return [
+    c.primary[500],
+    c.accent[500],
+    c.success[500],
+    '#3b82f6',
+    '#f59e0b',
+    '#06b6d4',
+  ];
+}
 
-function avatarColor(username: string): string {
+function avatarColor(username: string, c: AppPalette): string {
+  const AVATAR_COLORS = avatarPalette(c);
   let hash = 0;
   for (let i = 0; i < username.length; i++) {
     hash = username.charCodeAt(i) + ((hash << 5) - hash);
@@ -83,6 +98,10 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onDelete,
   depth = 0,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildCommentItemStyles(tokens), [tokens]);
+  const c = tokens.colors;
+
   const [replies, setReplies] = useState<Comment[]>([]);
   const [repliesExpanded, setRepliesExpanded] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState(false);
@@ -132,7 +151,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   return (
     <View style={[styles.wrapper, depth > 0 && styles.nested]}>
       <View style={styles.row}>
-        <View style={[styles.avatar, { backgroundColor: avatarColor(comment.username) }]}>
+        <View style={[styles.avatar, { backgroundColor: avatarColor(comment.username, c) }]}>
           <Text style={styles.avatarText}>
             {comment.username[0]?.toUpperCase() || '?'}
           </Text>
@@ -151,7 +170,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               {comment.body}
             </Text>
           ) : (
-            <RichCommentBody body={comment.body} mentions={comment.mentions} />
+            <RichCommentBody body={comment.body} mentions={comment.mentions} styles={styles} />
           )}
 
           {!isDeleted && (
@@ -169,7 +188,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                   onPress={() => onDelete(comment.id)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Trash2 size={14} color={colors.danger[500]} />
+                  <Trash2 size={14} color={c.danger[500]} />
                 </TouchableOpacity>
               )}
             </View>
@@ -179,7 +198,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
 
       {comment.replyCount > 0 && depth < MAX_DEPTH && (
         <TouchableOpacity onPress={toggleReplies} style={styles.expandBtn}>
-          <MessageCircle size={14} color={colors.primary[500]} />
+          <MessageCircle size={14} color={c.primary[500]} />
           <Text style={styles.expandText}>
             {repliesExpanded ? 'Hide replies' : `View ${comment.replyCount} ${comment.replyCount === 1 ? 'reply' : 'replies'}`}
           </Text>
@@ -201,7 +220,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
           {loadingReplies && (
             <ActivityIndicator
               size="small"
-              color={colors.primary[500]}
+              color={c.primary[500]}
               style={styles.loader}
             />
           )}
@@ -216,88 +235,92 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  wrapper: {
-    paddingVertical: spacing.sm,
-  },
-  nested: {
-    marginLeft: 36,
-    borderLeftWidth: 2,
-    borderLeftColor: colors.neutral[200],
-    paddingLeft: spacing.sm,
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-    marginTop: 2,
-  },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  body: {
-    flex: 1,
-  },
-  meta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  username: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.neutral[800],
-    marginRight: spacing.sm,
-  },
-  time: {
-    fontSize: 11,
-    color: colors.neutral[400],
-  },
-  text: {
-    fontSize: 14,
-    color: colors.neutral[700],
-    lineHeight: 20,
-  },
-  mentionText: {
-    color: colors.primary[500],
-    fontWeight: '600',
-  },
-  deletedText: {
-    fontStyle: 'italic',
-    color: colors.neutral[400],
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginTop: 4,
-  },
-  actionLink: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary[500],
-  },
-  expandBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginLeft: 40,
-    marginTop: 4,
-  },
-  expandText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary[500],
-  },
-  loader: {
-    marginVertical: spacing.sm,
-  },
-});
+function buildCommentItemStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  return StyleSheet.create({
+    wrapper: {
+      paddingVertical: s.sm,
+    },
+    nested: {
+      marginLeft: 36,
+      borderLeftWidth: 2,
+      borderLeftColor: tokens.borderSubtle,
+      paddingLeft: s.sm,
+    },
+    row: {
+      flexDirection: 'row',
+    },
+    avatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: s.sm,
+      marginTop: 2,
+    },
+    avatarText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: c.white,
+    },
+    body: {
+      flex: 1,
+    },
+    meta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 2,
+    },
+    username: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: tokens.text,
+      marginRight: s.sm,
+    },
+    time: {
+      fontSize: 11,
+      color: tokens.textMuted,
+    },
+    text: {
+      fontSize: 14,
+      color: tokens.textMuted,
+      lineHeight: 20,
+    } as TextStyle,
+    mentionText: {
+      color: c.primary[500],
+      fontWeight: '600',
+    } as TextStyle,
+    deletedText: {
+      fontStyle: 'italic',
+      color: tokens.textMuted,
+    },
+    actions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+      marginTop: 4,
+    },
+    actionLink: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: c.primary[500],
+    },
+    expandBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginLeft: 40,
+      marginTop: 4,
+    },
+    expandText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: c.primary[500],
+    },
+    loader: {
+      marginVertical: s.sm,
+    },
+  });
+}

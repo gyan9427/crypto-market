@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
-import { colors, spacing, borderRadius, typography, shadows, semantic } from '@/src/theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import type { ThemeTokens } from '@/src/theme/theme';
+import type { ThemePreference } from '@/src/types';
+import { SegmentToggle } from '@/src/components/SegmentToggle';
 import { LogOut, Shield, Info, User as UserIcon, Bookmark } from 'lucide-react-native';
 import {
   followUser,
@@ -12,6 +15,8 @@ import {
   getFollowedUsers,
   getUserFollowStats,
 } from '@/src/services/api';
+
+const PREF_ORDER: ThemePreference[] = ['system', 'light', 'dark'];
 
 const getInitials = (name?: string | null) => {
   if (!name) return '?';
@@ -26,6 +31,7 @@ interface ProfileMenuItemProps {
   icon?: React.ReactNode;
   danger?: boolean;
   onPress: () => void;
+  tokens: ThemeTokens;
 }
 
 const ProfileMenuItem: React.FC<ProfileMenuItemProps> = ({
@@ -34,22 +40,65 @@ const ProfileMenuItem: React.FC<ProfileMenuItemProps> = ({
   icon,
   danger,
   onPress,
+  tokens,
 }) => {
+  const s = useMemo(() => menuStyles(tokens), [tokens]);
   return (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.menuItemLeft}>
-        {icon && <View style={styles.menuIcon}>{icon}</View>}
+    <TouchableOpacity style={s.menuItem} onPress={onPress} activeOpacity={0.7}>
+      <View style={s.menuItemLeft}>
+        {icon && <View style={s.menuIcon}>{icon}</View>}
         <View>
-          <Text style={[styles.menuLabel, danger && styles.menuLabelDanger]}>{label}</Text>
-          {description && <Text style={styles.menuDescription}>{description}</Text>}
+          <Text style={[s.menuLabel, danger && s.menuLabelDanger]}>{label}</Text>
+          {description && <Text style={s.menuDescription}>{description}</Text>}
         </View>
       </View>
-      <Text style={[styles.menuChevron, danger && styles.menuLabelDanger]}>{'›'}</Text>
+      <Text style={[s.menuChevron, danger && s.menuLabelDanger]}>{'›'}</Text>
     </TouchableOpacity>
   );
 };
 
+function menuStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+    },
+    menuItemLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    menuIcon: {
+      marginRight: tokens.spacing.sm,
+    },
+    menuLabel: {
+      fontSize: tokens.typography.fontSizes.md,
+      color: tokens.text,
+      fontWeight: tokens.typography.fontWeights.medium,
+      fontFamily: tokens.typography.fontFamilies.sansMedium,
+    },
+    menuLabelDanger: {
+      color: tokens.colors.error[600],
+    },
+    menuDescription: {
+      fontSize: tokens.typography.fontSizes.xs,
+      color: tokens.textMuted,
+      marginTop: 2,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    menuChevron: {
+      fontSize: tokens.typography.fontSizes.lg,
+      color: tokens.textMuted,
+      marginLeft: tokens.spacing.sm,
+    },
+  });
+}
+
 export default function ProfileScreen() {
+  const { tokens, preference, setPreference } = useAppTheme();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
@@ -63,6 +112,11 @@ export default function ProfileScreen() {
   const [socialLoading, setSocialLoading] = React.useState(false);
   const [updatingUserId, setUpdatingUserId] = React.useState<string | null>(null);
 
+  const styles = useMemo(() => buildScreenStyles(tokens), [tokens]);
+
+  const prefIndex = PREF_ORDER.indexOf(preference);
+  const appearanceIndex = prefIndex >= 0 ? prefIndex : 0;
+
   const handleLogout = async () => {
     await logout();
     setFeedFilter('explore');
@@ -70,7 +124,7 @@ export default function ProfileScreen() {
   };
 
   const displayName = user?.username || user?.name || 'User';
-  const email = (user as any)?.email;
+  const email = (user as { email?: string })?.email;
 
   const refreshSocialData = React.useCallback(async () => {
     if (!user?.id) return;
@@ -126,10 +180,23 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Appearance</Text>
+          <Text style={styles.appearanceHint}>Choose light, dark, or match your device.</Text>
+          <View style={styles.appearanceToggleWrap}>
+            <SegmentToggle
+              flush
+              options={['System', 'Light', 'Dark']}
+              selectedIndex={appearanceIndex}
+              onSelect={(i) => setPreference(PREF_ORDER[i] ?? 'system')}
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Social</Text>
           {socialLoading ? (
             <View style={styles.socialLoadingRow}>
-              <ActivityIndicator size="small" color={colors.primary[500]} />
+              <ActivityIndicator size="small" color={tokens.colors.primary[500]} />
             </View>
           ) : (
             <View style={styles.socialStatsRow}>
@@ -171,20 +238,20 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
           <ProfileMenuItem
+            tokens={tokens}
             label="Account details"
             description="View your basic account information"
-            icon={<UserIcon size={18} color={colors.neutral[600]} />}
+            icon={<UserIcon size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => {
-              // TODO: navigate to account details screen
               console.log('Account pressed');
             }}
           />
           <ProfileMenuItem
+            tokens={tokens}
             label="Security"
             description="Password and sign-in options"
-            icon={<Shield size={18} color={colors.neutral[600]} />}
+            icon={<Shield size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => {
-              // TODO: navigate to security settings
               console.log('Security pressed');
             }}
           />
@@ -193,9 +260,10 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Collections</Text>
           <ProfileMenuItem
+            tokens={tokens}
             label="News Boards"
             description="Your saved article collections"
-            icon={<Bookmark size={18} color={colors.neutral[600]} />}
+            icon={<Bookmark size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => router.push('/news-boards' as never)}
           />
         </View>
@@ -203,11 +271,11 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <ProfileMenuItem
+            tokens={tokens}
             label="About this app"
             description="Learn more about Crypto Market"
-            icon={<Info size={18} color={colors.neutral[600]} />}
+            icon={<Info size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => {
-              // TODO: show about modal or screen
               console.log('About pressed');
             }}
           />
@@ -215,9 +283,10 @@ export default function ProfileScreen() {
 
         <View style={styles.section}>
           <ProfileMenuItem
+            tokens={tokens}
             label="Logout"
             description="Sign out of your account"
-            icon={<LogOut size={18} color={colors.error[500]} />}
+            icon={<LogOut size={18} color={tokens.colors.error[500]} />}
             danger
             onPress={handleLogout}
           />
@@ -227,167 +296,150 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.neutral[50],
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  card: {
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.primary[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-    ...shadows.md,
-  },
-  avatarText: {
-    fontSize: typography.fontSizes.xl,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.primary[700],
-  },
-  name: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[900],
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral[500],
-  },
-  section: {
-    backgroundColor: semantic.surface,
-    borderRadius: semantic.cardRadius,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.lg,
-    ...semantic.cardShadow,
-  },
-  socialLoadingRow: {
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  socialStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[500],
-    marginBottom: 2,
-    textAlign: 'center',
-  },
-  statValue: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[900],
-  },
-  followRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  followUsername: {
-    color: colors.neutral[800],
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-  },
-  followChip: {
-    borderWidth: 1,
-    borderColor: colors.primary[500],
-    backgroundColor: colors.primary[500],
-    borderRadius: borderRadius.button,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    minWidth: 84,
-    alignItems: 'center',
-  },
-  followingChip: {
-    backgroundColor: colors.neutral[100],
-    borderColor: colors.neutral[300],
-  },
-  followChipText: {
-    color: '#fff',
-    fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.semibold,
-  },
-  followingChipText: {
-    color: colors.neutral[700],
-  },
-  followingList: {
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
-  },
-  subSectionTitle: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[500],
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xs,
-  },
-  followingUserRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  sectionTitle: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral[500],
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  menuItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  menuIcon: {
-    marginRight: spacing.sm,
-  },
-  menuLabel: {
-    fontSize: typography.fontSizes.md,
-    color: colors.neutral[900],
-    fontWeight: typography.fontWeights.medium,
-  },
-  menuLabelDanger: {
-    color: colors.error[600],
-  },
-  menuDescription: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[500],
-    marginTop: 2,
-  },
-  menuChevron: {
-    fontSize: typography.fontSizes.lg,
-    color: colors.neutral[400],
-    marginLeft: spacing.sm,
-  },
-});
-
+function buildScreenStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: tokens.bg,
+    },
+    container: {
+      paddingHorizontal: tokens.spacing.lg,
+      paddingTop: tokens.spacing.lg,
+      paddingBottom: tokens.spacing.xl,
+    },
+    card: {
+      alignItems: 'center',
+      marginBottom: tokens.spacing.xl,
+    },
+    avatar: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: tokens.colors.primary[100],
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: tokens.spacing.sm,
+      ...tokens.shadows.md,
+    },
+    avatarText: {
+      fontSize: tokens.typography.fontSizes.xl,
+      fontWeight: tokens.typography.fontWeights.bold,
+      color: tokens.colors.primary[700],
+      fontFamily: tokens.typography.fontFamilies.sansBold,
+    },
+    name: {
+      fontSize: tokens.typography.fontSizes.lg,
+      fontWeight: tokens.typography.fontWeights.semibold,
+      color: tokens.text,
+      marginBottom: 4,
+      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+    },
+    email: {
+      fontSize: tokens.typography.fontSizes.sm,
+      color: tokens.textMuted,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    section: {
+      backgroundColor: tokens.bgElevated,
+      borderRadius: tokens.semantic.cardRadius,
+      paddingVertical: tokens.spacing.xs,
+      marginBottom: tokens.spacing.lg,
+      ...tokens.semantic.cardShadow,
+      borderWidth: tokens.isDark ? 1 : 0,
+      borderColor: tokens.borderSubtle,
+    },
+    appearanceHint: {
+      fontSize: tokens.typography.fontSizes.xs,
+      color: tokens.textMuted,
+      paddingHorizontal: tokens.spacing.md,
+      paddingBottom: tokens.spacing.sm,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    appearanceToggleWrap: {
+      paddingHorizontal: tokens.spacing.md,
+      paddingBottom: tokens.spacing.sm,
+    },
+    socialLoadingRow: {
+      paddingVertical: tokens.spacing.md,
+      alignItems: 'center',
+    },
+    socialStatsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: tokens.spacing.md,
+      paddingBottom: tokens.spacing.sm,
+    },
+    statItem: {
+      alignItems: 'center',
+      flex: 1,
+    },
+    statLabel: {
+      fontSize: tokens.typography.fontSizes.xs,
+      color: tokens.textMuted,
+      marginBottom: 2,
+      textAlign: 'center',
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    statValue: {
+      fontSize: tokens.typography.fontSizes.md,
+      fontWeight: tokens.typography.fontWeights.semibold,
+      color: tokens.text,
+      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+    },
+    followUsername: {
+      color: tokens.text,
+      fontSize: tokens.typography.fontSizes.sm,
+      fontWeight: tokens.typography.fontWeights.medium,
+      fontFamily: tokens.typography.fontFamilies.sansMedium,
+    },
+    followChip: {
+      borderWidth: 1,
+      borderColor: tokens.colors.primary[500],
+      backgroundColor: tokens.colors.primary[500],
+      borderRadius: tokens.borderRadius.button,
+      paddingHorizontal: tokens.spacing.sm,
+      paddingVertical: 4,
+      minWidth: 84,
+      alignItems: 'center',
+    },
+    followingChip: {
+      backgroundColor: tokens.isDark ? tokens.colors.neutral[200] : tokens.colors.neutral[100],
+      borderColor: tokens.colors.neutral[300],
+    },
+    followChipText: {
+      color: '#fff',
+      fontSize: tokens.typography.fontSizes.xs,
+      fontWeight: tokens.typography.fontWeights.semibold,
+      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+    },
+    followingChipText: {
+      color: tokens.text,
+    },
+    followingList: {
+      paddingTop: tokens.spacing.xs,
+      paddingBottom: tokens.spacing.sm,
+    },
+    subSectionTitle: {
+      fontSize: tokens.typography.fontSizes.xs,
+      color: tokens.textMuted,
+      paddingHorizontal: tokens.spacing.md,
+      paddingBottom: tokens.spacing.xs,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    followingUserRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.xs,
+    },
+    sectionTitle: {
+      fontSize: tokens.typography.fontSizes.sm,
+      fontWeight: tokens.typography.fontWeights.medium,
+      color: tokens.textMuted,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.xs,
+      fontFamily: tokens.typography.fontFamilies.sansMedium,
+    },
+  });
+}

@@ -2,7 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Svg, { Line, Path, Circle } from 'react-native-svg';
 import { Maximize2, MoreHorizontal, TrendingUp } from 'lucide-react-native';
-import { colors, borderRadius, shadows, spacing } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useLiveMarketOverview } from '../hooks/useLiveMarketOverview';
 
 const CHART_WIDTH = 400;
@@ -26,6 +27,12 @@ interface MarketCapPlaceholderProps {
 export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   liveUpdatesEnabled = true,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildMarketCapPlaceholderStyles(tokens), [tokens]);
+  const c = tokens.colors;
+  const gridMuted = c.neutral[500];
+  const crosshair = c.neutral[400];
+
   const { data, hasFetched } = useLiveMarketOverview({ enabled: liveUpdatesEnabled });
   const klines = data.klines;
   const isLoading = !hasFetched;
@@ -155,7 +162,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
             <>
               <Svg style={styles.svgChart} preserveAspectRatio="none" viewBox="0 0 400 120">
                 {/* Dotted Reference Line */}
-                <Line stroke="#374151" strokeDasharray="4" strokeWidth="1" x1="0" x2="400" y1="60" y2="60" />
+                <Line stroke={gridMuted} strokeDasharray="4" strokeWidth="1" x1="0" x2="400" y1="60" y2="60" />
                 {/* Main Path (Blue Line Style) */}
                 <Path 
                   d={chartView.linePath}
@@ -174,7 +181,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                       x2={activePoint.x}
                       y1={0}
                       y2={CHART_HEIGHT}
-                      stroke={colors.neutral[400]}
+                      stroke={crosshair}
                       strokeWidth="1"
                       strokeDasharray="3"
                     />
@@ -183,7 +190,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                       x2={CHART_WIDTH}
                       y1={activePoint.y}
                       y2={activePoint.y}
-                      stroke={colors.neutral[400]}
+                      stroke={crosshair}
                       strokeWidth="1"
                       strokeDasharray="3"
                     />
@@ -193,13 +200,15 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
               </Svg>
               <View
                 style={styles.interactionLayer}
-                onMouseMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
-                onMouseLeave={() => setHoverIndex(null)}
                 onStartShouldSetResponder={() => true}
                 onResponderGrant={(e: any) => handlePointer(e.nativeEvent.locationX)}
                 onResponderMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
                 onResponderRelease={() => setHoverIndex(null)}
                 onResponderTerminate={() => setHoverIndex(null)}
+                {...({
+                  onMouseMove: (e: any) => handlePointer(e.nativeEvent.locationX),
+                  onMouseLeave: () => setHoverIndex(null),
+                } as object)}
               />
               {activeKline && tooltipPosition ? (
                 <View
@@ -232,11 +241,11 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
         {/* Utility Icons */}
         <View style={styles.utilitiesRow}>
           <TouchableOpacity style={styles.iconButton}>
-            <Maximize2 size={18} color={colors.neutral[400]} />
+            <Maximize2 size={18} color={c.neutral[400]} />
           </TouchableOpacity>
           <View style={styles.rightIcons}>
             <TouchableOpacity style={styles.iconButton}>
-              <MoreHorizontal size={18} color={colors.neutral[400]} />
+              <MoreHorizontal size={18} color={c.neutral[400]} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.primaryIconButton}>
               <TrendingUp size={18} color="#fff" />
@@ -249,35 +258,39 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+function buildMarketCapPlaceholderStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  return StyleSheet.create({
   container: {
     paddingHorizontal: 24,
-    marginBottom: spacing.lg,
+    marginBottom: s.lg,
   },
   card: {
-    backgroundColor: colors.neutral[900],
+    backgroundColor: c.neutral[900],
     borderRadius: 32,
     padding: 24,
-    ...shadows.lg,
+    ...tokens.shadows.lg,
     overflow: 'hidden',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: s.sm,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: colors.neutral[50],
+    color: c.neutral[50],
     letterSpacing: -0.5,
   },
   headerSkeleton: {
     alignItems: 'flex-start',
   },
   skeletonBlock: {
-    backgroundColor: colors.neutral[800],
+    backgroundColor: c.neutral[800],
     borderRadius: 8,
   },
   titleSkeleton: {
@@ -291,28 +304,28 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
+    gap: s.sm,
+    marginTop: s.xs,
   },
   statsText: {
-    color: colors.success[500],
+    color: c.success[500],
     fontSize: 14,
     fontWeight: '500',
   },
   negativeStatsText: {
-    color: colors.danger[500],
+    color: c.danger[500],
   },
   periodLabel: {
     fontSize: 12,
     fontWeight: '500',
-    color: colors.neutral[500],
+    color: c.neutral[500],
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   chartWrapper: {
     height: 128,
     width: '100%',
-    marginTop: spacing.md,
+    marginTop: s.md,
     position: 'relative',
   },
   svgChart: {
@@ -323,7 +336,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: CHART_HEIGHT,
     borderRadius: 12,
-    backgroundColor: colors.neutral[800],
+    backgroundColor: c.neutral[800],
   },
   xAxisLabels: {
     position: 'absolute',
@@ -343,29 +356,29 @@ const styles = StyleSheet.create({
   },
   tooltipCard: {
     position: 'absolute',
-    backgroundColor: colors.neutral[900],
-    borderRadius: borderRadius.sm,
+    backgroundColor: c.neutral[900],
+    borderRadius: br.sm,
     borderWidth: 1,
-    borderColor: colors.neutral[700],
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    borderColor: c.neutral[700],
+    paddingHorizontal: s.sm,
+    paddingVertical: s.xs,
   },
   tooltipTime: {
     fontSize: 10,
-    color: colors.neutral[300],
+    color: c.neutral[300],
     marginBottom: 2,
   },
   tooltipValue: {
     fontSize: 11,
-    color: colors.neutral[50],
+    color: c.neutral[50],
     fontWeight: '600',
   },
   xLabel: {
     fontSize: 10,
-    color: colors.neutral[500],
+    color: c.neutral[500],
   },
   noDataText: {
-    color: colors.neutral[500],
+    color: c.neutral[500],
     fontSize: 12,
     textAlign: 'center',
     marginTop: 50,
@@ -378,7 +391,7 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 8,
-    backgroundColor: colors.neutral[800],
+    backgroundColor: c.neutral[800],
     borderRadius: 8,
   },
   rightIcons: {
@@ -387,7 +400,8 @@ const styles = StyleSheet.create({
   },
   primaryIconButton: {
     padding: 8,
-    backgroundColor: colors.primary[500],
+    backgroundColor: c.primary[500],
     borderRadius: 8,
   },
 });
+}

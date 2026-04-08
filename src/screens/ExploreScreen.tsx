@@ -21,13 +21,17 @@ import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import { useAppStore } from '../state/useAppStore';
 import { fetchTrendingCoins } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
-import { colors, spacing, typography } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { usePollingEffect } from '../hooks/usePollingEffect';
 import { useMarketPriceStream } from '../hooks/useMarketPriceStream';
 
 const GRAPH_ANIM_MS = 280;
 
 export const ExploreScreen: React.FC = () => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildExploreScreenStyles(tokens), [tokens]);
+  const c = tokens.colors;
   const router = useRouter();
   const isFocused = useIsFocused();
 
@@ -169,9 +173,9 @@ export const ExploreScreen: React.FC = () => {
         >
           <Text style={styles.graphToggleLabel}>Market overview</Text>
           {marketGraphExpanded ? (
-            <ChevronUp size={22} color={colors.neutral[700]} accessibilityLabel="" />
+            <ChevronUp size={22} color={c.neutral[700]} accessibilityLabel="" />
           ) : (
-            <ChevronDown size={22} color={colors.neutral[700]} accessibilityLabel="" />
+            <ChevronDown size={22} color={c.neutral[700]} accessibilityLabel="" />
           )}
         </TouchableOpacity>
         <Animated.View style={[styles.graphClip, graphClipStyle]}>
@@ -222,15 +226,19 @@ export const ExploreScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+function buildExploreScreenStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const typo = tokens.typography;
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
+    backgroundColor: tokens.bg,
   },
   headerSection: {
     zIndex: 10,
-    backgroundColor: colors.neutral[50],
-    paddingBottom: spacing.xs,
+    backgroundColor: tokens.bg,
+    paddingBottom: s.xs,
   },
   graphChrome: {
     marginBottom: 0,
@@ -239,31 +247,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: s.lg,
+    paddingTop: s.xs,
+    paddingBottom: s.sm,
   },
   graphToggleLabel: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[800],
+    fontSize: typo.fontSizes.sm,
+    fontWeight: typo.fontWeights.semibold,
+    color: tokens.text,
   },
   graphClip: {
     marginBottom: 0,
   },
   errorBanner: {
-    backgroundColor: colors.error[50],
-    padding: spacing.md,
+    backgroundColor: c.error[50],
+    padding: s.md,
     marginHorizontal: 24,
-    marginTop: spacing.xs,
+    marginTop: s.xs,
     borderRadius: 16,
   },
   errorBannerText: {
-    color: colors.error[700],
+    color: c.error[700],
     fontSize: 14,
   },
   listContent: {
-    paddingTop: spacing.xs,
+    paddingTop: s.xs,
     paddingBottom: 96,
   },
 });
+}

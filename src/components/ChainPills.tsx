@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -7,7 +7,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SupportedChain } from '../types';
-import { colors, borderRadius, spacing, typography } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface ChainPillsProps {
   chains:         SupportedChain[];
@@ -20,6 +21,9 @@ export const ChainPills: React.FC<ChainPillsProps> = ({
   selectedChains,
   onToggle,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildChainPillsStyles(tokens), [tokens]);
+
   if (chains.length === 0) return null;
 
   return (
@@ -49,31 +53,37 @@ export const ChainPills: React.FC<ChainPillsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.md,
-    paddingVertical:   spacing.xs,
-    flexDirection:     'row',
-  },
-  pill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical:   spacing.xs,
-    borderRadius:      borderRadius.button,
-    backgroundColor:   colors.neutral[100],
-    marginRight:       spacing.xs,
-    minHeight:         32,
-    justifyContent:    'center',
-    alignItems:        'center',
-  },
-  pillActive: {
-    backgroundColor: colors.primary[500],
-  },
-  pillText: {
-    fontSize:   typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.semibold,
-    color:      colors.neutral[600],
-  },
-  pillTextActive: {
-    color: colors.surface,
-  },
-});
+function buildChainPillsStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    container: {
+      paddingHorizontal: s.md,
+      paddingVertical: s.xs,
+      flexDirection: 'row',
+    },
+    pill: {
+      paddingHorizontal: s.sm,
+      paddingVertical: s.xs,
+      borderRadius: br.button,
+      backgroundColor: c.neutral[100],
+      marginRight: s.xs,
+      minHeight: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    pillActive: {
+      backgroundColor: c.primary[500],
+    },
+    pillText: {
+      fontSize: typo.fontSizes.xs,
+      fontWeight: typo.fontWeights.semibold,
+      color: c.neutral[600],
+    },
+    pillTextActive: {
+      color: c.surface,
+    },
+  });
+}

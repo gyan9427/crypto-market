@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { CoinStats } from '../types';
 import {
@@ -7,16 +7,21 @@ import {
   formatSupplyWithSymbol,
   formatDate,
 } from '../utils/format';
-import { colors, borderRadius, shadows, spacing, typography } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+// @ts-expect-error Metro resolves SkiaProgressBar.{ios,android,web}; tsc has no extension map
 import { SkiaProgressBar } from './SkiaProgressBar';
+
+type CoinStatStyles = ReturnType<typeof buildCoinStatSegmentStyles>;
 
 interface StatCellProps {
   label: string;
   value: string;
   dateRight?: string;
+  styles: CoinStatStyles;
 }
 
-const StatCell: React.FC<StatCellProps> = ({ label, value, dateRight }) => (
+const StatCell: React.FC<StatCellProps> = ({ label, value, dateRight, styles }) => (
   <View style={styles.statCell}>
     <Text style={styles.statLabel}>{label}</Text>
     <View style={styles.statValueRow}>
@@ -41,6 +46,10 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
   stats,
   coinSymbol,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildCoinStatSegmentStyles(tokens), [tokens]);
+  const c = tokens.colors;
+
   if (!stats) return null;
   const low = stats.low_24h;
   const high = stats.high_24h;
@@ -50,7 +59,7 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
     ? Math.max(0, Math.min(1, (current - low) / (high - low)))
     : 0;
 
-  const leftColumn: StatCellProps[] = [
+  const leftColumn: Omit<StatCellProps, 'styles'>[] = [
     {
       label: 'Market Cap',
       value:
@@ -85,7 +94,7 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
     },
   ];
 
-  const rightColumn: StatCellProps[] = [
+  const rightColumn: Omit<StatCellProps, 'styles'>[] = [
     {
       label: 'Fully Diluted Market Cap',
       value:
@@ -122,8 +131,8 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
           </Text>
           <SkiaProgressBar
             fillRatio={fillRatio}
-            trackColor={colors.neutral[200]}
-            fillColor={colors.primary[500]}
+            trackColor={c.neutral[200]}
+            fillColor={c.primary[500]}
           />
           <Text style={styles.lowHighValue}>
             {high != null ? formatPrice(high) : '—'}
@@ -141,6 +150,7 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
               label={cell.label}
               value={cell.value}
               dateRight={cell.dateRight}
+              styles={styles}
             />
           ))}
         </View>
@@ -151,6 +161,7 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
               label={cell.label}
               value={cell.value}
               dateRight={cell.dateRight}
+              styles={styles}
             />
           ))}
         </View>
@@ -159,91 +170,97 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.card,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...shadows.md,
-  },
-  title: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[900],
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.neutral[200],
-    marginVertical: spacing.md,
-  },
-  lowHighSection: {
-    marginBottom: spacing.xs,
-  },
-  lowHighLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  lowHighLabel: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral[600],
-  },
-  badge24h: {
-    backgroundColor: colors.neutral[200],
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.xs,
-  },
-  badgeText: {
-    fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral[700],
-  },
-  lowHighValues: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  lowHighValue: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral[900],
-    minWidth: 70,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-  },
-  column: {
-    flex: 1,
-  },
-  statCell: {
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
-  },
-  statLabel: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[600],
-    marginBottom: spacing.sm,
-  },
-  statValueRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  statValue: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral[900],
-    flexShrink: 1,
-  },
-  statDateRight: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[500],
-    flexShrink: 0,
-  },
-});
+function buildCoinStatSegmentStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    card: {
+      backgroundColor: tokens.surface,
+      borderRadius: br.card,
+      padding: s.md,
+      marginBottom: s.md,
+      ...tokens.shadows.md,
+    },
+    title: {
+      fontSize: typo.fontSizes.lg,
+      fontWeight: typo.fontWeights.semibold,
+      color: tokens.text,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: tokens.borderSubtle,
+      marginVertical: s.md,
+    },
+    lowHighSection: {
+      marginBottom: s.xs,
+    },
+    lowHighLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s.sm,
+      marginBottom: s.sm,
+    },
+    lowHighLabel: {
+      fontSize: typo.fontSizes.sm,
+      color: tokens.textMuted,
+    },
+    badge24h: {
+      backgroundColor: c.neutral[200],
+      paddingHorizontal: s.sm,
+      paddingVertical: 2,
+      borderRadius: br.xs,
+    },
+    badgeText: {
+      fontSize: typo.fontSizes.xs,
+      fontWeight: typo.fontWeights.medium,
+      color: c.neutral[700],
+    },
+    lowHighValues: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s.sm,
+    },
+    lowHighValue: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.medium,
+      color: tokens.text,
+      minWidth: 70,
+    },
+    statsGrid: {
+      flexDirection: 'row',
+      gap: s.lg,
+    },
+    column: {
+      flex: 1,
+    },
+    statCell: {
+      paddingVertical: s.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: c.neutral[100],
+    },
+    statLabel: {
+      fontSize: typo.fontSizes.xs,
+      color: tokens.textMuted,
+      marginBottom: s.sm,
+    },
+    statValueRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: s.sm,
+    },
+    statValue: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.medium,
+      color: tokens.text,
+      flexShrink: 1,
+    },
+    statDateRight: {
+      fontSize: typo.fontSizes.xs,
+      color: tokens.textMuted,
+      flexShrink: 0,
+    },
+  });
+}

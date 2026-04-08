@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   Animated,
   Modal,
@@ -14,7 +14,8 @@ import {
   Platform,
 } from 'react-native';
 import { Check, Plus, BookmarkCheck } from 'lucide-react-native';
-import { colors, shadows, spacing, borderRadius } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { NewsBoard } from '../types';
 import { useAppStore } from '../state/useAppStore';
 import { getNewsBoards, createNewsBoard, saveNewsToBoard } from '../services/api';
@@ -33,6 +34,10 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
   onClose,
   onSaved,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildSaveToBoardModalStyles(tokens), [tokens]);
+  const c = tokens.colors;
+
   const slideAnim = useRef(new Animated.Value(500)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
@@ -50,7 +55,6 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
   const markSaved = useAppStore((s) => s.markSaved);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  // Animate in/out when visible changes
   useEffect(() => {
     if (visible) {
       setSelectedBoardId(null);
@@ -88,7 +92,6 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
     }
   };
 
-  // Keep local boards in sync with store (after a new board is added)
   useEffect(() => {
     setLocalBoards(storeBoards);
   }, [storeBoards]);
@@ -140,7 +143,6 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
 
       const { saveCount } = await saveNewsToBoard(newsId, targetBoardId);
 
-      // Update the board in store to include this newsId
       const updatedBoards = storeBoards.map((b) =>
         b.id === targetBoardId
           ? { ...b, newsIds: [...new Set([...b.newsIds, newsId])] }
@@ -172,23 +174,20 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
         pointerEvents="box-none"
       >
         <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
-          {/* Handle bar */}
           <View style={styles.handleBar} />
 
-          {/* Header */}
           <View style={styles.header}>
-            <BookmarkCheck size={22} color={colors.primary[500]} />
+            <BookmarkCheck size={22} color={c.primary[500]} />
             <Text style={styles.title}>Save to board</Text>
           </View>
 
-          {/* Create new board row */}
           <TouchableOpacity
             style={[styles.createRow, isCreating && styles.createRowActive]}
             onPress={handleToggleCreate}
             activeOpacity={0.7}
           >
             <View style={styles.createIconWrap}>
-              <Plus size={20} color={isCreating ? colors.primary[600] : colors.neutral[600]} />
+              <Plus size={20} color={isCreating ? c.primary[600] : c.neutral[600]} />
             </View>
             <Text style={[styles.createText, isCreating && styles.createTextActive]}>
               Create new board
@@ -199,7 +198,7 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
             <TextInput
               style={styles.nameInput}
               placeholder="Board name (e.g. DeFi Reads)"
-              placeholderTextColor={colors.neutral[400]}
+              placeholderTextColor={c.neutral[400]}
               value={newBoardName}
               onChangeText={setNewBoardName}
               maxLength={100}
@@ -207,13 +206,11 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
             />
           )}
 
-          {/* Divider */}
           <View style={styles.divider} />
 
-          {/* Board list */}
           {loading ? (
             <ActivityIndicator
-              color={colors.primary[500]}
+              color={c.primary[500]}
               style={styles.loader}
             />
           ) : (
@@ -241,7 +238,7 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
                       </Text>
                     </View>
                     {alreadySaved ? (
-                      <Check size={18} color={colors.success[500]} />
+                      <Check size={18} color={c.success[500]} />
                     ) : isSelected ? (
                       <View style={styles.radioSelected} />
                     ) : (
@@ -262,7 +259,6 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {/* Save button */}
           <TouchableOpacity
             style={[
               styles.saveButton,
@@ -284,163 +280,168 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  keyboardView: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 32,
-    maxHeight: '80%',
-    ...shadows.lg,
-  },
-  handleBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.neutral[300],
-    alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: 10,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.neutral[900],
-  },
-  createRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: 12,
-  },
-  createRowActive: {
-    backgroundColor: colors.primary[50],
-  },
-  createIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.neutral[100],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  createText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.neutral[700],
-  },
-  createTextActive: {
-    color: colors.primary[600],
-  },
-  nameInput: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.primary[300],
-    borderRadius: borderRadius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: colors.neutral[900],
-    backgroundColor: colors.primary[50],
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.neutral[200],
-    marginVertical: spacing.xs,
-  },
-  boardList: {
-    maxHeight: 280,
-  },
-  loader: {
-    marginVertical: spacing.xl,
-  },
-  boardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
-  },
-  boardRowSelected: {
-    backgroundColor: colors.primary[50],
-  },
-  boardInfo: {
-    flex: 1,
-  },
-  boardName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.neutral[800],
-    marginBottom: 2,
-  },
-  boardNameMuted: {
-    color: colors.neutral[400],
-  },
-  boardCount: {
-    fontSize: 12,
-    color: colors.neutral[500],
-  },
-  radioUnselected: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.neutral[300],
-  },
-  radioSelected: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.primary[500],
-    borderWidth: 2,
-    borderColor: colors.primary[500],
-  },
-  emptyBoards: {
-    textAlign: 'center',
-    color: colors.neutral[400],
-    fontSize: 14,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
-  },
-  errorText: {
-    color: colors.error[600],
-    fontSize: 13,
-    textAlign: 'center',
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-  },
-  saveButton: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    backgroundColor: colors.primary[500],
-    borderRadius: borderRadius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    backgroundColor: colors.neutral[300],
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});
+function buildSaveToBoardModalStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  return StyleSheet.create({
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: tokens.semantic.backdrop,
+    },
+    keyboardView: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: tokens.surface,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingBottom: 32,
+      maxHeight: '80%',
+      ...tokens.shadows.lg,
+    },
+    handleBar: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.neutral[300],
+      alignSelf: 'center',
+      marginTop: 12,
+      marginBottom: 8,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: s.lg,
+      paddingVertical: s.md,
+      gap: 10,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: tokens.text,
+    },
+    createRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: s.lg,
+      paddingVertical: s.md,
+      gap: 12,
+    },
+    createRowActive: {
+      backgroundColor: c.primary[50],
+    },
+    createIconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: c.neutral[100],
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    createText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.neutral[700],
+    },
+    createTextActive: {
+      color: c.primary[600],
+    },
+    nameInput: {
+      marginHorizontal: s.lg,
+      marginBottom: s.sm,
+      borderWidth: 1,
+      borderColor: c.primary[300],
+      borderRadius: br.md,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      fontSize: 15,
+      color: tokens.text,
+      backgroundColor: c.primary[50],
+    },
+    divider: {
+      height: 1,
+      backgroundColor: tokens.borderSubtle,
+      marginVertical: s.xs,
+    },
+    boardList: {
+      maxHeight: 280,
+    },
+    loader: {
+      marginVertical: s.xl,
+    },
+    boardRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: s.lg,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: c.neutral[100],
+    },
+    boardRowSelected: {
+      backgroundColor: c.primary[50],
+    },
+    boardInfo: {
+      flex: 1,
+    },
+    boardName: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.neutral[800],
+      marginBottom: 2,
+    },
+    boardNameMuted: {
+      color: c.neutral[400],
+    },
+    boardCount: {
+      fontSize: 12,
+      color: tokens.textMuted,
+    },
+    radioUnselected: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: c.neutral[300],
+    },
+    radioSelected: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: c.primary[500],
+      borderWidth: 2,
+      borderColor: c.primary[500],
+    },
+    emptyBoards: {
+      textAlign: 'center',
+      color: c.neutral[400],
+      fontSize: 14,
+      paddingVertical: s.xl,
+      paddingHorizontal: s.lg,
+    },
+    errorText: {
+      color: c.error[600],
+      fontSize: 13,
+      textAlign: 'center',
+      marginHorizontal: s.lg,
+      marginTop: s.sm,
+    },
+    saveButton: {
+      marginHorizontal: s.lg,
+      marginTop: s.md,
+      backgroundColor: c.primary[500],
+      borderRadius: br.md,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    saveButtonDisabled: {
+      backgroundColor: c.neutral[300],
+    },
+    saveButtonText: {
+      color: c.white,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+  });
+}

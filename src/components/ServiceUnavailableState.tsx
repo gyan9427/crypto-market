@@ -7,10 +7,18 @@ import {
   StyleSheet,
   Text,
   View,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
-import { colors, spacing, borderRadius, typography, shadows } from '@/src/theme/theme';
+import type { AppPalette, ThemeTokens } from '@/src/theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+
+type CoinSubStyles = {
+  coinWrap: ViewStyle;
+  coinLabel: ViewStyle;
+  coinSymbol: TextStyle;
+};
 
 type FloatingCoinProps = {
   size: number;
@@ -20,6 +28,7 @@ type FloatingCoinProps = {
   symbol: string;
   symbolColor: string;
   style: RNAnimated.WithAnimatedObject<ViewStyle>;
+  coinStyles: CoinSubStyles;
 };
 
 const FloatingCoin = memo(function FloatingCoin({
@@ -30,10 +39,11 @@ const FloatingCoin = memo(function FloatingCoin({
   symbol,
   symbolColor,
   style,
+  coinStyles,
 }: FloatingCoinProps) {
   const r = size / 2;
   return (
-    <RNAnimated.View style={[styles.coinWrap, { width: size, height: size }, style]}>
+    <RNAnimated.View style={[coinStyles.coinWrap, { width: size, height: size }, style]}>
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <Defs>
           <LinearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -44,14 +54,14 @@ const FloatingCoin = memo(function FloatingCoin({
         <Circle cx={r} cy={r} r={r - 1.5} fill={`url(#${gradientId})`} />
         <Circle cx={r} cy={r} r={r - 1.5} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth={1.2} />
       </Svg>
-      <View style={[styles.coinLabel, { width: size, height: size }]}>
-        <Text style={[styles.coinSymbol, { fontSize: size * 0.38, color: symbolColor }]}>{symbol}</Text>
+      <View style={[coinStyles.coinLabel, { width: size, height: size }]}>
+        <Text style={[coinStyles.coinSymbol, { fontSize: size * 0.38, color: symbolColor }]}>{symbol}</Text>
       </View>
     </RNAnimated.View>
   );
 });
 
-const HubGraphic = memo(function HubGraphic({ pulse }: { pulse: RNAnimated.Value }) {
+const HubGraphic = memo(function HubGraphic({ pulse, c }: { pulse: RNAnimated.Value; c: AppPalette }) {
   const opacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.95] });
   const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1.04] });
 
@@ -60,36 +70,36 @@ const HubGraphic = memo(function HubGraphic({ pulse }: { pulse: RNAnimated.Value
       <Svg width={112} height={112} viewBox="0 0 112 112">
         <Defs>
           <LinearGradient id="hubGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor={colors.neutral[200]} />
-            <Stop offset="100%" stopColor={colors.neutral[300]} />
+            <Stop offset="0%" stopColor={c.neutral[200]} />
+            <Stop offset="100%" stopColor={c.neutral[300]} />
           </LinearGradient>
         </Defs>
         <Circle cx={56} cy={56} r={40} fill="url(#hubGrad)" />
-        <Circle cx={56} cy={56} r={40} fill="none" stroke={colors.neutral[400]} strokeWidth={1.5} strokeDasharray="6 8" />
+        <Circle cx={56} cy={56} r={40} fill="none" stroke={c.neutral[400]} strokeWidth={1.5} strokeDasharray="6 8" />
         <Path
           d="M56 28 L56 44 M56 68 L56 84 M28 56 L44 56 M68 56 L84 56"
-          stroke={colors.neutral[500]}
+          stroke={c.neutral[500]}
           strokeWidth={2.5}
           strokeLinecap="round"
         />
-        <Circle cx={56} cy={56} r={8} fill={colors.primary[400]} />
+        <Circle cx={56} cy={56} r={8} fill={c.primary[400]} />
       </Svg>
     </RNAnimated.View>
   );
 });
 
-const WaveLines = memo(function WaveLines({ shift }: { shift: RNAnimated.Value }) {
+const WaveLines = memo(function WaveLines({ shift, c }: { shift: RNAnimated.Value; c: AppPalette }) {
   const t = shift.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 12],
   });
   return (
-    <RNAnimated.View style={[styles.waveLines, { transform: [{ translateX: t }] }]}>
+    <RNAnimated.View style={[waveLinesStatic, { transform: [{ translateX: t }] }]}>
       <Svg width={140} height={48} viewBox="0 0 140 48">
         <Path
           d="M0 24 Q 20 8, 40 24 T 80 24 T 120 24"
           fill="none"
-          stroke={colors.primary[200]}
+          stroke={c.primary[200]}
           strokeWidth={2}
           strokeLinecap="round"
           opacity={0.85}
@@ -97,7 +107,7 @@ const WaveLines = memo(function WaveLines({ shift }: { shift: RNAnimated.Value }
         <Path
           d="M0 32 Q 22 40, 44 32 T 88 32 T 132 32"
           fill="none"
-          stroke={colors.accent[200]}
+          stroke={c.accent[200]}
           strokeWidth={1.5}
           strokeLinecap="round"
           opacity={0.7}
@@ -106,6 +116,8 @@ const WaveLines = memo(function WaveLines({ shift }: { shift: RNAnimated.Value }
     </RNAnimated.View>
   );
 });
+
+const waveLinesStatic = { opacity: 0.95 as const };
 
 export type ServiceUnavailableStateProps = {
   onRetry: () => void;
@@ -120,6 +132,18 @@ function ServiceUnavailableStateInner({
   message = 'Our servers are taking a short break. Your markets and news will sync again soon.',
   retryLabel = 'Try again',
 }: ServiceUnavailableStateProps) {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildServiceUnavailableStyles(tokens), [tokens]);
+  const c = tokens.colors;
+  const coinStyles = useMemo(
+    () => ({
+      coinWrap: styles.coinWrap,
+      coinLabel: styles.coinLabel,
+      coinSymbol: styles.coinSymbol,
+    }),
+    [styles]
+  );
+
   const drift = useRef(new RNAnimated.Value(0)).current;
   const driftB = useRef(new RNAnimated.Value(0)).current;
   const driftC = useRef(new RNAnimated.Value(0)).current;
@@ -149,7 +173,7 @@ function ServiceUnavailableStateInner({
 
     const a = loop(drift, 2200, 0);
     const b = loop(driftB, 2600, 400);
-    const c = loop(driftC, 2400, 800);
+    const cLoop = loop(driftC, 2400, 800);
     const hub = RNAnimated.loop(
       RNAnimated.sequence([
         RNAnimated.timing(hubPulse, {
@@ -200,7 +224,7 @@ function ServiceUnavailableStateInner({
 
     a.start();
     b.start();
-    c.start();
+    cLoop.start();
     hub.start();
     w.start();
     scene.start();
@@ -208,7 +232,7 @@ function ServiceUnavailableStateInner({
     return () => {
       a.stop();
       b.stop();
-      c.stop();
+      cLoop.stop();
       hub.stop();
       w.stop();
       scene.stop();
@@ -290,8 +314,8 @@ function ServiceUnavailableStateInner({
           <Svg width={280} height={200} viewBox="0 0 280 200" style={StyleSheet.absoluteFill}>
             <Defs>
               <LinearGradient id="auraA" x1="50%" y1="0%" x2="50%" y2="100%">
-                <Stop offset="0%" stopColor={colors.primary[100]} stopOpacity={0.9} />
-                <Stop offset="100%" stopColor={colors.primary[50]} stopOpacity={0.2} />
+                <Stop offset="0%" stopColor={c.primary[100]} stopOpacity={0.9} />
+                <Stop offset="100%" stopColor={c.primary[50]} stopOpacity={0.2} />
               </LinearGradient>
             </Defs>
             <Circle cx={140} cy={100} r={88} fill="url(#auraA)" />
@@ -308,23 +332,25 @@ function ServiceUnavailableStateInner({
               symbol="₿"
               symbolColor="rgba(255,255,255,0.95)"
               style={coinA}
+              coinStyles={coinStyles}
             />
           </View>
           <View style={styles.hubCenter}>
-            <HubGraphic pulse={hubPulse} />
+            <HubGraphic pulse={hubPulse} c={c} />
             <View style={styles.waveSlot}>
-              <WaveLines shift={wave} />
+              <WaveLines shift={wave} c={c} />
             </View>
           </View>
           <View style={styles.coinRight}>
             <FloatingCoin
               size={52}
               gradientId="ethGrad"
-              stopColor={colors.primary[400]}
-              stopColorEnd={colors.primary[600]}
+              stopColor={c.primary[400]}
+              stopColorEnd={c.primary[600]}
               symbol="Ξ"
               symbolColor="rgba(255,255,255,0.95)"
               style={coinB}
+              coinStyles={coinStyles}
             />
           </View>
         </View>
@@ -333,11 +359,12 @@ function ServiceUnavailableStateInner({
           <FloatingCoin
             size={48}
             gradientId="altGrad"
-            stopColor={colors.accent[300]}
-            stopColorEnd={colors.accent[500]}
+            stopColor={c.accent[300]}
+            stopColorEnd={c.accent[500]}
             symbol="◈"
             symbolColor="rgba(255,255,255,0.95)"
             style={coinC}
+            coinStyles={coinStyles}
           />
         </View>
 
@@ -348,7 +375,7 @@ function ServiceUnavailableStateInner({
               y1={12}
               x2={176}
               y2={12}
-              stroke={colors.neutral[200]}
+              stroke={c.neutral[200]}
               strokeWidth={1}
               strokeDasharray="4 6"
             />
@@ -373,117 +400,120 @@ function ServiceUnavailableStateInner({
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
-    maxWidth: 400,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  illustration: {
-    width: '100%',
-    minHeight: 220,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xl,
-  },
-  aura: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coinRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    paddingHorizontal: spacing.sm,
-  },
-  coinLeft: {
-    marginRight: -8,
-    zIndex: 2,
-  },
-  coinRight: {
-    marginLeft: -8,
-    zIndex: 2,
-  },
-  hubCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
-  waveSlot: {
-    position: 'absolute',
-    bottom: -6,
-    opacity: 0.9,
-  },
-  bottomCoin: {
-    marginTop: spacing.md,
-    zIndex: 2,
-  },
-  waveLines: {
-    opacity: 0.95,
-  },
-  captionHint: {
-    marginTop: spacing.sm,
-    opacity: 0.6,
-  },
-  coinWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coinLabel: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coinSymbol: {
-    fontWeight: typography.fontWeights.bold,
-    ...Platform.select({
-      ios: { fontFamily: 'System' },
-      android: { fontFamily: 'sans-serif-medium' },
-      default: {},
-    }),
-  },
-  title: {
-    fontSize: typography.fontSizes.xl,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.neutral[900],
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-    letterSpacing: -0.3,
-  },
-  message: {
-    fontSize: typography.fontSizes.base,
-    fontWeight: typography.fontWeights.regular,
-    color: colors.neutral[600],
-    textAlign: 'center',
-    lineHeight: typography.fontSizes.base * typography.lineHeights.relaxed,
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.xs,
-  },
-  retryButton: {
-    backgroundColor: colors.primary[500],
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xxl,
-    borderRadius: borderRadius.button,
-    ...shadows.md,
-  },
-  retryButtonPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.98 }],
-  },
-  retryLabel: {
-    color: colors.white,
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
-  },
-});
+function buildServiceUnavailableStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: s.xl,
+      paddingVertical: s.lg,
+      maxWidth: 400,
+      alignSelf: 'center',
+      width: '100%',
+    },
+    illustration: {
+      width: '100%',
+      minHeight: 220,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: s.xl,
+    },
+    aura: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    coinRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+      paddingHorizontal: s.sm,
+    },
+    coinLeft: {
+      marginRight: -8,
+      zIndex: 2,
+    },
+    coinRight: {
+      marginLeft: -8,
+      zIndex: 2,
+    },
+    hubCenter: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1,
+    },
+    waveSlot: {
+      position: 'absolute',
+      bottom: -6,
+      opacity: 0.9,
+    },
+    bottomCoin: {
+      marginTop: s.md,
+      zIndex: 2,
+    },
+    captionHint: {
+      marginTop: s.sm,
+      opacity: 0.6,
+    },
+    coinWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    coinLabel: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    coinSymbol: {
+      fontWeight: typo.fontWeights.bold,
+      ...Platform.select({
+        ios: { fontFamily: 'System' },
+        android: { fontFamily: 'sans-serif-medium' },
+        default: {},
+      }),
+    },
+    title: {
+      fontSize: typo.fontSizes.xl,
+      fontWeight: typo.fontWeights.bold,
+      color: tokens.text,
+      textAlign: 'center',
+      marginBottom: s.sm,
+      letterSpacing: -0.3,
+    },
+    message: {
+      fontSize: typo.fontSizes.base,
+      fontWeight: typo.fontWeights.regular,
+      color: tokens.textMuted,
+      textAlign: 'center',
+      lineHeight: typo.fontSizes.base * typo.lineHeights.relaxed,
+      marginBottom: s.lg,
+      paddingHorizontal: s.xs,
+    },
+    retryButton: {
+      backgroundColor: c.primary[500],
+      paddingVertical: s.md,
+      paddingHorizontal: s.xxl,
+      borderRadius: br.button,
+      ...tokens.shadows.md,
+    },
+    retryButtonPressed: {
+      opacity: 0.88,
+      transform: [{ scale: 0.98 }],
+    },
+    retryLabel: {
+      color: c.white,
+      fontSize: typo.fontSizes.md,
+      fontWeight: typo.fontWeights.semibold,
+    },
+  });
+}
 
 export const ServiceUnavailableState = memo(ServiceUnavailableStateInner);

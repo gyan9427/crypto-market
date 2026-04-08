@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
-import { colors, spacing, typography } from '@/src/theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { FAB } from '@/src/components/FAB';
 import { NavHeaderSearch } from '@/src/components/NavHeaderSearch';
 import { View } from 'react-native';
@@ -42,11 +42,48 @@ const getHeaderTitle = (routeName: string, params?: Record<string, unknown>) => 
 };
 
 export default function TabsLayout() {
+  const { tokens, effectiveScheme } = useAppTheme();
   const router = useRouter();
   const segments = useSegments();
   const hasNewsFeed = useHasFeature('news_feed');
   const hasPortfolioTracking = useHasFeature('portfolio_tracking');
   const hasMarketData = useHasFeature('market_data');
+
+  const screenOptions = useCallback(
+    () => ({
+      tabBarActiveTintColor: tokens.colors.primary[500],
+      tabBarInactiveTintColor: tokens.textMuted,
+      tabBarStyle: {
+        backgroundColor: tokens.tabBarBg,
+        borderTopWidth: 1,
+        borderTopColor: tokens.tabBarBorder,
+        paddingBottom: tokens.spacing.sm,
+        paddingTop: tokens.spacing.sm,
+        height: 70,
+        paddingRight: 0,
+      },
+      tabBarItemStyle: {
+        flex: 1,
+      },
+      tabBarLabelStyle: {
+        fontSize: tokens.typography.fontSizes.xs,
+        fontWeight: tokens.typography.fontWeights.semibold,
+        fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+      },
+      headerShown: true,
+      headerStyle: {
+        backgroundColor: tokens.bgElevated,
+      },
+      headerTintColor: tokens.text,
+      headerTitleStyle: {
+        fontSize: tokens.typography.fontSizes.lg,
+        fontWeight: tokens.typography.fontWeights.semibold,
+        fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+      },
+      headerShadowVisible: true,
+    }),
+    [tokens]
+  );
 
   useEffect(() => {
     useFeaturesStore.getState().refetchFeatures();
@@ -61,42 +98,19 @@ export default function TabsLayout() {
     else if (tab === 'market' && !hasMarketData) router.replace(hasNewsFeed ? '/(tabs)' : '/(tabs)/profile');
   }, [segments, hasPortfolioTracking, hasNewsFeed, hasMarketData, router]);
 
+  const mergedScreenOptions = useMemo(
+    () =>
+      ({ route }: { route: { name: string; params?: object } }) => ({
+        ...screenOptions(),
+        headerTitle: getHeaderTitle(route.name, route.params as Record<string, unknown> | undefined),
+      }),
+    [screenOptions]
+  );
+
   return (
-    <View style={{ flex: 1 }}>
-      <StatusBar style="auto" />
-      <Tabs
-        screenOptions={({ route }) => ({
-          tabBarActiveTintColor: colors.primary[500],
-          tabBarInactiveTintColor: colors.neutral[400],
-          tabBarStyle: {
-            backgroundColor: colors.surface,
-            borderTopWidth: 1,
-            borderTopColor: colors.neutral[200],
-            paddingBottom: spacing.sm,
-            paddingTop: spacing.sm,
-            height: 70,
-            paddingRight: 0,
-          },
-          tabBarItemStyle: {
-            flex: 1,
-          },
-          tabBarLabelStyle: {
-            fontSize: typography.fontSizes.xs,
-            fontWeight: typography.fontWeights.semibold,
-          },
-          headerShown: true,
-          headerTitle: getHeaderTitle(route.name, route.params as Record<string, unknown> | undefined),
-          headerStyle: {
-            backgroundColor: colors.surface,
-          },
-          headerTintColor: colors.neutral[900],
-          headerTitleStyle: {
-            fontSize: typography.fontSizes.lg,
-            fontWeight: typography.fontWeights.semibold,
-          },
-          headerShadowVisible: true,
-        })}
-      >
+    <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+      <StatusBar style={effectiveScheme === 'dark' ? 'light' : 'dark'} />
+      <Tabs screenOptions={mergedScreenOptions as never}>
         <Tabs.Screen
           name="index"
           options={{

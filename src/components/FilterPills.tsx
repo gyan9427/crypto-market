@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, TouchableOpacity, Text, ScrollView, StyleSheet } from 'react-native';
 import { ExploreCategory } from '../types';
-import { colors, borderRadius, spacing, shadows } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface FilterPillsProps {
   categories: ExploreCategory[];
@@ -14,6 +15,9 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
   selectedCategory,
   onSelect,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildFilterPillsStyles(tokens), [tokens]);
+
   const categoryLabels: Record<ExploreCategory, string> = {
     trending: 'Trending',
     top: 'Top',
@@ -46,32 +50,36 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 24,
-    paddingVertical: spacing.xs,
-    flexDirection: 'row',
-  },
-  pill: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 9999,
-    backgroundColor: '#fff',
-    marginRight: spacing.xs,
-    minHeight: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  pillActive: {
-    backgroundColor: colors.primary[500],
-  },
-  pillText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.neutral[500],
-  },
-  pillTextActive: {
-    color: '#fff',
-  },
-});
+function buildFilterPillsStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  return StyleSheet.create({
+    container: {
+      paddingHorizontal: 24,
+      paddingVertical: s.xs,
+      flexDirection: 'row',
+    },
+    pill: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 9999,
+      backgroundColor: tokens.surface,
+      marginRight: s.xs,
+      minHeight: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...tokens.shadows.sm,
+    },
+    pillActive: {
+      backgroundColor: c.primary[500],
+    },
+    pillText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: tokens.textMuted,
+    },
+    pillTextActive: {
+      color: c.white,
+    },
+  });
+}

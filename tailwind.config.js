@@ -52,7 +52,13 @@ module.exports = {
           800: '#262626',
           900: '#171717',
           950: '#0a0a0a',
-        }
+        },
+        /** NAYFT semantic (light); use dark: variants or className overrides for dark */
+        app: {
+          bg: '#f4f4f5',
+          elevated: '#ffffff',
+        },
+        'text-muted': '#525252',
       },
       spacing: {
         'xs': '4px',

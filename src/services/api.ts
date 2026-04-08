@@ -1048,9 +1048,18 @@ export const fetchMarketTrend = async (
     relativeChange24h: Number.isFinite(Number(data?.relativeChange24h)) ? Number(data.relativeChange24h) : 0,
     range: {
       interval,
-      from: range?.from ?? '',
-      to: range?.to ?? '',
-      limit: Number.isFinite(Number(range?.limit)) ? Number(range.limit) : limit,
+      from:
+        typeof range?.from === 'string' || range?.from instanceof Date
+          ? range.from
+          : '',
+      to:
+        typeof range?.to === 'string' || range?.to instanceof Date
+          ? range.to
+          : '',
+      limit:
+        range != null && Number.isFinite(Number(range.limit))
+          ? Number(range.limit)
+          : limit,
     },
     constituents: Number.isFinite(Number(data?.constituents)) ? Number(data.constituents) : 0,
   };

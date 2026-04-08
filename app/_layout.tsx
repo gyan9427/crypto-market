@@ -1,27 +1,43 @@
 import '@/src/polyfills/devtools';
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments, type Href } from 'expo-router';
-import { AppState, InteractionManager, Platform, View, useColorScheme } from 'react-native';
-import { colors, darkColors } from '@/src/theme/theme';
+import { AppState, InteractionManager, Platform, View } from 'react-native';
+import { ThemeProvider, useAppTheme } from '@/src/theme/ThemeProvider';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
 import { useOnboardingStore } from '@/src/state/useOnboardingStore';
 import { useFeaturesStore, isOnboardingFeatureEnabled } from '@/src/utils/features';
 
-// GestureHandler pulls in Reanimated which crashes on Android (Expo Go).
-// Use View on Android; GestureHandlerRootView on iOS.
 const RootView = Platform.OS === 'android'
   ? View
   : require('react-native-gesture-handler').GestureHandlerRootView;
 
+function RootLayoutContent({ isReady }: { isReady: boolean }) {
+  const { tokens } = useAppTheme();
+
+  if (!isReady) {
+    return <View style={{ flex: 1, backgroundColor: tokens.bg }} />;
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="register" />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      <Stack.Screen name="+not-found" />
+    </Stack>
+  );
+}
+
 export default function RootLayout() {
   useFrameworkReady();
-  const colorScheme = useColorScheme();
   const router = useRouter();
   const segments = useSegments();
   const initializeAuth = useAuthStore((state) => state.initialize);
   const syncFollowingCoins = useAppStore((state) => state.syncFollowingCoins);
+  const hydrateThemePreference = useAppStore((state) => state.hydrateThemePreference);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const hasSeenOnboarding = useOnboardingStore((state) => state.hasSeenOnboarding);
   const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
@@ -35,13 +51,14 @@ export default function RootLayout() {
       }),
       useOnboardingStore.getState().hydrate(),
       useFeaturesStore.getState().loadFeatures(),
+      hydrateThemePreference(),
     ]).then(() => {
       setIsReady(true);
       InteractionManager.runAfterInteractions(() => {
         syncFollowingCoins();
       });
     });
-  }, [initializeAuth, syncFollowingCoins]);
+  }, [initializeAuth, syncFollowingCoins, hydrateThemePreference]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -95,22 +112,11 @@ export default function RootLayout() {
     router,
   ]);
 
-  const shellBg = colorScheme === 'dark' ? darkColors.neutral[900] : colors.surface;
-
-  // Render minimal shell until auth, onboarding hydrate, and features have loaded
-  if (!isReady) {
-    return <RootView style={{ flex: 1, backgroundColor: shellBg }} />;
-  }
-
   return (
     <RootView style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="register" />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+      <ThemeProvider>
+        <RootLayoutContent isReady={isReady} />
+      </ThemeProvider>
     </RootView>
   );
 }

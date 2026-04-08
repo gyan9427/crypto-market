@@ -13,7 +13,8 @@ import { fetchNews, toggleReaction } from '../services/api';
 import { NewsItem, ReactionType } from '../types';
 import { NewsDetailModal } from './NewsDetailModal';
 import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
-import { colors, spacing, semantic } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 /** After this many article cards, insert the Featured carousel (sixth vertical block). */
 const FEATURE_INSERT_AFTER = 5;
@@ -47,6 +48,8 @@ function isFeaturedRow(item: FeedRow): item is FeaturedRow {
 }
 
 export const HomeScreen: React.FC = () => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildHomeStyles(tokens), [tokens]);
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -235,7 +238,7 @@ export const HomeScreen: React.FC = () => {
         )}
       </>
     ),
-    [error, newsData.length, feedFilter, handleSegmentChange]
+    [error, newsData.length, feedFilter, handleSegmentChange, styles]
   );
 
   const renderItem = useCallback(
@@ -314,7 +317,12 @@ export const HomeScreen: React.FC = () => {
         removeClippedSubviews={true}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={tokens.colors.primary[500]}
+            colors={[tokens.colors.primary[500]]}
+          />
         }
       />
 
@@ -350,32 +358,37 @@ export const HomeScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.neutral[50],
-  },
-  errorBanner: {
-    backgroundColor: colors.error[50],
-    padding: spacing.md,
-    marginHorizontal: semantic.listMarginH,
-    marginTop: spacing.sm,
-    borderRadius: semantic.cardRadius,
-  },
-  errorBannerText: {
-    color: colors.error[700],
-    fontSize: 14,
-  },
-  emptyContainer: {
-    padding: spacing.xxl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: colors.neutral[500],
-    fontSize: 16,
-  },
-  listContent: {
-    paddingTop: spacing.sm,
-    paddingBottom: 120,
-  },
-});
+function buildHomeStyles(tokens: ThemeTokens) {
+  const { semantic, spacing: s } = tokens;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tokens.bg,
+    },
+    errorBanner: {
+      backgroundColor: tokens.colors.error[50],
+      padding: s.md,
+      marginHorizontal: semantic.listMarginH,
+      marginTop: s.sm,
+      borderRadius: semantic.cardRadius,
+    },
+    errorBannerText: {
+      color: tokens.colors.error[700],
+      fontSize: 14,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    emptyContainer: {
+      padding: s.xxl,
+      alignItems: 'center',
+    },
+    emptyText: {
+      color: tokens.textMuted,
+      fontSize: 16,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    listContent: {
+      paddingTop: s.sm,
+      paddingBottom: 120,
+    },
+  });
+}

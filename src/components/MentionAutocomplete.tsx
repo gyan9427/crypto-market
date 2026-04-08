@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { searchUsers } from '../services/api';
-import { colors, spacing, shadows } from '../theme/theme';
+import type { AppPalette, ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface MentionCandidate {
   id: string;
@@ -21,16 +22,19 @@ interface MentionAutocompleteProps {
   onSelect: (user: MentionCandidate) => void;
 }
 
-const AVATAR_COLORS = [
-  colors.primary[500],
-  colors.accent[500],
-  colors.success[500],
-  '#3b82f6',
-  '#f59e0b',
-  '#06b6d4',
-];
+function avatarPalette(c: AppPalette): string[] {
+  return [
+    c.primary[500],
+    c.accent[500],
+    c.success[500],
+    '#3b82f6',
+    '#f59e0b',
+    '#06b6d4',
+  ];
+}
 
-function avatarColor(username: string): string {
+function avatarColor(username: string, c: AppPalette): string {
+  const AVATAR_COLORS = avatarPalette(c);
   let hash = 0;
   for (let i = 0; i < username.length; i++) {
     hash = username.charCodeAt(i) + ((hash << 5) - hash);
@@ -43,6 +47,10 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
   localCandidates,
   onSelect,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildMentionAutocompleteStyles(tokens), [tokens]);
+  const c = tokens.colors;
+
   const [remoteResults, setRemoteResults] = useState<MentionCandidate[]>([]);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -51,7 +59,7 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
     const q = query.toLowerCase();
     if (!q) return localCandidates.slice(0, 5);
     return localCandidates
-      .filter((c) => c.username.toLowerCase().startsWith(q))
+      .filter((cand) => cand.username.toLowerCase().startsWith(q))
       .slice(0, 5);
   }, [query, localCandidates]);
 
@@ -81,7 +89,7 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
   }, [query, localMatches.length]);
 
   const merged = useMemo(() => {
-    const seen = new Set(localMatches.map((c) => c.id));
+    const seen = new Set(localMatches.map((cand) => cand.id));
     const combined = [...localMatches];
     for (const r of remoteResults) {
       if (!seen.has(r.id)) {
@@ -106,7 +114,7 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
             onPress={() => onSelect(item)}
             activeOpacity={0.7}
           >
-            <View style={[styles.avatar, { backgroundColor: avatarColor(item.username) }]}>
+            <View style={[styles.avatar, { backgroundColor: avatarColor(item.username, c) }]}>
               <Text style={styles.avatarText}>
                 {item.username[0]?.toUpperCase() || '?'}
               </Text>
@@ -118,7 +126,7 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
           loading ? (
             <ActivityIndicator
               size="small"
-              color={colors.primary[500]}
+              color={c.primary[500]}
               style={styles.loader}
             />
           ) : null
@@ -128,41 +136,45 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: colors.neutral[100],
-    maxHeight: 220,
-    ...shadows.md,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.neutral[100],
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  avatarText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  username: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.neutral[800],
-  },
-  loader: {
-    paddingVertical: 8,
-  },
-});
+function buildMentionAutocompleteStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  return StyleSheet.create({
+    container: {
+      backgroundColor: tokens.surface,
+      borderTopWidth: 1,
+      borderTopColor: tokens.borderSubtle,
+      maxHeight: 220,
+      ...tokens.shadows.md,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: s.md,
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.neutral[100],
+    },
+    avatar: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 10,
+    },
+    avatarText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: c.white,
+    },
+    username: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.neutral[800],
+    },
+    loader: {
+      paddingVertical: 8,
+    },
+  });
+}

@@ -1,8 +1,14 @@
-import React from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
-import type { NativeSyntheticEvent, TextInputPressEventData } from 'react-native';
+import React, { useMemo } from 'react';
+import {
+  View,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  type TextInputProps,
+} from 'react-native';
 import { Search, X } from 'lucide-react-native';
-import { colors, shadows } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import type { ThemeTokens } from '@/src/theme/theme';
 
 interface SearchBarProps {
   value: string;
@@ -11,7 +17,7 @@ interface SearchBarProps {
   onClear?: () => void;
   onFocus?: () => void;
   editable?: boolean;
-  onPressIn?: (event: NativeSyntheticEvent<TextInputPressEventData>) => void;
+  onPressIn?: TextInputProps['onPressIn'];
   /** When provided with editable=false, the whole bar acts as a button (navigates to search). Prevents focus on the input so user doesn't think they can type. */
   onPress?: () => void;
   /** `header`: tighter margins for use inside navigation headerTitle */
@@ -29,10 +35,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onPress,
   variant = 'default',
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildStyles(tokens), [tokens]);
   const isFakeBar = !editable && onPress != null;
   const content = (
     <View style={[styles.container, variant === 'header' ? styles.containerHeader : undefined]}>
-      <Search size={20} color={colors.neutral[400]} style={styles.icon} />
+      <Search size={20} color={tokens.textMuted} style={styles.icon} />
       <TextInput
         style={styles.input}
         value={value}
@@ -41,7 +49,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         editable={editable}
         onPressIn={isFakeBar ? undefined : onPressIn}
         placeholder={placeholder}
-        placeholderTextColor={colors.neutral[400]}
+        placeholderTextColor={tokens.textMuted}
         accessibilityLabel="Search input"
         accessibilityRole="search"
         pointerEvents={isFakeBar ? 'none' : 'auto'}
@@ -57,7 +65,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           accessibilityRole="button"
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <X size={18} color={colors.neutral[400]} />
+          <X size={18} color={tokens.textMuted} />
         </TouchableOpacity>
       )}
     </View>
@@ -73,38 +81,41 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return content;
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.neutral[100],
-    borderRadius: 9999,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    ...shadows.sm,
-    marginHorizontal: 24,
-    marginBottom: 16,
-  },
-  icon: {
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.neutral[800],
-    padding: 0,
-  },
-  clearButton: {
-    padding: 4,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  containerHeader: {
-    marginHorizontal: 0,
-    marginBottom: 0,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-});
+function buildStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: tokens.isDark ? tokens.colors.neutral[200] : tokens.colors.neutral[100],
+      borderRadius: 9999,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      ...tokens.shadows.sm,
+      marginHorizontal: 24,
+      marginBottom: 16,
+    },
+    icon: {
+      marginRight: 8,
+    },
+    input: {
+      flex: 1,
+      fontSize: 14,
+      color: tokens.text,
+      padding: 0,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    clearButton: {
+      padding: 4,
+      minWidth: 44,
+      minHeight: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    containerHeader: {
+      marginHorizontal: 0,
+      marginBottom: 0,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+    },
+  });
+}

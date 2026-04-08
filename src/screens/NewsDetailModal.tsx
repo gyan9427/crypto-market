@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,8 @@ import { ReactionPicker } from '../components/ReactionPicker';
 import { SaveToBoardModal } from '../components/SaveToBoardModal';
 import { formatDateTime } from '../utils/format';
 import { toggleReaction } from '../services/api';
-import { colors, spacing, borderRadius } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useAppStore } from '../state/useAppStore';
 
 interface NewsDetailModalProps {
@@ -28,6 +29,9 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   newsItem,
   onClose,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildNewsDetailModalStyles(tokens), [tokens]);
+  const c = tokens.colors;
   const router = useRouter();
   const [isSaved, setIsSaved] = useState(newsItem.isSaved ?? false);
   const [saveCount, setSaveCount] = useState(newsItem.saveCount ?? 0);
@@ -73,7 +77,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: tokens.surface }]}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.closeButton}
@@ -81,7 +85,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Close"
         >
-          <X size={24} color={colors.neutral[800]} />
+          <X size={24} color={c.neutral[800]} />
         </TouchableOpacity>
       </View>
 
@@ -116,7 +120,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                 console.log('Share article:', newsItem.id);
               }}
             >
-              <Share2 size={20} color={colors.neutral[500]} />
+              <Share2 size={20} color={c.neutral[500]} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -126,9 +130,9 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
               onPress={() => setSaveBoardOpen(true)}
             >
               {isSaved || isSavedToAnyBoard(newsItem.id) ? (
-                <BookmarkCheck size={20} color={colors.primary[500]} />
+                <BookmarkCheck size={20} color={c.primary[500]} />
               ) : (
-                <Bookmark size={20} color={colors.neutral[500]} />
+                <Bookmark size={20} color={c.neutral[500]} />
               )}
             </TouchableOpacity>
           </View>
@@ -190,7 +194,11 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
           {(newsItem.url || newsItem.sourceUrl) && (
             <TouchableOpacity
               style={styles.readFullButton}
-              onPress={() => openInAppBrowser(newsItem.url || newsItem.sourceUrl!)}
+              onPress={() =>
+                openInAppBrowser(newsItem.url || newsItem.sourceUrl!, {
+                  barTintColor: c.neutral[900],
+                })
+              }
             >
               <Text style={styles.readFullButtonText}>Read full article</Text>
             </TouchableOpacity>
@@ -214,16 +222,19 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+function buildNewsDetailModalStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    padding: spacing.md,
-    paddingTop: spacing.xl,
+    padding: s.md,
+    paddingTop: s.xl,
   },
   closeButton: {
     width: 44,
@@ -231,7 +242,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 22,
-    backgroundColor: colors.neutral[100],
+    backgroundColor: c.neutral[100],
   },
   scrollView: {
     flex: 1,
@@ -239,27 +250,27 @@ const styles = StyleSheet.create({
   heroImage: {
     width: '100%',
     aspectRatio: 16 / 9,
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
   },
   heroPlaceholder: {
     width: '100%',
     aspectRatio: 16 / 9,
-    backgroundColor: colors.neutral[300],
+    backgroundColor: c.neutral[300],
     justifyContent: 'center',
     alignItems: 'center',
   },
   heroPlaceholderText: {
     fontSize: 40,
     fontWeight: '700',
-    color: colors.neutral[500],
+    color: c.neutral[500],
   },
   content: {
-    padding: spacing.lg,
+    padding: s.lg,
   },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginBottom: spacing.md,
+    marginBottom: s.md,
   },
   actionButton: {
     width: 40,
@@ -267,49 +278,49 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: spacing.sm,
-    backgroundColor: colors.neutral[100],
+    marginLeft: s.sm,
+    backgroundColor: c.neutral[100],
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.neutral[900],
+    color: tokens.text,
     lineHeight: 32,
-    marginBottom: spacing.md,
+    marginBottom: s.md,
   },
   meta: {
-    marginBottom: spacing.lg,
+    marginBottom: s.lg,
   },
   metaText: {
     fontSize: 13,
-    color: colors.neutral[500],
+    color: tokens.textMuted,
     marginBottom: 4,
   },
   categoriesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: spacing.lg,
+    marginBottom: s.lg,
   },
   categoryBadge: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: colors.primary[100],
+    backgroundColor: c.primary[100],
   },
   categoryBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.primary[700],
+    color: c.primary[700],
   },
   coinsSection: {
-    marginBottom: spacing.lg,
+    marginBottom: s.lg,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.neutral[800],
-    marginBottom: spacing.sm,
+    color: c.neutral[800],
+    marginBottom: s.sm,
   },
   coinsRow: {
     flexDirection: 'row',
@@ -334,15 +345,15 @@ const styles = StyleSheet.create({
   bodyText: {
     fontSize: 16,
     lineHeight: 26,
-    color: colors.neutral[700],
-    marginBottom: spacing.lg,
+    color: tokens.textMuted,
+    marginBottom: s.lg,
   },
   readFullButton: {
     alignSelf: 'flex-start',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primary[500],
+    borderRadius: br.md,
+    backgroundColor: c.primary[500],
   },
   readFullButtonText: {
     fontSize: 15,
@@ -350,9 +361,10 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   saveCountText: {
-    marginTop: spacing.md,
+    marginTop: s.md,
     fontSize: 13,
-    color: colors.neutral[500],
+    color: tokens.textMuted,
     textAlign: 'center',
   },
 });
+}

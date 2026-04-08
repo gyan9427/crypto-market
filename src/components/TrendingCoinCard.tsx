@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { TrendingCoin } from '../types';
 import { formatPrice, formatPercentage } from '../utils/format';
-import { colors, spacing, semantic, typography, borderRadius } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { SparklineChart } from './SparklineChart';
 import { useKlinesCache } from '../hooks/useKlinesCache';
 
@@ -18,9 +19,13 @@ function areTrendingCoinCardPropsEqual(prev: TrendingCoinCardProps, next: Trendi
 }
 
 export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPress }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildTrendingCoinCardStyles(tokens), [tokens]);
+  const c = tokens.colors;
+
   const isPositive = coin.change24h >= 0;
   const sparklineData = useKlinesCache(coin.symbol, '1d', 48);
-  const sparklineColor = isPositive ? colors.success[500] : colors.danger[500];
+  const sparklineColor = isPositive ? c.success[500] : c.danger[500];
 
   return (
     <TouchableOpacity
@@ -61,76 +66,83 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPre
   );
 }, areTrendingCoinCardPropsEqual);
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: semantic.listMarginH,
-    marginBottom: semantic.listGap,
-    backgroundColor: semantic.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.neutral[100],
-    ...semantic.cardShadow,
-  },
-  leftSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  symbolBadge: {
-    backgroundColor: colors.primary[100],
-    borderRadius: 12,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    marginRight: spacing.sm,
-  },
-  symbolBadgeText: {
-    fontSize: typography.fontSizes.badge,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.primary[700],
-  },
-  coinDetails: {
-    flex: 1,
-  },
-  coinName: {
-    fontSize: typography.fontSizes.base,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral[800],
-  },
-  rightSection: {
-    alignItems: 'flex-end',
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  priceBlock: {
-    alignItems: 'flex-end',
-  },
-  change: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-  },
-  changePositive: {
-    color: colors.success[500],
-  },
-  changeNegative: {
-    color: colors.danger[500],
-  },
-  price: {
-    fontSize: typography.fontSizes.base,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral[800],
-    marginTop: 2,
-  },
-  rank: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[400],
-    marginTop: 2,
-  },
-});
+function buildTrendingCoinCardStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const sem = tokens.semantic;
+  const typo = tokens.typography;
+  const br = tokens.borderRadius;
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginHorizontal: sem.listMarginH,
+      marginBottom: sem.listGap,
+      backgroundColor: sem.surface,
+      borderRadius: br.md,
+      padding: s.md,
+      borderWidth: 1,
+      borderColor: c.neutral[100],
+      ...sem.cardShadow,
+    },
+    leftSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      marginRight: s.sm,
+    },
+    symbolBadge: {
+      backgroundColor: c.primary[100],
+      borderRadius: 12,
+      paddingHorizontal: s.sm,
+      paddingVertical: s.xs,
+      marginRight: s.sm,
+    },
+    symbolBadgeText: {
+      fontSize: typo.fontSizes.badge,
+      fontWeight: typo.fontWeights.bold,
+      color: c.primary[700],
+    },
+    coinDetails: {
+      flex: 1,
+    },
+    coinName: {
+      fontSize: typo.fontSizes.base,
+      fontWeight: typo.fontWeights.medium,
+      color: c.neutral[800],
+    },
+    rightSection: {
+      alignItems: 'flex-end',
+    },
+    priceRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s.sm,
+    },
+    priceBlock: {
+      alignItems: 'flex-end',
+    },
+    change: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+    },
+    changePositive: {
+      color: c.success[500],
+    },
+    changeNegative: {
+      color: c.danger[500],
+    },
+    price: {
+      fontSize: typo.fontSizes.base,
+      fontWeight: typo.fontWeights.semibold,
+      color: c.neutral[800],
+      marginTop: 2,
+    },
+    rank: {
+      fontSize: typo.fontSizes.xs,
+      color: c.neutral[400],
+      marginTop: 2,
+    },
+  });
+}

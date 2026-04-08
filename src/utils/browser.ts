@@ -1,20 +1,25 @@
 import * as WebBrowser from 'expo-web-browser';
 import { Linking } from 'react-native';
-import { colors } from '../theme/theme';
 
-export async function openInAppBrowser(url: string) {
+const DEFAULT_BAR_TINT = '#171717';
+
+export type OpenInAppBrowserChrome = {
+  barTintColor?: string;
+  controlTintColor?: string;
+  secondaryToolbarColor?: string;
+};
+
+export async function openInAppBrowser(url: string, chrome?: OpenInAppBrowserChrome) {
+  const barTint = chrome?.barTintColor ?? DEFAULT_BAR_TINT;
+  const secondaryToolbar = chrome?.secondaryToolbarColor ?? '#ffffff';
   try {
     await WebBrowser.openBrowserAsync(url, {
-      // iOS options
       dismissButtonStyle: 'close',
-      preferredBarTintColor: colors.neutral[900],
-      preferredControlTintColor: '#ffffff',
       readerMode: false,
       enableBarCollapsing: true,
-      // Android options
       showTitle: true,
-      toolbarColor: colors.neutral[900],
-      secondaryToolbarColor: '#ffffff',
+      toolbarColor: barTint,
+      secondaryToolbarColor: secondaryToolbar,
       enableDefaultShareMenuItem: true,
     });
   } catch {

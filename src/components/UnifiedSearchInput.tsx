@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SearchSegment } from '../services/api';
 import { SearchBar } from './SearchBar';
-import { borderRadius, colors, spacing, typography } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 const DEBOUNCE_MS = 300;
 
@@ -47,6 +48,10 @@ export const UnifiedSearchInput: React.FC<UnifiedSearchInputProps> = ({
   isActive,
   placeholder = 'Search coins, news, users...',
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildUnifiedSearchInputStyles(tokens), [tokens]);
+  const c = tokens.colors;
+
   const [localQuery, setLocalQuery] = useState(query);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -97,7 +102,7 @@ export const UnifiedSearchInput: React.FC<UnifiedSearchInputProps> = ({
 
       {isActive && (
         <View style={styles.statusRow}>
-          {loading ? <ActivityIndicator size="small" color={colors.primary[500]} /> : null}
+          {loading ? <ActivityIndicator size="small" color={c.primary[500]} /> : null}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {!loading && !error ? (
             <Text style={styles.metaText}>
@@ -110,44 +115,50 @@ export const UnifiedSearchInput: React.FC<UnifiedSearchInputProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.neutral[50],
-  },
-  segmentRow: {
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
-  segmentChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.button,
-    backgroundColor: colors.neutral[100],
-  },
-  segmentChipActive: {
-    backgroundColor: colors.primary[500],
-  },
-  segmentText: {
-    color: colors.neutral[700],
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-  },
-  segmentTextActive: {
-    color: colors.white,
-  },
-  statusRow: {
-    minHeight: 24,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.xs,
-    justifyContent: 'center',
-  },
-  metaText: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[500],
-  },
-  errorText: {
-    color: colors.error[600],
-    fontSize: typography.fontSizes.xs,
-  },
-});
+function buildUnifiedSearchInputStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    container: {
+      backgroundColor: tokens.bg,
+    },
+    segmentRow: {
+      paddingHorizontal: s.md,
+      gap: s.sm,
+      paddingBottom: s.xs,
+    },
+    segmentChip: {
+      paddingHorizontal: s.md,
+      paddingVertical: s.sm,
+      borderRadius: br.button,
+      backgroundColor: c.neutral[100],
+    },
+    segmentChipActive: {
+      backgroundColor: c.primary[500],
+    },
+    segmentText: {
+      color: c.neutral[700],
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+    },
+    segmentTextActive: {
+      color: c.white,
+    },
+    statusRow: {
+      minHeight: 24,
+      paddingHorizontal: s.md,
+      marginBottom: s.xs,
+      justifyContent: 'center',
+    },
+    metaText: {
+      fontSize: typo.fontSizes.xs,
+      color: tokens.textMuted,
+    },
+    errorText: {
+      color: c.error[600],
+      fontSize: typo.fontSizes.xs,
+    },
+  });
+}

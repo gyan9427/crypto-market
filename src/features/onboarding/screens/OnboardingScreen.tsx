@@ -1,18 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   useWindowDimensions,
-  useColorScheme,
   Pressable,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { colors, darkColors, spacing, typography } from '@/src/theme/theme';
+import type { ThemeTokens } from '@/src/theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { SlideOne } from './SlideOne';
 import { SlideTwo } from './SlideTwo';
 import { SlideThree } from './SlideThree';
@@ -26,10 +26,11 @@ const SLIDE_COUNT = ONBOARDING_SLIDES.length;
 export function OnboardingScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-  const bg = isDark ? darkColors.neutral[900] : colors.surface;
-  const skipColor = isDark ? darkColors.neutral[500] : colors.neutral[500];
+  const { tokens, effectiveScheme } = useAppTheme();
+  const styles = useMemo(() => buildOnboardingScreenStyles(tokens), [tokens]);
+  const isDark = effectiveScheme === 'dark';
+  const bg = tokens.bg;
+  const skipColor = tokens.textMuted;
 
   const flatListRef = useRef<FlatList>(null);
   const indexRef = useRef(0);
@@ -42,7 +43,7 @@ export function OnboardingScreen() {
     trackNextPressed,
   } = useOnboarding();
 
-  const illustrationWidth = Math.min(windowWidth - spacing.lg * 2, 360);
+  const illustrationWidth = Math.min(windowWidth - tokens.spacing.lg * 2, 360);
 
   useEffect(() => {
     indexRef.current = index;
@@ -115,7 +116,7 @@ export function OnboardingScreen() {
     <View style={[styles.root, { backgroundColor: bg, paddingTop: insets.top }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      <View style={[styles.header, { paddingRight: spacing.md + insets.right }]}>
+      <View style={[styles.header, { paddingRight: tokens.spacing.md + insets.right }]}>
         <Pressable onPress={onSkip} hitSlop={12} accessibilityRole="button" accessibilityLabel="Skip onboarding">
           <Text style={[styles.skip, { color: skipColor }]}>Skip</Text>
         </Pressable>
@@ -143,7 +144,7 @@ export function OnboardingScreen() {
         decelerationRate="fast"
       />
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + tokens.spacing.lg }]}>
         <PaginationDots count={SLIDE_COUNT} activeIndex={index} />
         <NextButton
           label={index >= SLIDE_COUNT - 1 ? 'Get Started' : 'Next'}
@@ -154,29 +155,33 @@ export function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  list: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingVertical: spacing.sm,
-    minHeight: 44,
-  },
-  skip: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-  },
-  slide: {
-    flex: 1,
-    paddingTop: spacing.md,
-  },
-  footer: {
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-  },
-});
+function buildOnboardingScreenStyles(tokens: ThemeTokens) {
+  const s = tokens.spacing;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+    },
+    list: {
+      flex: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      paddingVertical: s.sm,
+      minHeight: 44,
+    },
+    skip: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.medium,
+    },
+    slide: {
+      flex: 1,
+      paddingTop: s.md,
+    },
+    footer: {
+      paddingHorizontal: s.lg,
+      alignItems: 'center',
+    },
+  });
+}

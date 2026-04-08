@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,7 +11,8 @@ import { usePortfolioStore } from '../state/usePortfolioStore';
 import { MonitorWalletSheet } from '../components/MonitorWalletSheet';
 import { HoldingsSegment } from '../components/HoldingsSegment';
 import { ActivityScreen } from './ActivityScreen';
-import { colors, spacing, typography, semantic } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 function truncateAddress(address: string): string {
   if (address.length <= 12) return address;
@@ -21,6 +22,9 @@ function truncateAddress(address: string): string {
 // ── Main screen ──────────────────────────────────────────────────────────────
 
 export const PortfolioScreen: React.FC = () => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildPortfolioScreenStyles(tokens), [tokens]);
+
   const {
     wallets,
     isLoading,
@@ -104,27 +108,32 @@ export const PortfolioScreen: React.FC = () => {
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex:            1,
-    backgroundColor: colors.neutral[50],
-  },
-  scrollContent: {
-    paddingTop:    semantic.listMarginH,
-    paddingBottom: 120,
-  },
+function buildPortfolioScreenStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const sem = tokens.semantic;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tokens.bg,
+    },
+    scrollContent: {
+      paddingTop: sem.listMarginH,
+      paddingBottom: 120,
+    },
 
-  accountCard: {
-    marginHorizontal:  semantic.listMarginH,
-    marginBottom:      semantic.listGap,
-    backgroundColor:  semantic.surface,
-    borderRadius:     semantic.cardRadius,
-    padding:          semantic.cardPadding,
-    ...semantic.cardShadow,
-  },
-  accountTitle: {
-    fontSize:   typography.fontSizes.xl,
-    fontWeight: typography.fontWeights.bold,
-    color:      colors.neutral[900],
-  },
-});
+    accountCard: {
+      marginHorizontal: sem.listMarginH,
+      marginBottom: sem.listGap,
+      backgroundColor: sem.surface,
+      borderRadius: sem.cardRadius,
+      padding: sem.cardPadding,
+      ...sem.cardShadow,
+    },
+    accountTitle: {
+      fontSize: typo.fontSizes.xl,
+      fontWeight: typo.fontWeights.bold,
+      color: tokens.text,
+    },
+  });
+}

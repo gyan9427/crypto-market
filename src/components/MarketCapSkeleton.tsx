@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Skeleton } from './Skeleton';
-import { borderRadius, shadows, spacing } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 export const MarketCapSkeleton: React.FC = () => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildMarketCapSkeletonStyles(tokens), [tokens]);
+
   return (
     <View style={styles.container}>
       <Skeleton width={100} height={22} style={styles.title} />
@@ -15,25 +19,29 @@ export const MarketCapSkeleton: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.md,
-  },
-  title: {
-    marginLeft: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  placeholder: {
-    height: 200,
-    backgroundColor: '#fff',
-    borderRadius: borderRadius.card,
-    marginHorizontal: 0,
-    ...shadows.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.md,
-  },
-  marginBottom: {
-    marginBottom: spacing.sm,
-  },
-});
+function buildMarketCapSkeletonStyles(tokens: ThemeTokens) {
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  return StyleSheet.create({
+    container: {
+      marginBottom: s.md,
+    },
+    title: {
+      marginLeft: s.md,
+      marginBottom: s.sm,
+    },
+    placeholder: {
+      height: 200,
+      backgroundColor: tokens.surface,
+      borderRadius: br.card,
+      marginHorizontal: 0,
+      ...tokens.shadows.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: s.md,
+    },
+    marginBottom: {
+      marginBottom: s.sm,
+    },
+  });
+}

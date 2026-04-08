@@ -4,7 +4,8 @@ import { useIsFocused } from '@react-navigation/native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import type { KlineInterval } from '../types';
 import { useKlinesCacheState } from '../../hooks/useKlinesCache';
-import { colors } from '../../theme/theme';
+import type { ThemeTokens } from '../../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 const SkiaChart = lazy(() => import('./SkiaChart'));
 const WEB_CHART_HEIGHT = 168;
@@ -16,6 +17,8 @@ export interface ProfessionalChartProps {
 }
 
 function UniversalLineChart({ symbol, interval, style }: ProfessionalChartProps) {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildProfessionalChartStyles(tokens), [tokens]);
   const isFocused = useIsFocused();
   const limit = interval === '1m' ? 240 : 72;
   const { data, isLoading, hasFetched } = useKlinesCacheState(symbol, interval, limit, {
@@ -28,7 +31,7 @@ function UniversalLineChart({ symbol, interval, style }: ProfessionalChartProps)
 
   const { linePath, areaPath, strokeColor } = useMemo(() => {
     if (chartData.length < 2 || width <= 0) {
-      return { linePath: '', areaPath: '', strokeColor: '#64748b' };
+      return { linePath: '', areaPath: '', strokeColor: tokens.colors.neutral[500] };
     }
 
     const min = Math.min(...chartData);
@@ -50,10 +53,10 @@ function UniversalLineChart({ symbol, interval, style }: ProfessionalChartProps)
     );
 
     const area = `${line} L ${padding + innerW} ${height - padding} L ${padding} ${height - padding} Z`;
-    const stroke = chartData[chartData.length - 1] >= chartData[0] ? '#16a34a' : '#dc2626';
+    const stroke = chartData[chartData.length - 1] >= chartData[0] ? tokens.colors.success[600] : tokens.colors.danger[600];
 
     return { linePath: line, areaPath: area, strokeColor: stroke };
-  }, [chartData, width]);
+  }, [chartData, width, tokens.colors]);
 
   return (
     <View
@@ -88,30 +91,39 @@ export function ProfessionalChart(props: ProfessionalChartProps) {
     return <UniversalLineChart {...props} />;
   }
   return (
-    <Suspense fallback={<View style={[styles.webFallback, props.style]} />}>
+    <Suspense fallback={<ProfessionalChartFallback style={props.style} />}>
       <SkiaChart {...props} />
     </Suspense>
   );
 }
 
-const styles = StyleSheet.create({
-  webFallback: {
-    flex: 1,
-    minHeight: WEB_CHART_HEIGHT,
-    justifyContent: 'flex-start',
-    alignItems: 'stretch',
-    backgroundColor: '#f8fafc',
-  },
-  chartSkeleton: {
-    flex: 1,
-    margin: 10,
-    borderRadius: 12,
-    backgroundColor: '#eef2f7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stateText: {
-    fontSize: 12,
-    color: colors.neutral[500],
-  },
-});
+function ProfessionalChartFallback({ style }: { style?: object }) {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildProfessionalChartStyles(tokens), [tokens]);
+  return <View style={[styles.webFallback, style]} />;
+}
+
+function buildProfessionalChartStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  return StyleSheet.create({
+    webFallback: {
+      flex: 1,
+      minHeight: WEB_CHART_HEIGHT,
+      justifyContent: 'flex-start',
+      alignItems: 'stretch',
+      backgroundColor: tokens.bgElevated,
+    },
+    chartSkeleton: {
+      flex: 1,
+      margin: 10,
+      borderRadius: 12,
+      backgroundColor: c.neutral[100],
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    stateText: {
+      fontSize: 12,
+      color: tokens.textMuted,
+    },
+  });
+}

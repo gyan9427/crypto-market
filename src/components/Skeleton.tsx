@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
-import { colors } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface SkeletonProps {
   width?: number | string;
@@ -15,6 +15,16 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   borderRadius = 4,
   style,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        skeleton: {
+          backgroundColor: tokens.isDark ? tokens.colors.neutral[300] : tokens.colors.neutral[200],
+        },
+      }),
+    [tokens]
+  );
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -54,9 +64,3 @@ export const Skeleton: React.FC<SkeletonProps> = ({
     />
   );
 };
-
-const styles = StyleSheet.create({
-  skeleton: {
-    backgroundColor: colors.neutral[200],
-  },
-});

@@ -1,6 +1,7 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { Pressable, Text, StyleSheet, ViewStyle } from 'react-native';
-import { borderRadius, colors, spacing, typography } from '@/src/theme/theme';
+import type { ThemeTokens } from '@/src/theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 export interface NextButtonProps {
   label: string;
@@ -9,6 +10,9 @@ export interface NextButtonProps {
 }
 
 function NextButtonInner({ label, onPress, style }: NextButtonProps) {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildNextButtonStyles(tokens), [tokens]);
+
   return (
     <Pressable
       onPress={onPress}
@@ -21,24 +25,30 @@ function NextButtonInner({ label, onPress, style }: NextButtonProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  btn: {
-    backgroundColor: colors.primary[600],
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.button,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 200,
-  },
-  pressed: {
-    opacity: 0.92,
-  },
-  label: {
-    color: colors.surface,
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
-  },
-});
+function buildNextButtonStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    btn: {
+      backgroundColor: c.primary[600],
+      paddingVertical: s.md,
+      paddingHorizontal: s.xl,
+      borderRadius: br.button,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 200,
+    },
+    pressed: {
+      opacity: 0.92,
+    },
+    label: {
+      color: c.surface,
+      fontSize: typo.fontSizes.md,
+      fontWeight: typo.fontWeights.semibold,
+    },
+  });
+}
 
 export const NextButton = memo(NextButtonInner);

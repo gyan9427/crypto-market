@@ -18,7 +18,8 @@ import { fetchComments, postComment, deleteComment } from '../services/api';
 import { CommentItem } from './CommentItem';
 import { MentionAutocomplete } from './MentionAutocomplete';
 import { useAuthStore } from '../state/useAuthStore';
-import { colors, spacing, borderRadius, shadows } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface CommentTrayProps {
   visible: boolean;
@@ -40,6 +41,10 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
   onClose,
   onCountChange,
 }) => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildCommentTrayStyles(tokens), [tokens]);
+  const c = tokens.colors;
+
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -59,10 +64,10 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
   const localCandidates = useMemo(() => {
     const seen = new Set<string>();
     const candidates: { id: string; username: string }[] = [];
-    for (const c of comments) {
-      if (!seen.has(c.userId)) {
-        seen.add(c.userId);
-        candidates.push({ id: c.userId, username: c.username });
+    for (const cm of comments) {
+      if (!seen.has(cm.userId)) {
+        seen.add(cm.userId);
+        candidates.push({ id: cm.userId, username: cm.username });
       }
     }
     return candidates;
@@ -142,10 +147,10 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
 
       if (replyingTo) {
         setComments((prev) =>
-          prev.map((c) =>
-            c.id === replyingTo.commentId
-              ? { ...c, replyCount: c.replyCount + 1 }
-              : c
+          prev.map((cm) =>
+            cm.id === replyingTo.commentId
+              ? { ...cm, replyCount: cm.replyCount + 1 }
+              : cm
           )
         );
       } else {
@@ -175,7 +180,7 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
           try {
             const result = await deleteComment(newsId, commentId);
             setComments((prev) =>
-              prev.filter((c) => c.id !== commentId)
+              prev.filter((cm) => cm.id !== commentId)
             );
             setLocalCount(result.commentCount);
             onCountChange(newsId, result.commentCount);
@@ -204,7 +209,7 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
         onDelete={handleDelete}
       />
     ),
-    [newsId, handleReply]
+    [newsId, handleReply, handleDelete]
   );
 
   const keyExtractor = useCallback((item: Comment) => item.id, []);
@@ -223,7 +228,6 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
         <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
 
         <View style={styles.tray}>
-          {/* Header */}
           <View style={styles.header}>
             <View style={styles.handle} />
             <View style={styles.headerRow}>
@@ -234,12 +238,11 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
                 onPress={onClose}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <X size={22} color={colors.neutral[600]} />
+                <X size={22} color={c.neutral[600]} />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Comment list */}
           <FlatList
             data={comments}
             renderItem={renderComment}
@@ -262,27 +265,25 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
               loading ? (
                 <ActivityIndicator
                   size="small"
-                  color={colors.primary[500]}
+                  color={c.primary[500]}
                   style={styles.loader}
                 />
               ) : null
             }
           />
 
-          {/* Reply indicator */}
           {replyingTo && (
             <View style={styles.replyBar}>
-              <ArrowUpRight size={14} color={colors.primary[500]} />
+              <ArrowUpRight size={14} color={c.primary[500]} />
               <Text style={styles.replyBarText} numberOfLines={1}>
                 Replying to @{replyingTo.username}
               </Text>
               <TouchableOpacity onPress={() => setReplyingTo(null)}>
-                <X size={16} color={colors.neutral[500]} />
+                <X size={16} color={c.neutral[500]} />
               </TouchableOpacity>
             </View>
           )}
 
-          {/* Mention autocomplete */}
           {mentionQuery !== null && (
             <MentionAutocomplete
               query={mentionQuery}
@@ -291,7 +292,6 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
             />
           )}
 
-          {/* Input bar */}
           <View style={styles.inputBar}>
             <TextInput
               ref={inputRef}
@@ -299,7 +299,7 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
               placeholder={
                 replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'
               }
-              placeholderTextColor={colors.neutral[400]}
+              placeholderTextColor={c.neutral[400]}
               value={inputText}
               onChangeText={handleTextChange}
               maxLength={500}
@@ -326,110 +326,115 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  tray: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '75%',
-    minHeight: 300,
-    ...shadows.lg,
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.neutral[300],
-    marginBottom: spacing.sm,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.neutral[800],
-  },
-  listContent: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  emptyContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: colors.neutral[400],
-  },
-  loader: {
-    marginVertical: spacing.md,
-  },
-  replyBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    backgroundColor: colors.primary[50],
-    borderTopWidth: 1,
-    borderTopColor: colors.primary[100],
-  },
-  replyBarText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.primary[700],
-  },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.neutral[100],
-    backgroundColor: '#fff',
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.neutral[800],
-    backgroundColor: colors.neutral[100],
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    maxHeight: 100,
-    marginRight: spacing.sm,
-  },
-  sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary[500],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendBtnDisabled: {
-    backgroundColor: colors.neutral[300],
-  },
-});
+function buildCommentTrayStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const br = tokens.borderRadius;
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    backdrop: {
+      flex: 1,
+      backgroundColor: tokens.semantic.backdrop,
+    },
+    tray: {
+      backgroundColor: tokens.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '75%',
+      minHeight: 300,
+      ...tokens.shadows.lg,
+    },
+    header: {
+      alignItems: 'center',
+      paddingTop: s.sm,
+      paddingBottom: s.xs,
+      borderBottomWidth: 1,
+      borderBottomColor: c.neutral[100],
+    },
+    handle: {
+      width: 36,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.neutral[300],
+      marginBottom: s.sm,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      width: '100%',
+      paddingHorizontal: s.md,
+      paddingBottom: s.sm,
+    },
+    headerTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: c.neutral[800],
+    },
+    listContent: {
+      paddingHorizontal: s.md,
+      paddingBottom: s.sm,
+    },
+    emptyContainer: {
+      paddingVertical: 40,
+      alignItems: 'center',
+    },
+    emptyText: {
+      fontSize: 14,
+      color: c.neutral[400],
+    },
+    loader: {
+      marginVertical: s.md,
+    },
+    replyBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: s.md,
+      paddingVertical: 6,
+      backgroundColor: c.primary[50],
+      borderTopWidth: 1,
+      borderTopColor: c.primary[100],
+    },
+    replyBarText: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: '500',
+      color: c.primary[700],
+    },
+    inputBar: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      paddingHorizontal: s.md,
+      paddingVertical: s.sm,
+      borderTopWidth: 1,
+      borderTopColor: c.neutral[100],
+      backgroundColor: tokens.surface,
+    },
+    input: {
+      flex: 1,
+      fontSize: 14,
+      color: c.neutral[800],
+      backgroundColor: c.neutral[100],
+      borderRadius: br.lg,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      maxHeight: 100,
+      marginRight: s.sm,
+    },
+    sendBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: c.primary[500],
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    sendBtnDisabled: {
+      backgroundColor: c.neutral[300],
+    },
+  });
+}

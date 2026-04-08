@@ -1,7 +1,8 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View } from 'react-native';
 import Svg, { Rect, Circle } from 'react-native-svg';
-import { colors } from '@/src/theme/theme';
+import type { ThemeTokens } from '@/src/theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 export interface IllustrationNewsFlowProps {
   width: number;
@@ -10,14 +11,17 @@ export interface IllustrationNewsFlowProps {
 
 /** Abstract flowing news cards — theme tokens only */
 function IllustrationNewsFlowInner({ width, height }: IllustrationNewsFlowProps) {
+  const { tokens } = useAppTheme();
+  const palette = useMemo(() => buildIllustrationNewsFlowPalette(tokens), [tokens]);
+
   const w = width;
   const h = height;
   const cardW = w * 0.72;
   const cardH = h * 0.22;
   const left = w * 0.14;
-  const primary = colors.primary[500];
-  const accent = colors.accent[400];
-  const neutral = colors.neutral;
+  const primary = palette.primary;
+  const accent = palette.accent;
+  const neutral = palette.neutral;
 
   return (
     <View style={{ width: w, height: h }}>
@@ -71,6 +75,15 @@ function IllustrationNewsFlowInner({ width, height }: IllustrationNewsFlowProps)
       </Svg>
     </View>
   );
+}
+
+function buildIllustrationNewsFlowPalette(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  return {
+    primary: c.primary[500],
+    accent: c.accent[400],
+    neutral: c.neutral,
+  };
 }
 
 export const IllustrationNewsFlow = memo(IllustrationNewsFlowInner);

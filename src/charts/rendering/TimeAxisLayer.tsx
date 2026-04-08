@@ -30,6 +30,7 @@ export interface TimeAxisLayerProps {
 }
 
 export function TimeAxisLayer(props: TimeAxisLayerProps) {
+  const font = useMemo(() => getFont(), []);
   const {
     candles,
     liveCandle,
@@ -79,9 +80,13 @@ export function TimeAxisLayer(props: TimeAxisLayerProps) {
 
   const baseY = priceAreaHeight + volumeAreaHeight + FONT_SIZE;
 
+  if (!font) {
+    return <Group />;
+  }
+
   return (
     <Group>
-      {font && ticks.map(({ x, label }, i) => (
+      {ticks.map(({ x, label }, i) => (
         <Text
           key={i}
           x={x - 20}
