@@ -1,9 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
+import { getLanguageOption, type SupportedLanguage } from '@/src/constants/languages';
+import { LanguagePickerSheet } from '@/src/components/LanguagePickerSheet';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import type { ThemePreference } from '@/src/types';
@@ -98,11 +102,15 @@ function menuStyles(tokens: ThemeTokens) {
 }
 
 export default function ProfileScreen() {
+  const { t } = useTranslation();
   const { tokens, preference, setPreference } = useAppTheme();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
+  const language = useAppStore((state) => state.language);
+  const setLanguage = useAppStore((state) => state.setLanguage);
+  const languageSheetRef = useRef<BottomSheetModal>(null);
   const [followingUsers, setFollowingUsers] = React.useState<{ id: string; username: string }[]>([]);
   const [stats, setStats] = React.useState<{
     followersCount: number;
@@ -116,6 +124,16 @@ export default function ProfileScreen() {
 
   const prefIndex = PREF_ORDER.indexOf(preference);
   const appearanceIndex = prefIndex >= 0 ? prefIndex : 0;
+
+  const currentLanguageMeta = useMemo(() => getLanguageOption(language), [language]);
+
+  const handleLanguageSelect = useCallback(
+    async (code: SupportedLanguage) => {
+      await setLanguage(code);
+      languageSheetRef.current?.dismiss();
+    },
+    [setLanguage]
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -191,6 +209,36 @@ export default function ProfileScreen() {
             />
           </View>
         </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('profile.languageSection')}</Text>
+          <Text style={styles.appearanceHint}>{t('profile.languageHint')}</Text>
+          <TouchableOpacity
+            style={styles.languageRow}
+            onPress={() => languageSheetRef.current?.present()}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('profile.languageSection')}, ${currentLanguageMeta?.englishLabel ?? language}`}
+            accessibilityHint={t('profile.languageHint')}
+          >
+            <View style={styles.languageRowLeft}>
+              <Text style={styles.languageRowPrimary} numberOfLines={1}>
+                {currentLanguageMeta?.label ?? language}
+              </Text>
+              <Text style={styles.languageRowSecondary} numberOfLines={1}>
+                {currentLanguageMeta?.englishLabel ?? language}
+              </Text>
+            </View>
+            <Text style={styles.languageRowChevron}>{'›'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <LanguagePickerSheet
+          ref={languageSheetRef}
+          tokens={tokens}
+          currentLanguage={language}
+          onSelectLanguage={handleLanguageSelect}
+        />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Social</Text>
@@ -358,6 +406,37 @@ function buildScreenStyles(tokens: ThemeTokens) {
     appearanceToggleWrap: {
       paddingHorizontal: tokens.spacing.md,
       paddingBottom: tokens.spacing.sm,
+    },
+    languageRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      marginHorizontal: tokens.spacing.sm,
+      marginBottom: tokens.spacing.sm,
+      borderRadius: tokens.semantic.cardRadiusSmall,
+    },
+    languageRowLeft: {
+      flex: 1,
+      marginRight: tokens.spacing.sm,
+    },
+    languageRowPrimary: {
+      fontSize: tokens.typography.fontSizes.md,
+      fontWeight: tokens.typography.fontWeights.semibold,
+      color: tokens.text,
+      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+    },
+    languageRowSecondary: {
+      fontSize: tokens.typography.fontSizes.xs,
+      color: tokens.textMuted,
+      marginTop: 2,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    languageRowChevron: {
+      fontSize: tokens.typography.fontSizes.xl,
+      color: tokens.textMuted,
+      fontFamily: tokens.typography.fontFamilies.sans,
     },
     socialLoadingRow: {
       paddingVertical: tokens.spacing.md,

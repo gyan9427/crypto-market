@@ -1,5 +1,8 @@
 import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts } from '../types';
+import type { SupportedLanguage } from '@/src/constants/languages';
+import { isSupportedLanguage } from '@/src/constants/languages';
 import { useAuthStore } from '../state/useAuthStore';
+import { getApiLocaleLanguage } from '@/src/services/apiLocale';
 import { resolveApiBaseUrl } from '../config/apiBaseUrl';
 import { fetchJsonCached } from './requestCache';
 
@@ -54,6 +57,7 @@ interface BackendUser {
   username: string;
   followingCoins?: string[];
   rewardPoints?: number;
+  preferredLanguage?: string | null;
   createdAt?: string;
 }
 
@@ -135,6 +139,7 @@ async function apiRequest<T>(
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Accept-Language': getApiLocaleLanguage(),
     ...(options.headers as Record<string, string>),
   };
 
@@ -254,12 +259,17 @@ function transformBackendTrendingCoin(
 }
 
 function transformBackendUser(backendUser: BackendUser): User {
-  return {
+  const pl = backendUser.preferredLanguage;
+  const user: User = {
     id: backendUser._id,
     name: backendUser.username, // Backend doesn't have separate name field
     username: backendUser.username,
     verified: false, // Backend doesn't track verification
   };
+  if (pl != null && pl !== '' && isSupportedLanguage(pl)) {
+    user.preferredLanguage = pl;
+  }
+  return user;
 }
 
 // API Functions
@@ -884,6 +894,21 @@ export const getCurrentUser = async (): Promise<User> => {
   } catch (error: any) {
     throw new Error(`Failed to get current user: ${error.message}`);
   }
+};
+
+export const getUserPreferences = async (): Promise<{
+  preferredLanguage: string | null;
+}> => {
+  return apiRequest<{ preferredLanguage: string | null }>('/user/preferences');
+};
+
+export const patchUserPreferences = async (
+  preferredLanguage: SupportedLanguage
+): Promise<{ preferredLanguage: string }> => {
+  return apiRequest<{ preferredLanguage: string }>('/user/preferences', {
+    method: 'PATCH',
+    body: JSON.stringify({ preferredLanguage }),
+  });
 };
 
 // ── Comments ────────────────────────────────────────────────────────
