@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { CoinStats } from '../types';
 import {
   formatMarketCap,
@@ -46,6 +47,7 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
   stats,
   coinSymbol,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildCoinStatSegmentStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -59,70 +61,73 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
     ? Math.max(0, Math.min(1, (current - low) / (high - low)))
     : 0;
 
-  const leftColumn: Omit<StatCellProps, 'styles'>[] = [
-    {
-      label: 'Market Cap',
-      value:
-        stats.market_cap != null ? formatMarketCap(stats.market_cap) : '—',
-    },
-    {
-      label: 'Volume 24h',
-      value:
-        stats.total_volume != null
-          ? formatMarketCap(stats.total_volume)
-          : '—',
-    },
-    {
-      label: 'Max Supply',
-      value: formatSupplyWithSymbol(stats.max_supply, coinSymbol),
-    },
-    {
-      label: 'All Time High',
-      value: stats.ath != null ? formatPrice(stats.ath) : '—',
-      dateRight:
-        stats.ath_date != null
-          ? `(${formatDate(new Date(stats.ath_date))})`
-          : undefined,
-    },
-    {
-      label: 'All Time Low',
-      value: stats.atl != null ? formatPrice(stats.atl) : '—',
-      dateRight:
-        stats.atl_date != null
-          ? `(${formatDate(new Date(stats.atl_date))})`
-          : undefined,
-    },
-  ];
+  const leftColumn: Omit<StatCellProps, 'styles'>[] = useMemo(
+    () => [
+      {
+        label: t('coin.statMarketCap'),
+        value: stats.market_cap != null ? formatMarketCap(stats.market_cap) : '—',
+      },
+      {
+        label: t('coin.statVolume24h'),
+        value:
+          stats.total_volume != null ? formatMarketCap(stats.total_volume) : '—',
+      },
+      {
+        label: t('coin.statMaxSupply'),
+        value: formatSupplyWithSymbol(stats.max_supply, coinSymbol),
+      },
+      {
+        label: t('coin.statAth'),
+        value: stats.ath != null ? formatPrice(stats.ath) : '—',
+        dateRight:
+          stats.ath_date != null
+            ? `(${formatDate(new Date(stats.ath_date))})`
+            : undefined,
+      },
+      {
+        label: t('coin.statAtl'),
+        value: stats.atl != null ? formatPrice(stats.atl) : '—',
+        dateRight:
+          stats.atl_date != null
+            ? `(${formatDate(new Date(stats.atl_date))})`
+            : undefined,
+      },
+    ],
+    [stats, coinSymbol, t]
+  );
 
-  const rightColumn: Omit<StatCellProps, 'styles'>[] = [
-    {
-      label: 'Fully Diluted Market Cap',
-      value:
-        stats.fully_diluted_valuation != null
-          ? formatMarketCap(stats.fully_diluted_valuation)
-          : '—',
-    },
-    {
-      label: 'Circulating Supply',
-      value: formatSupplyWithSymbol(stats.circulating_supply, coinSymbol),
-    },
-    {
-      label: 'Total Supply',
-      value: formatSupplyWithSymbol(stats.total_supply, coinSymbol),
-    },
-  ];
+  const rightColumn: Omit<StatCellProps, 'styles'>[] = useMemo(
+    () => [
+      {
+        label: t('coin.statFullyDiluted'),
+        value:
+          stats.fully_diluted_valuation != null
+            ? formatMarketCap(stats.fully_diluted_valuation)
+            : '—',
+      },
+      {
+        label: t('coin.statCirculatingSupply'),
+        value: formatSupplyWithSymbol(stats.circulating_supply, coinSymbol),
+      },
+      {
+        label: t('coin.statTotalSupply'),
+        value: formatSupplyWithSymbol(stats.total_supply, coinSymbol),
+      },
+    ],
+    [stats, coinSymbol, t]
+  );
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Statistics</Text>
+      <Text style={styles.title}>{t('coin.statistics')}</Text>
 
       <View style={styles.divider} />
 
       <View style={styles.lowHighSection}>
         <View style={styles.lowHighLabelRow}>
-          <Text style={styles.lowHighLabel}>Low / High</Text>
+          <Text style={styles.lowHighLabel}>{t('coin.lowHigh')}</Text>
           <View style={styles.badge24h}>
-            <Text style={styles.badgeText}>24h</Text>
+            <Text style={styles.badgeText}>{t('coin.period24h')}</Text>
           </View>
         </View>
         <View style={styles.lowHighValues}>

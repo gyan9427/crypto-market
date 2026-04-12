@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Check, Plus, BookmarkCheck } from 'lucide-react-native';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
@@ -34,6 +35,7 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
   onClose,
   onSaved,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildSaveToBoardModalStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -178,7 +180,7 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
 
           <View style={styles.header}>
             <BookmarkCheck size={22} color={c.primary[500]} />
-            <Text style={styles.title}>Save to board</Text>
+            <Text style={styles.title}>{t('saveToBoard.title')}</Text>
           </View>
 
           <TouchableOpacity
@@ -190,14 +192,14 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
               <Plus size={20} color={isCreating ? c.primary[600] : c.neutral[600]} />
             </View>
             <Text style={[styles.createText, isCreating && styles.createTextActive]}>
-              Create new board
+              {t('saveToBoard.createNewBoard')}
             </Text>
           </TouchableOpacity>
 
           {isCreating && (
             <TextInput
               style={styles.nameInput}
-              placeholder="Board name (e.g. DeFi Reads)"
+              placeholder={t('saveToBoard.boardNamePlaceholder')}
               placeholderTextColor={c.neutral[400]}
               value={newBoardName}
               onChangeText={setNewBoardName}
@@ -234,7 +236,8 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
                         {item.name}
                       </Text>
                       <Text style={styles.boardCount}>
-                        {item.newsIds.length} {item.newsIds.length === 1 ? 'article' : 'articles'}
+                        {item.newsIds.length}{' '}
+                        {item.newsIds.length === 1 ? t('newsBoards.articleSingular') : t('newsBoards.articlePlural')}
                       </Text>
                     </View>
                     {alreadySaved ? (
@@ -249,9 +252,7 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
               }}
               ListEmptyComponent={
                 !loading ? (
-                  <Text style={styles.emptyBoards}>
-                    No boards yet — create your first one above.
-                  </Text>
+                  <Text style={styles.emptyBoards}>{t('saveToBoard.emptyBoardsHint')}</Text>
                 ) : null
               }
             />
@@ -271,7 +272,7 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
             {saving ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.saveButtonText}>Save</Text>
+              <Text style={styles.saveButtonText}>{t('common.save')}</Text>
             )}
           </TouchableOpacity>
         </Animated.View>

@@ -13,6 +13,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,6 +41,7 @@ const PLACEHOLDER_MUTED = 'rgba(0,0,0,0.5)';
 type ActiveField = 'email' | 'password' | null;
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildLoginStyles(tokens), [tokens]);
   const router = useRouter();
@@ -165,9 +167,9 @@ export default function LoginScreen() {
     }
   }, [isAuthenticated, router]);
 
-  const handleLogin = async () => {
+  const handleLogin = useCallback(async () => {
     if (!email || !password) {
-      setError('Please enter your email and password');
+      setError(t('auth.errorEnterEmailPassword'));
       return;
     }
 
@@ -179,11 +181,11 @@ export default function LoginScreen() {
       await login(email.trim(), password);
       router.replace('/(tabs)' as never);
     } catch (err: any) {
-      setError(err.message || 'Failed to login');
+      setError(err.message || t('auth.errorLoginFailed'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, password, router, t]);
 
   const goToRegister = () => {
     trackEvent({ featureKey: 'auth', eventType: 'navigate_to_register', metadata: {} });
@@ -239,7 +241,7 @@ export default function LoginScreen() {
               )}
 
               <View ref={emailMeasureRef} style={styles.field} collapsable={false}>
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.label}>{t('auth.email')}</Text>
                 <TextInput
                   style={[styles.input, floatingEmailHidden && styles.inputHidden]}
                   value={email}
@@ -248,14 +250,14 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete="email"
-                  placeholder="Enter your email"
+                  placeholder={t('auth.placeholderEmail')}
                   editable={!floatingEmailHidden}
                   {...inputProps}
                 />
               </View>
 
               <View ref={passwordMeasureRef} style={styles.field} collapsable={false}>
-                <Text style={styles.label}>Password</Text>
+                <Text style={styles.label}>{t('auth.password')}</Text>
                 <TextInput
                   style={[styles.input, floatingPasswordHidden && styles.inputHidden]}
                   value={password}
@@ -263,7 +265,7 @@ export default function LoginScreen() {
                   onFocus={onBottomPasswordFocus}
                   secureTextEntry
                   autoCapitalize="none"
-                  placeholder="Enter your password"
+                  placeholder={t('auth.placeholderPassword')}
                   editable={!floatingPasswordHidden}
                   {...inputProps}
                 />
@@ -275,7 +277,7 @@ export default function LoginScreen() {
                 disabled={loading}
                 activeOpacity={0.88}
                 accessibilityRole="button"
-                accessibilityLabel="Log in"
+                accessibilityLabel={t('auth.logInAccessibility')}
               >
                 <LinearGradient
                   colors={[tokens.colors.primary[700], tokens.colors.primary[500]]}
@@ -286,15 +288,15 @@ export default function LoginScreen() {
                   {loading ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.buttonText}>Log in</Text>
+                    <Text style={styles.buttonText}>{t('auth.logIn')}</Text>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={goToRegister} style={styles.footerLink}>
                 <Text style={styles.footerText}>
-                  {"Don't have an account? "}
-                  <Text style={styles.footerTextHighlight}>Sign up</Text>
+                  {t('auth.footerNoAccount')}
+                  <Text style={styles.footerTextHighlight}>{t('auth.footerSignUp')}</Text>
                 </Text>
               </TouchableOpacity>
             </View>
@@ -311,7 +313,7 @@ export default function LoginScreen() {
           >
             {activeField === 'email' ? (
               <>
-                <Text style={styles.floatingLabel}>Email</Text>
+                <Text style={styles.floatingLabel}>{t('auth.email')}</Text>
                 <TextInput
                   ref={floatingEmailRef}
                   style={styles.floatingInput}
@@ -321,13 +323,13 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete="email"
-                  placeholder="Enter your email"
+                  placeholder={t('auth.placeholderEmail')}
                   {...inputProps}
                 />
               </>
             ) : (
               <>
-                <Text style={styles.floatingLabel}>Password</Text>
+                <Text style={styles.floatingLabel}>{t('auth.password')}</Text>
                 <TextInput
                   ref={floatingPasswordRef}
                   style={styles.floatingInput}
@@ -336,7 +338,7 @@ export default function LoginScreen() {
                   onBlur={() => floatingLayerRef.current?.dismiss()}
                   secureTextEntry
                   autoCapitalize="none"
-                  placeholder="Enter your password"
+                  placeholder={t('auth.placeholderPassword')}
                   {...inputProps}
                 />
               </>

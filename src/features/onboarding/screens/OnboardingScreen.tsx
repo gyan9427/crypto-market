@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useTranslation } from 'react-i18next';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { SlideOne } from './SlideOne';
@@ -24,6 +25,7 @@ import { ONBOARDING_SLIDES } from '../constants/onboardingData';
 const SLIDE_COUNT = ONBOARDING_SLIDES.length;
 
 export function OnboardingScreen() {
+  const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { tokens, effectiveScheme } = useAppTheme();
@@ -117,8 +119,13 @@ export function OnboardingScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={[styles.header, { paddingRight: tokens.spacing.md + insets.right }]}>
-        <Pressable onPress={onSkip} hitSlop={12} accessibilityRole="button" accessibilityLabel="Skip onboarding">
-          <Text style={[styles.skip, { color: skipColor }]}>Skip</Text>
+        <Pressable
+          onPress={onSkip}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={t('accessibility.skipOnboarding')}
+        >
+          <Text style={[styles.skip, { color: skipColor }]}>{t('onboarding.skip')}</Text>
         </Pressable>
       </View>
 
@@ -147,7 +154,7 @@ export function OnboardingScreen() {
       <View style={[styles.footer, { paddingBottom: insets.bottom + tokens.spacing.lg }]}>
         <PaginationDots count={SLIDE_COUNT} activeIndex={index} />
         <NextButton
-          label={index >= SLIDE_COUNT - 1 ? 'Get Started' : 'Next'}
+          label={index >= SLIDE_COUNT - 1 ? t('onboarding.getStarted') : t('onboarding.next')}
           onPress={goNext}
         />
       </View>

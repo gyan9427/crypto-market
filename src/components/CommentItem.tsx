@@ -11,6 +11,7 @@ import { MessageCircle, Trash2 } from 'lucide-react-native';
 import { Comment, Mention } from '../types';
 import { fetchReplies } from '../services/api';
 import { formatTimeAgo } from '../utils/format';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/useAuthStore';
 import type { AppPalette, ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
@@ -98,6 +99,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onDelete,
   depth = 0,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildCommentItemStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -180,7 +182,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                   onPress={() => onReply(comment.id, comment.username)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text style={styles.actionLink}>Reply</Text>
+                  <Text style={styles.actionLink}>{t('comments.reply')}</Text>
                 </TouchableOpacity>
               )}
               {isOwn && (
@@ -200,7 +202,9 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         <TouchableOpacity onPress={toggleReplies} style={styles.expandBtn}>
           <MessageCircle size={14} color={c.primary[500]} />
           <Text style={styles.expandText}>
-            {repliesExpanded ? 'Hide replies' : `View ${comment.replyCount} ${comment.replyCount === 1 ? 'reply' : 'replies'}`}
+            {repliesExpanded
+              ? t('comments.hideReplies')
+              : t('comments.viewReplies', { count: comment.replyCount })}
           </Text>
         </TouchableOpacity>
       )}
@@ -226,7 +230,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
           )}
           {hasMoreReplies && replies.length > 0 && !loadingReplies && (
             <TouchableOpacity onPress={loadMoreReplies} style={styles.expandBtn}>
-              <Text style={styles.expandText}>Load more replies</Text>
+              <Text style={styles.expandText}>{t('comments.loadMoreReplies')}</Text>
             </TouchableOpacity>
           )}
         </View>

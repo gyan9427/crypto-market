@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { openInAppBrowser } from '../utils/browser';
 import { X, Share2, Bookmark, BookmarkCheck } from 'lucide-react-native';
 import { NewsItem, ReactionType } from '../types';
@@ -29,6 +30,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   newsItem,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildNewsDetailModalStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -144,7 +146,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
               {newsItem.source} • {formatDateTime(newsItem.publishedAt)}
             </Text>
             {newsItem.author && (
-              <Text style={styles.metaText}>By {newsItem.author}</Text>
+              <Text style={styles.metaText}>{t('news.byAuthor', { author: newsItem.author })}</Text>
             )}
           </View>
 
@@ -160,7 +162,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
 
           {newsItem.coins.length > 0 && (
             <View style={styles.coinsSection}>
-              <Text style={styles.sectionTitle}>Related Coins</Text>
+              <Text style={styles.sectionTitle}>{t('news.relatedCoins')}</Text>
               <View style={styles.coinsRow}>
                 {newsItem.coins.map((coin) => (
                   <CoinChip key={coin.id} coin={coin} />
@@ -171,7 +173,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
 
           {newsItem.relatedCoins && newsItem.relatedCoins.length > 0 && (
             <View style={styles.coinsSection}>
-              <Text style={styles.sectionTitle}>Related tickers</Text>
+              <Text style={styles.sectionTitle}>{t('news.relatedTickers')}</Text>
               <View style={styles.relatedTickersRow}>
                 {newsItem.relatedCoins.map((coinId) => (
                   <TouchableOpacity
@@ -200,13 +202,13 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                 })
               }
             >
-              <Text style={styles.readFullButtonText}>Read full article</Text>
+              <Text style={styles.readFullButtonText}>{t('news.readFullArticle')}</Text>
             </TouchableOpacity>
           )}
 
           {saveCount > 0 && (
             <Text style={styles.saveCountText}>
-              {saveCount} {saveCount === 1 ? 'person has' : 'people have'} saved this article
+              {t('news.saveCount', { count: saveCount })}
             </Text>
           )}
         </View>

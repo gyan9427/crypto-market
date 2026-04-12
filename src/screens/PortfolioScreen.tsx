@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { MonitorWalletSheet } from '../components/MonitorWalletSheet';
 import { HoldingsSegment } from '../components/HoldingsSegment';
@@ -22,6 +23,7 @@ function truncateAddress(address: string): string {
 // ── Main screen ──────────────────────────────────────────────────────────────
 
 export const PortfolioScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildPortfolioScreenStyles(tokens), [tokens]);
 
@@ -67,8 +69,8 @@ export const PortfolioScreen: React.FC = () => {
   }, []);
 
   const accountLabel = wallets.length > 0
-    ? `Account ${truncateAddress(wallets[0].address)}`
-    : 'Account';
+    ? t('portfolio.accountWithAddress', { address: truncateAddress(wallets[0].address) })
+    : t('portfolio.headerAccount');
 
   // Show activity screen if requested
   if (showActivity) {

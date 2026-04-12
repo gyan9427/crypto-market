@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, Bookmark, BookmarkX } from 'lucide-react-native';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
@@ -19,6 +20,7 @@ import { getNewsBoards } from '@/src/services/api';
 import { NewsBoard } from '@/src/types';
 
 export default function NewsBoardsScreen() {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildNewsBoardsScreenStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -37,7 +39,7 @@ export default function NewsBoardsScreen() {
       const boards = await getNewsBoards();
       setBoards(boards);
     } catch (err: any) {
-      setError(err.message || 'Failed to load boards');
+      setError(err.message || t('newsBoards.failedLoadBoards'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -101,7 +103,7 @@ export default function NewsBoardsScreen() {
                 <Text style={styles.boardName}>{item.name}</Text>
                 <Text style={styles.boardCount}>
                   {item.newsIds.length}{' '}
-                  {item.newsIds.length === 1 ? 'article' : 'articles'}
+                  {item.newsIds.length === 1 ? t('newsBoards.articleSingular') : t('newsBoards.articlePlural')}
                 </Text>
               </View>
               <ChevronRight size={18} color={c.neutral[400]} />
@@ -110,10 +112,8 @@ export default function NewsBoardsScreen() {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <BookmarkX size={48} color={c.neutral[300]} />
-              <Text style={styles.emptyTitle}>No boards yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Save articles to boards by tapping the bookmark icon on any news card.
-              </Text>
+              <Text style={styles.emptyTitle}>{t('newsBoards.emptyBoards')}</Text>
+              <Text style={styles.emptySubtitle}>{t('newsBoards.emptyBoardsHint')}</Text>
             </View>
           }
         />

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Svg, { Line, Path, Circle } from 'react-native-svg';
 import { Maximize2, MoreHorizontal, TrendingUp } from 'lucide-react-native';
 import type { ThemeTokens } from '../theme/theme';
@@ -27,6 +28,7 @@ interface MarketCapPlaceholderProps {
 export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   liveUpdatesEnabled = true,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildMarketCapPlaceholderStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -145,7 +147,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
               </>
             )}
           </View>
-          <Text style={styles.periodLabel}>TODAY</Text>
+          <Text style={styles.periodLabel}>{t('marketCap.today')}</Text>
         </View>
         
         {/* Exact Stitch Graph Region */}
@@ -233,7 +235,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
             </>
           ) : (
             <View style={styles.chartSkeleton}>
-              <Text style={styles.noDataText}>No active market trend</Text>
+              <Text style={styles.noDataText}>{t('marketCap.noActiveTrend')}</Text>
             </View>
           )}
         </View>

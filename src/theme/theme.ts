@@ -1,4 +1,6 @@
 import { Platform } from 'react-native';
+import type { SupportedLanguage } from '@/src/constants/languages';
+import type { SansWeightMap } from '@/src/theme/indicFonts';
 
 export const colors = {
   primary: {
@@ -442,4 +444,30 @@ export function typographyWithFonts(
       monoMedium: j?.medium ?? base.fontFamilies.monoMedium,
     },
   };
+}
+
+/** Use Noto Sans for Indic UI languages so glyphs render; otherwise Manrope. */
+export function typographyWithFontsForUiLanguage(
+  base: typeof typography,
+  language: SupportedLanguage,
+  manrope: NonNullable<Parameters<typeof typographyWithFonts>[1]>['manrope'],
+  jetbrains: NonNullable<Parameters<typeof typographyWithFonts>[1]>['jetbrains'],
+  notoSans: SansWeightMap | null
+): typeof typography {
+  if (notoSans) {
+    const j = jetbrains;
+    return {
+      ...base,
+      fontFamilies: {
+        sans: notoSans.regular,
+        sansMedium: notoSans.medium,
+        sansSemiBold: notoSans.semiBold,
+        sansBold: notoSans.bold,
+        sansExtraBold: notoSans.extraBold,
+        mono: j?.regular ?? base.fontFamilies.mono,
+        monoMedium: j?.medium ?? base.fontFamilies.monoMedium,
+      },
+    };
+  }
+  return typographyWithFonts(base, { manrope, jetbrains });
 }

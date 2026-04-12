@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { FAB } from '@/src/components/FAB';
 import { NavHeaderSearch } from '@/src/components/NavHeaderSearch';
@@ -17,31 +18,8 @@ const formatSegmentTitle = (rawSegment: string) => {
     .join(' ');
 };
 
-const getHeaderTitle = (routeName: string, params?: Record<string, unknown>) => {
-  if (routeName === 'index' || routeName === 'market' || routeName === 'profile') return '';
-
-  if (routeName === 'news-boards/[boardId]') {
-    const boardName = params?.name;
-    return typeof boardName === 'string' && boardName.trim().length > 0 ? boardName : 'News Board';
-  }
-
-  const routeTitleMap: Record<string, string> = {
-    portfolio: 'Portfolio',
-    'search/index': 'Search',
-    rewards: 'Rewards',
-    'coin/[coinId]': 'Coin',
-    'coins/[coinId]': 'Coin',
-    'news-boards/index': 'News Boards',
-  };
-
-  if (routeTitleMap[routeName]) return routeTitleMap[routeName];
-
-  const segments = routeName.split('/').filter(Boolean);
-  const lastSegment = segments[segments.length - 1] ?? routeName;
-  return formatSegmentTitle(lastSegment) || 'NAYFT';
-};
-
 export default function TabsLayout() {
+  const { t } = useTranslation();
   const { tokens, effectiveScheme } = useAppTheme();
   const router = useRouter();
   const segments = useSegments();
@@ -89,6 +67,35 @@ export default function TabsLayout() {
     useFeaturesStore.getState().refetchFeatures();
   }, []);
 
+  const getHeaderTitle = useCallback(
+    (routeName: string, params?: Record<string, unknown>) => {
+      if (routeName === 'index' || routeName === 'market' || routeName === 'profile') return '';
+
+      if (routeName === 'news-boards/[boardId]') {
+        const boardName = params?.name;
+        return typeof boardName === 'string' && boardName.trim().length > 0
+          ? boardName
+          : t('nav.newsBoardFallback');
+      }
+
+      const routeTitleMap: Record<string, string> = {
+        portfolio: t('nav.portfolio'),
+        'search/index': t('nav.search'),
+        rewards: t('nav.rewards'),
+        'coin/[coinId]': t('nav.coin'),
+        'coins/[coinId]': t('nav.coin'),
+        'news-boards/index': t('nav.newsBoards'),
+      };
+
+      if (routeTitleMap[routeName]) return routeTitleMap[routeName];
+
+      const segments = routeName.split('/').filter(Boolean);
+      const lastSegment = segments[segments.length - 1] ?? routeName;
+      return formatSegmentTitle(lastSegment) || t('nav.appName');
+    },
+    [t]
+  );
+
   useEffect(() => {
     const tab = segments[0] as string | undefined;
     if (!tab) return;
@@ -104,7 +111,7 @@ export default function TabsLayout() {
         ...screenOptions(),
         headerTitle: getHeaderTitle(route.name, route.params as Record<string, unknown> | undefined),
       }),
-    [screenOptions]
+    [screenOptions, getHeaderTitle]
   );
 
   return (
@@ -114,7 +121,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Home',
+            title: t('nav.home'),
             headerTitle: () => <NavHeaderSearch />,
             headerTitleAlign: 'left',
             tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
@@ -124,7 +131,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="portfolio"
           options={{
-            title: 'Portfolio',
+            title: t('nav.portfolio'),
             tabBarIcon: ({ color, size }) => <Briefcase size={size} color={color} />,
             href: hasPortfolioTracking ? undefined : null,
           }}
@@ -140,11 +147,11 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="market"
           options={{
-            title: 'Market',
+            title: t('nav.market'),
             headerTitle: () => (
               <NavHeaderSearch
                 segment="all"
-                placeholder="Search all: coins, news, users, boards, portfolio..."
+                placeholder={t('search.placeholderMarket')}
               />
             ),
             headerTitleAlign: 'left',
@@ -155,9 +162,9 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="profile"
           options={{
-            title: 'Profile',
+            title: t('nav.profile'),
             headerTitle: () => (
-              <NavHeaderSearch segment="users" placeholder="Search users to follow..." />
+              <NavHeaderSearch segment="users" placeholder={t('search.placeholderUsers')} />
             ),
             headerTitleAlign: 'left',
             tabBarIcon: ({ color, size }) => <User size={size} color={color} />,

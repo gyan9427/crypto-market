@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { BookmarkX } from 'lucide-react-native';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
@@ -20,6 +21,7 @@ import { getBoardNews } from '@/src/services/api';
 import { NewsItem } from '@/src/types';
 
 export default function BoardDetailScreen() {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildBoardDetailScreenStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -40,7 +42,7 @@ export default function BoardDetailScreen() {
       const articles = await getBoardNews(boardId);
       setNews(articles);
     } catch (err: any) {
-      setError(err.message || 'Failed to load articles');
+      setError(err.message || t('newsBoards.failedLoadArticles'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -103,10 +105,8 @@ export default function BoardDetailScreen() {
             !loading ? (
               <View style={styles.emptyState}>
                 <BookmarkX size={48} color={c.neutral[300]} />
-                <Text style={styles.emptyTitle}>No articles here</Text>
-                <Text style={styles.emptySubtitle}>
-                  Articles you save to this board will appear here.
-                </Text>
+                <Text style={styles.emptyTitle}>{t('newsBoards.emptyArticles')}</Text>
+                <Text style={styles.emptySubtitle}>{t('newsBoards.emptyBoardDetailHint')}</Text>
               </View>
             ) : null
           }

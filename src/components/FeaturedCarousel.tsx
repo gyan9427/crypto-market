@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Image } from 'expo-image';
 import { NewsItem } from '../types';
 import { formatTimeAgo } from '../utils/format';
@@ -15,6 +16,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   items,
   onItemPress,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildFeaturedCarouselStyles(tokens), [tokens]);
 
@@ -23,7 +25,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
       style={styles.card}
       onPress={() => onItemPress?.(item.id)}
       accessibilityRole="button"
-      accessibilityLabel={`Featured: ${item.title}`}
+      accessibilityLabel={t('featured.featuredWithTitle', { title: item.title })}
       activeOpacity={0.9}
     >
       {item.imageUrl && (
@@ -31,7 +33,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
           source={{ uri: item.imageUrl }}
           style={styles.image}
           contentFit="cover"
-          accessibilityLabel="Featured article image"
+          accessibilityLabel={t('accessibility.featuredImage')}
           transition={200}
         />
       )}
@@ -48,7 +50,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Featured</Text>
+      <Text style={styles.title}>{t('featured.title')}</Text>
       <FlatList
         data={items}
         renderItem={renderItem}

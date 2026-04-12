@@ -198,12 +198,12 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Appearance</Text>
-          <Text style={styles.appearanceHint}>Choose light, dark, or match your device.</Text>
+          <Text style={styles.sectionTitle}>{t('profile.appearance')}</Text>
+          <Text style={styles.appearanceHint}>{t('profile.appearanceHint')}</Text>
           <View style={styles.appearanceToggleWrap}>
             <SegmentToggle
               flush
-              options={['System', 'Light', 'Dark']}
+              options={[t('common.themeSystem'), t('common.themeLight'), t('common.themeDark')]}
               selectedIndex={appearanceIndex}
               onSelect={(i) => setPreference(PREF_ORDER[i] ?? 'system')}
             />
@@ -241,7 +241,7 @@ export default function ProfileScreen() {
         />
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Social</Text>
+          <Text style={styles.sectionTitle}>{t('profile.social')}</Text>
           {socialLoading ? (
             <View style={styles.socialLoadingRow}>
               <ActivityIndicator size="small" color={tokens.colors.primary[500]} />
@@ -249,22 +249,22 @@ export default function ProfileScreen() {
           ) : (
             <View style={styles.socialStatsRow}>
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Followers</Text>
+                <Text style={styles.statLabel}>{t('profile.followers')}</Text>
                 <Text style={styles.statValue}>{stats?.followersCount ?? 0}</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Following users</Text>
+                <Text style={styles.statLabel}>{t('profile.followingUsers')}</Text>
                 <Text style={styles.statValue}>{stats?.followingUsersCount ?? 0}</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Following coins</Text>
+                <Text style={styles.statLabel}>{t('profile.followingCoins')}</Text>
                 <Text style={styles.statValue}>{stats?.followingCoinsCount ?? 0}</Text>
               </View>
             </View>
           )}
           {followingUsers.length > 0 && (
             <View style={styles.followingList}>
-              <Text style={styles.subSectionTitle}>Following</Text>
+              <Text style={styles.subSectionTitle}>{t('profile.following')}</Text>
               {followingUsers.slice(0, 8).map((item) => (
                 <View key={item.id} style={styles.followingUserRow}>
                   <Text style={styles.followUsername}>@{item.username}</Text>
@@ -274,7 +274,7 @@ export default function ProfileScreen() {
                     disabled={updatingUserId === item.id}
                   >
                     <Text style={[styles.followChipText, styles.followingChipText]}>
-                      {updatingUserId === item.id ? '...' : 'Unfollow'}
+                      {updatingUserId === item.id ? t('common.ellipsis') : t('profile.unfollow')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -284,11 +284,11 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle}>{t('profile.account')}</Text>
           <ProfileMenuItem
             tokens={tokens}
-            label="Account details"
-            description="View your basic account information"
+            label={t('profile.accountDetails')}
+            description={t('profile.accountDetailsDesc')}
             icon={<UserIcon size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => {
               console.log('Account pressed');
@@ -296,8 +296,8 @@ export default function ProfileScreen() {
           />
           <ProfileMenuItem
             tokens={tokens}
-            label="Security"
-            description="Password and sign-in options"
+            label={t('profile.security')}
+            description={t('profile.securityDesc')}
             icon={<Shield size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => {
               console.log('Security pressed');
@@ -306,22 +306,22 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Collections</Text>
+          <Text style={styles.sectionTitle}>{t('profile.collections')}</Text>
           <ProfileMenuItem
             tokens={tokens}
-            label="News Boards"
-            description="Your saved article collections"
+            label={t('profile.newsBoards')}
+            description={t('profile.newsBoardsDesc')}
             icon={<Bookmark size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => router.push('/news-boards' as never)}
           />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
+          <Text style={styles.sectionTitle}>{t('profile.about')}</Text>
           <ProfileMenuItem
             tokens={tokens}
-            label="About this app"
-            description="Learn more about Crypto Market"
+            label={t('profile.aboutApp')}
+            description={t('profile.aboutAppDesc')}
             icon={<Info size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => {
               console.log('About pressed');
@@ -332,8 +332,8 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <ProfileMenuItem
             tokens={tokens}
-            label="Logout"
-            description="Sign out of your account"
+            label={t('profile.logout')}
+            description={t('profile.logoutDesc')}
             icon={<LogOut size={18} color={tokens.colors.error[500]} />}
             danger
             onPress={handleLogout}

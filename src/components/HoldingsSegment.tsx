@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { Skeleton } from './Skeleton';
 import type { ThemeTokens } from '../theme/theme';
@@ -36,6 +37,7 @@ interface HoldingsSegmentProps {
 }
 
 export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildHoldingsSegmentStyles(tokens), [tokens]);
 
@@ -46,9 +48,9 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
   if (wallets.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.sectionTitle}>Holdings</Text>
+        <Text style={styles.sectionTitle}>{t('portfolio.holdings')}</Text>
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>Add a wallet to see holdings</Text>
+          <Text style={styles.emptyText}>{t('portfolio.addWalletHint')}</Text>
         </View>
       </View>
     );
@@ -57,7 +59,7 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
   if (holdingsLoading && !holdings) {
     return (
       <View style={styles.container}>
-        <Text style={styles.sectionTitle}>Holdings</Text>
+        <Text style={styles.sectionTitle}>{t('portfolio.holdings')}</Text>
         <View style={styles.summaryCard}>
           <Skeleton width="60%" height={24} style={styles.skeletonTitle} />
           <Skeleton width="40%" height={16} style={styles.skeletonSub} />
@@ -81,7 +83,7 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Holdings</Text>
+      <Text style={styles.sectionTitle}>{t('portfolio.holdings')}</Text>
       <View style={styles.summaryCard}>
         <View style={styles.summaryRow}>
           <Text style={styles.totalValue}>{formatUsd(totalValue)}</Text>

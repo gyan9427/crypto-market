@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useIsFocused } from '@react-navigation/native';
 import Svg, { Line, Path, Circle } from 'react-native-svg';
 import { fetchKlines, KlineInterval, KlineRecord } from '../services/api';
@@ -44,6 +45,7 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
   symbol,
   height = 220,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildCoinPriceChartStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -200,7 +202,7 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
           ))}
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={styles.emptyText}>No chart data</Text>
+          <Text style={styles.emptyText}>{t('coin.noChartData')}</Text>
         </View>
       </View>
     );

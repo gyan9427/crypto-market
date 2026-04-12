@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SearchSegment, UnifiedSearchResult } from '../services/api';
 import { useUnifiedSearch } from '../hooks/useUnifiedSearch';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
-import { DEFAULT_SEARCH_SEGMENTS, UnifiedSearchInput } from './UnifiedSearchInput';
+import { SEARCH_SEGMENT_ORDER, UnifiedSearchInput } from './UnifiedSearchInput';
 import { UnifiedSearchResults } from './UnifiedSearchResults';
 
 type UnifiedSearchProps = {
@@ -47,13 +48,15 @@ export const UnifiedSearch: React.FC<UnifiedSearchProps> = ({
   availableSegments,
   minQueryLength = 2,
   limit = 8,
-  placeholder = 'Search coins, news, users...',
+  placeholder: placeholderProp,
   onCoinPress,
   onNewsPress,
   onUserPress,
   renderUserAction,
   onResult,
 }) => {
+  const { t } = useTranslation();
+  const placeholder = placeholderProp ?? t('search.placeholderDefault');
   const { tokens } = useAppTheme();
   const styles = useMemo(
     () =>
@@ -67,7 +70,7 @@ export const UnifiedSearch: React.FC<UnifiedSearchProps> = ({
   );
   const segments = React.useMemo<SearchSegment[]>(() => {
     if (!availableSegments || availableSegments.length === 0) {
-      return DEFAULT_SEARCH_SEGMENTS.map((item) => item.id);
+      return [...SEARCH_SEGMENT_ORDER];
     }
     return availableSegments;
   }, [availableSegments]);

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Trophy } from 'lucide-react-native';
 import {
   fetchCoinDetails,
@@ -29,6 +30,7 @@ import { useAppStore } from '../state/useAppStore';
 import { useHasFeature } from '../utils/features';
 
 export const CoinProfileScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildCoinProfileScreenStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -95,7 +97,7 @@ export const CoinProfileScreen: React.FC = () => {
         }
       } catch (err: any) {
         if (!cancelled) {
-          setError(err.message || 'Failed to load coin profile');
+          setError(err.message || t('errors.failedToLoadCoin'));
           setCoin(null);
         }
       } finally {
@@ -159,7 +161,7 @@ export const CoinProfileScreen: React.FC = () => {
       <View style={[styles.container, styles.centerContent]}>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity onPress={() => router.back()} style={styles.retryButton}>
-          <Text style={styles.retryText}>Go back</Text>
+          <Text style={styles.retryText}>{t('coin.goBack')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -200,7 +202,9 @@ export const CoinProfileScreen: React.FC = () => {
             </View>
             <Text style={styles.coinSymbol}>@{coin.symbol.toLowerCase()}</Text>
             {hasFollow && typeof followersCount === 'number' && (
-              <Text style={styles.followersText}>{followersCount.toLocaleString()} followers</Text>
+              <Text style={styles.followersText}>
+                {t('coin.followersCount', { count: followersCount })}
+              </Text>
             )}
           </View>
           {hasFollow && (
@@ -211,7 +215,7 @@ export const CoinProfileScreen: React.FC = () => {
               disabled={followLoading}
             >
               <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
-                {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
+                {followLoading ? t('common.ellipsis') : isFollowing ? t('coin.following') : t('coin.follow')}
               </Text>
             </TouchableOpacity>
           )}
@@ -223,7 +227,7 @@ export const CoinProfileScreen: React.FC = () => {
           <CoinPriceChart symbol={coin.symbol} />
         ) : (
           <View style={styles.chartPlaceholder}>
-            <Text style={styles.chartPlaceholderText}>Charts unavailable</Text>
+            <Text style={styles.chartPlaceholderText}>{t('coin.chartsUnavailable')}</Text>
           </View>
         )}
         <CoinStatSegment stats={stats} coinSymbol={coin.symbol} />
@@ -235,12 +239,12 @@ export const CoinProfileScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.newsSection}>
-          <Text style={styles.sectionTitle}>Related news</Text>
+          <Text style={styles.sectionTitle}>{t('coin.relatedNews')}</Text>
           {loadingDetails ? (
-            <Text style={styles.loadingDetailText}>Refreshing latest data...</Text>
+            <Text style={styles.loadingDetailText}>{t('coin.refreshingData')}</Text>
           ) : null}
           {news.length === 0 ? (
-            <Text style={styles.emptyText}>No related news for this coin.</Text>
+            <Text style={styles.emptyText}>{t('coin.noRelatedNews')}</Text>
           ) : (
             <View style={styles.newsList}>
               {news.map((item) => (
@@ -250,7 +254,7 @@ export const CoinProfileScreen: React.FC = () => {
                   onPress={() => handleNewsPress(item)}
                   activeOpacity={0.9}
                   accessibilityRole="button"
-                  accessibilityLabel={`Read: ${item.title}`}
+                  accessibilityLabel={t('news.readNewsTitle', { title: item.title })}
                 >
                   <View style={styles.newsCardImageContainer}>
                     {item.imageUrl ? (

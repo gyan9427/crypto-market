@@ -11,6 +11,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import type { AppPalette, ThemeTokens } from '@/src/theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 
@@ -128,10 +129,14 @@ export type ServiceUnavailableStateProps = {
 
 function ServiceUnavailableStateInner({
   onRetry,
-  title = "We're offline for a moment",
-  message = 'Our servers are taking a short break. Your markets and news will sync again soon.',
-  retryLabel = 'Try again',
+  title: titleProp,
+  message: messageProp,
+  retryLabel: retryLabelProp,
 }: ServiceUnavailableStateProps) {
+  const { t } = useTranslation();
+  const title = titleProp ?? t('serviceUnavailable.title');
+  const message = messageProp ?? t('serviceUnavailable.message');
+  const retryLabel = retryLabelProp ?? t('serviceUnavailable.retry');
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildServiceUnavailableStyles(tokens), [tokens]);
   const c = tokens.colors;

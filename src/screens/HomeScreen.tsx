@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, Text, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { SegmentToggle } from '../components/SegmentToggle';
 import { NewsCard } from '../components/NewsCard';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
@@ -48,6 +49,7 @@ function isFeaturedRow(item: FeedRow): item is FeaturedRow {
 }
 
 export const HomeScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildHomeStyles(tokens), [tokens]);
   const router = useRouter();
@@ -92,12 +94,12 @@ export const HomeScreen: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load news');
+      setError(err.message || t('errors.failedToLoadNews'));
       console.error('Error loading news:', err);
     } finally {
       setLoading(false);
     }
-  }, [feedFilter]);
+  }, [feedFilter, t]);
 
   useEffect(() => {
     loadNews();
@@ -227,7 +229,7 @@ export const HomeScreen: React.FC = () => {
     () => (
       <>
         <SegmentToggle
-          options={['Following', 'Explore']}
+          options={[t('feed.following'), t('feed.explore')]}
           selectedIndex={feedFilter === 'following' ? 0 : 1}
           onSelect={handleSegmentChange}
         />
@@ -238,7 +240,7 @@ export const HomeScreen: React.FC = () => {
         )}
       </>
     ),
-    [error, newsData.length, feedFilter, handleSegmentChange, styles]
+    [error, newsData.length, feedFilter, handleSegmentChange, styles, t]
   );
 
   const renderItem = useCallback(
@@ -306,7 +308,7 @@ export const HomeScreen: React.FC = () => {
         ListEmptyComponent={
           !loading && newsData.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No results found</Text>
+              <Text style={styles.emptyText}>{t('home.noResults')}</Text>
             </View>
           ) : null
         }
