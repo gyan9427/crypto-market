@@ -9,6 +9,7 @@ import {
   Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Plus, Bell, PlusCircle, FileText, Gift } from 'lucide-react-native';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
@@ -19,6 +20,7 @@ interface FABProps {
 }
 
 export const FAB: React.FC<FABProps> = ({ onPress }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildStyles(tokens), [tokens]);
   const hasRewards = useHasFeature('rewards');
@@ -63,7 +65,7 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
           style={styles.fab}
           onPress={openSheet}
           accessibilityRole="button"
-          accessibilityLabel="Add action"
+          accessibilityLabel={t('fab.addAction')}
           activeOpacity={0.9}
         >
           <Plus size={28} color={c.white} strokeWidth={2.5} />
@@ -80,20 +82,20 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
         >
           <View style={styles.handleBar} />
           <View style={styles.bottomSheetContent}>
-            <Text style={styles.sheetTitle}>Quick Actions</Text>
+            <Text style={styles.sheetTitle}>{t('fab.quickActions')}</Text>
 
             <TouchableOpacity
               style={styles.sheetAction}
               onPress={() => handleAction('alert')}
               accessibilityRole="button"
-              accessibilityLabel="Add Alert"
+              accessibilityLabel={t('fab.addAlert')}
             >
               <View style={styles.sheetIconContainer}>
                 <Bell size={24} color={c.primary[500]} />
               </View>
               <View style={styles.sheetActionText}>
-                <Text style={styles.sheetActionTitle}>Add Alert</Text>
-                <Text style={styles.sheetActionSubtitle}>Set price alerts for coins</Text>
+                <Text style={styles.sheetActionTitle}>{t('fab.addAlert')}</Text>
+                <Text style={styles.sheetActionSubtitle}>{t('fab.addAlertSubtitle')}</Text>
               </View>
             </TouchableOpacity>
 
@@ -102,14 +104,14 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
                 style={styles.sheetAction}
                 onPress={() => handleAction('watchlist')}
                 accessibilityRole="button"
-                accessibilityLabel="Add to Watchlist"
+                accessibilityLabel={t('fab.addToWatchlist')}
               >
                 <View style={styles.sheetIconContainer}>
                   <PlusCircle size={24} color={c.accent[500]} />
                 </View>
                 <View style={styles.sheetActionText}>
-                  <Text style={styles.sheetActionTitle}>Add to Watchlist</Text>
-                  <Text style={styles.sheetActionSubtitle}>Track your favorite coins</Text>
+                  <Text style={styles.sheetActionTitle}>{t('fab.addToWatchlist')}</Text>
+                  <Text style={styles.sheetActionSubtitle}>{t('fab.watchlistSubtitle')}</Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -118,14 +120,14 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
               style={styles.sheetAction}
               onPress={() => handleAction('submit')}
               accessibilityRole="button"
-              accessibilityLabel="Submit News"
+              accessibilityLabel={t('fab.submitNews')}
             >
               <View style={styles.sheetIconContainer}>
                 <FileText size={24} color={c.success[500]} />
               </View>
               <View style={styles.sheetActionText}>
-                <Text style={styles.sheetActionTitle}>Submit News</Text>
-                <Text style={styles.sheetActionSubtitle}>Share crypto news with community</Text>
+                <Text style={styles.sheetActionTitle}>{t('fab.submitNews')}</Text>
+                <Text style={styles.sheetActionSubtitle}>{t('fab.submitNewsSubtitle')}</Text>
               </View>
             </TouchableOpacity>
 
@@ -134,14 +136,14 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
                 style={styles.sheetAction}
                 onPress={() => handleAction('rewards')}
                 accessibilityRole="button"
-                accessibilityLabel="Rewards"
+                accessibilityLabel={t('fab.rewards')}
               >
                 <View style={styles.sheetIconContainer}>
                   <Gift size={24} color={c.primary[500]} />
                 </View>
                 <View style={styles.sheetActionText}>
-                  <Text style={styles.sheetActionTitle}>Rewards</Text>
-                  <Text style={styles.sheetActionSubtitle}>View and claim your rewards</Text>
+                  <Text style={styles.sheetActionTitle}>{t('fab.rewards')}</Text>
+                  <Text style={styles.sheetActionSubtitle}>{t('fab.rewardsSubtitle')}</Text>
                 </View>
               </TouchableOpacity>
             )}

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
@@ -24,6 +25,7 @@ const normalizeSegment = (value: unknown): SearchSegment => {
 };
 
 export default function SearchScreen() {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildSearchScreenStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -76,7 +78,7 @@ export default function SearchScreen() {
             style={styles.closeButton}
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Close search"
+            accessibilityLabel={t('search.closeSearch')}
             activeOpacity={0.8}
           >
             <X size={18} color={c.neutral[700]} />
@@ -88,7 +90,7 @@ export default function SearchScreen() {
           selectedSegment={segment}
           onSegmentChange={setSegment}
           availableSegments={ALL_SEGMENTS}
-          placeholder="Search all segments..."
+          placeholder={t('search.placeholderAllSegments')}
           onCoinPress={handleCoinPress}
           onNewsPress={handleNewsPress}
         />

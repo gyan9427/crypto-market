@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   FlatList,
@@ -12,18 +14,26 @@ import { WalletEvent } from '../types';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  token_transfer:       'Token Transfer',
-  native_transfer:      'Native Transfer',
-  contract_interaction: 'Contract Interaction',
-  multi_chain_activity: 'Multi-Chain Activity',
-};
+function eventTypeLabel(t: TFunction, type: string): string {
+  const keys: Record<string, string> = {
+    token_transfer: 'activity.eventTypeTokenTransfer',
+    native_transfer: 'activity.eventTypeNativeTransfer',
+    contract_interaction: 'activity.eventTypeContractInteraction',
+    multi_chain_activity: 'activity.eventTypeMultiChain',
+  };
+  const k = keys[type];
+  return k ? t(k) : type;
+}
 
-const TX_STATUS_LABELS: Record<string, string> = {
-  success: 'Success',
-  failed:  'Failed',
-  pending: 'Pending',
-};
+function txStatusLabel(t: TFunction, status: string): string {
+  const keys: Record<string, string> = {
+    success: 'activity.statusSuccess',
+    failed: 'activity.statusFailed',
+    pending: 'activity.statusPending',
+  };
+  const k = keys[status];
+  return k ? t(k) : status;
+}
 
 function truncateAddress(address: string): string {
   if (address.length <= 12) return address;
@@ -57,6 +67,7 @@ interface EventRowProps {
 const MAX_SUMMARIES_VISIBLE = 3;
 
 const EventRow: React.FC<EventRowProps> = ({ event, styles }) => {
+  const { t } = useTranslation();
   const activity = event.activity;
   const txStatus = activity?.txStatus;
   const explorerUrl = activity?.explorerUrl;
@@ -65,7 +76,7 @@ const EventRow: React.FC<EventRowProps> = ({ event, styles }) => {
 
   const hasNewFormat = txCount != null && summaries.length > 0;
   const summaryLine = hasNewFormat
-    ? `${txCount} transaction${txCount !== 1 ? 's' : ''}, ${summaries.length} event${summaries.length !== 1 ? 's' : ''}`
+    ? `${txCount} ${txCount !== 1 ? t('activity.transactionPlural') : t('activity.transactionSingular')}, ${summaries.length} ${summaries.length !== 1 ? t('activity.eventPlural') : t('activity.eventSingular')}`
     : null;
   const visibleSummaries = summaries.slice(0, MAX_SUMMARIES_VISIBLE);
   const remainingCount = summaries.length - MAX_SUMMARIES_VISIBLE;
@@ -78,7 +89,7 @@ const EventRow: React.FC<EventRowProps> = ({ event, styles }) => {
         </View>
         <View style={styles.eventDetails}>
           <Text style={styles.eventType} numberOfLines={1}>
-            {EVENT_TYPE_LABELS[event.type] ?? event.type}
+            {eventTypeLabel(t, event.type)}
           </Text>
           <Text style={styles.eventAddress}>{truncateAddress(event.address)}</Text>
           {txStatus && (
@@ -89,7 +100,7 @@ const EventRow: React.FC<EventRowProps> = ({ event, styles }) => {
               txStatus === 'pending' && styles.statusPending,
             ]}>
               <Text style={styles.statusBadgeText}>
-                {TX_STATUS_LABELS[txStatus] ?? txStatus}
+                {txStatusLabel(t, txStatus)}
               </Text>
             </View>
           )}
@@ -99,7 +110,7 @@ const EventRow: React.FC<EventRowProps> = ({ event, styles }) => {
               style={styles.explorerLink}
               activeOpacity={0.7}
             >
-              <Text style={styles.explorerLinkText}>View on Explorer</Text>
+              <Text style={styles.explorerLinkText}>{t('activity.viewOnExplorer')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -119,9 +130,7 @@ const EventRow: React.FC<EventRowProps> = ({ event, styles }) => {
                   </Text>
                 ))}
                 {remainingCount > 0 && (
-                  <Text style={styles.eventSummaryMore}>
-                    and {remainingCount} more
-                  </Text>
+                  <Text style={styles.eventSummaryMore}>{t('activity.andMore', { count: remainingCount })}</Text>
                 )}
               </View>
             )}
@@ -143,6 +152,7 @@ interface ActivityScreenProps {
 }
 
 export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, onClose }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildActivityScreenStyles(tokens), [tokens]);
   const { events } = usePortfolioStore();
@@ -170,10 +180,10 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, onClose 
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>
-            {symbol ? `${symbol} Activity` : 'Activity'}
+            {symbol ? t('activity.titleWithSymbol', { symbol }) : t('activity.title')}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {filteredEvents.length} transaction{filteredEvents.length !== 1 ? 's' : ''}
+            {t('activity.transactionCount', { count: filteredEvents.length })}
           </Text>
         </View>
         <TouchableOpacity
@@ -190,12 +200,9 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, onClose 
         renderItem={renderItem}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>No activity found</Text>
+            <Text style={styles.emptyTitle}>{t('activity.noActivityFound')}</Text>
             <Text style={styles.emptySubtitle}>
-              {symbol 
-                ? `No transactions found for ${symbol}`
-                : 'No transactions to display'
-              }
+              {symbol ? t('activity.emptyForSymbol', { symbol }) : t('activity.empty')}
             </Text>
           </View>
         }

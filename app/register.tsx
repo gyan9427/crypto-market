@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { StatusBar } from 'expo-status-bar';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
@@ -17,6 +18,7 @@ import { signup } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
 
 export default function RegisterScreen() {
+  const { t } = useTranslation();
   const { tokens, effectiveScheme } = useAppTheme();
   const styles = useMemo(() => buildRegisterStyles(tokens), [tokens]);
   const router = useRouter();
@@ -38,17 +40,17 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!username || !email || !password) {
-      setError('Please fill in all fields');
+      setError(t('auth.errorFillAll'));
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(t('auth.errorPasswordLength'));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth.errorPasswordMismatch'));
       return;
     }
 
@@ -58,7 +60,7 @@ export default function RegisterScreen() {
       await signup(email.trim(), password, username.trim());
       router.replace('/(tabs)' as never);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to sign up');
+      setError(err instanceof Error ? err.message : t('auth.errorSignUpFailed'));
     } finally {
       setLoading(false);
     }
@@ -75,8 +77,8 @@ export default function RegisterScreen() {
     >
       <StatusBar style={effectiveScheme === 'dark' ? 'light' : 'dark'} />
       <View style={styles.card}>
-        <Text style={styles.title}>Create account</Text>
-        <Text style={styles.subtitle}>Sign up to get started</Text>
+        <Text style={styles.title}>{t('auth.createAccount')}</Text>
+        <Text style={styles.subtitle}>{t('auth.signUpSubtitle')}</Text>
 
         {error && (
           <View style={styles.errorBox}>
@@ -85,19 +87,19 @@ export default function RegisterScreen() {
         )}
 
         <View style={styles.field}>
-          <Text style={styles.label}>Username</Text>
+          <Text style={styles.label}>{t('auth.username')}</Text>
           <TextInput
             style={styles.input}
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
-            placeholder="yourname"
+            placeholder={t('auth.placeholderUsername')}
             placeholderTextColor={c.neutral[400]}
           />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>{t('auth.email')}</Text>
           <TextInput
             style={styles.input}
             value={email}
@@ -105,33 +107,33 @@ export default function RegisterScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder={t('auth.placeholderEmailExample')}
             placeholderTextColor={c.neutral[400]}
           />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Password</Text>
+          <Text style={styles.label}>{t('auth.password')}</Text>
           <TextInput
             style={styles.input}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoCapitalize="none"
-            placeholder="••••••••"
+            placeholder={t('auth.passwordDots')}
             placeholderTextColor={c.neutral[400]}
           />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Confirm password</Text>
+          <Text style={styles.label}>{t('auth.confirmPassword')}</Text>
           <TextInput
             style={styles.input}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
             autoCapitalize="none"
-            placeholder="••••••••"
+            placeholder={t('auth.passwordDots')}
             placeholderTextColor={c.neutral[400]}
           />
         </View>
@@ -141,18 +143,19 @@ export default function RegisterScreen() {
           onPress={handleRegister}
           disabled={loading}
           accessibilityRole="button"
-          accessibilityLabel="Sign up"
+          accessibilityLabel={t('auth.signUpAccessibility')}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Sign up</Text>
+            <Text style={styles.buttonText}>{t('auth.signUp')}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={goToLogin} style={styles.footerLink}>
           <Text style={styles.footerText}>
-            Already have an account? <Text style={styles.footerTextHighlight}>Log in</Text>
+            {t('auth.footerHasAccount')}
+            <Text style={styles.footerTextHighlight}>{t('auth.footerLogIn')}</Text>
           </Text>
         </TouchableOpacity>
       </View>

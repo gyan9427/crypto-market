@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { openInAppBrowser } from '../utils/browser';
+import { useTranslation } from 'react-i18next';
 import { trackEvent } from '../utils/trackEvent';
 import { MessageCircle, Share2, Bookmark, ChevronRight, ExternalLink } from 'lucide-react-native';
 import { FeedCardProps } from '../types';
@@ -79,6 +80,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
   onPress,
   onCoinPress,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildNewsCardStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -149,14 +151,14 @@ export const NewsCard = React.memo<FeedCardProps>(({
 
   const headerPrimaryLine = primaryCoin
     ? coinHeaderTitle(primaryCoin)
-    : item.source || 'Crypto';
+    : item.source || t('news.defaultAttribution');
 
   const headerAvatar = primaryCoin?.logo ? (
     <Image
       source={{ uri: primaryCoin.logo }}
       style={styles.coinAvatarImage}
       contentFit="cover"
-      accessibilityLabel={`${primaryCoin.name} logo`}
+      accessibilityLabel={t('accessibility.coinLogo', { name: primaryCoin.name })}
     />
   ) : (
     <View style={styles.coinAvatarPlaceholder}>
@@ -185,7 +187,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
             onPress={() => onCoinPress?.(primaryCoin.id)}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={`Open ${primaryCoin.name} profile`}
+            accessibilityLabel={t('news.openCoinProfile', { name: primaryCoin.name })}
           >
             {headerAvatar}
             <View style={styles.headerTitles}>
@@ -220,7 +222,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
             pressed && onPress && styles.cardPressablePressed,
           ]}
           accessibilityRole={onPress ? 'button' : undefined}
-          accessibilityLabel={onPress ? `Open article: ${item.title}` : undefined}
+          accessibilityLabel={onPress ? t('news.openArticleTitle', { title: item.title }) : undefined}
         >
           <View style={styles.heroWrap}>
             {item.imageUrl ? (
@@ -228,11 +230,11 @@ export const NewsCard = React.memo<FeedCardProps>(({
                 source={{ uri: item.imageUrl }}
                 style={styles.heroImage}
                 contentFit="cover"
-                accessibilityLabel="Article image"
+                accessibilityLabel={t('accessibility.articleImage')}
                 transition={200}
               />
             ) : (
-              <View style={styles.heroPlaceholder} accessibilityLabel="No article image">
+              <View style={styles.heroPlaceholder} accessibilityLabel={t('accessibility.noArticleImage')}>
                 <Text style={styles.heroPlaceholderText}>
                   {(item.source?.[0] ?? 'N').toUpperCase()}
                 </Text>
@@ -247,10 +249,10 @@ export const NewsCard = React.memo<FeedCardProps>(({
             disabled={followBusy}
             activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel={isFollowingCoin ? 'Unfollow coin' : 'Follow coin'}
+            accessibilityLabel={isFollowingCoin ? t('accessibility.unfollowCoin') : t('accessibility.followCoin')}
           >
             <Text style={[styles.heroFollowText, isFollowingCoin && styles.heroFollowTextFollowing]}>
-              {followBusy ? '...' : isFollowingCoin ? 'Following' : 'Follow'}
+              {followBusy ? t('common.ellipsis') : isFollowingCoin ? t('coin.following') : t('coin.follow')}
             </Text>
           </TouchableOpacity>
         )}
@@ -261,7 +263,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
         disabled={!onPress}
         style={({ pressed }) => [styles.cardPressable, pressed && onPress && styles.cardPressablePressed]}
         accessibilityRole={onPress ? 'button' : undefined}
-        accessibilityLabel={onPress ? `Open article: ${item.title}` : undefined}
+        accessibilityLabel={onPress ? t('news.openArticleTitle', { title: item.title }) : undefined}
       >
         <View style={styles.content}>
           <Text style={styles.title} numberOfLines={TITLE_LINES_FEED}>
@@ -269,7 +271,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
           </Text>
           {showRelatedInCard && (
             <View style={styles.relatedCoinsSection}>
-              <Text style={styles.relatedCoinsHeader}>Related Coins</Text>
+              <Text style={styles.relatedCoinsHeader}>{t('news.relatedCoins')}</Text>
               <View style={styles.relatedCoinsRow}>
                 {item.relatedCoins!.map((coinId) => (
                   <TouchableOpacity
@@ -302,9 +304,9 @@ export const NewsCard = React.memo<FeedCardProps>(({
             style={styles.primaryCta}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel="Read article"
+            accessibilityLabel={t('accessibility.readArticle')}
           >
-            <Text style={styles.primaryCtaText}>Read</Text>
+            <Text style={styles.primaryCtaText}>{t('news.read')}</Text>
             <ChevronRight size={18} color={c.primary[600]} />
           </TouchableOpacity>
         ) : (
@@ -316,10 +318,10 @@ export const NewsCard = React.memo<FeedCardProps>(({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.openSiteTouchable}
             accessibilityRole="link"
-            accessibilityLabel="Open full article in browser"
+            accessibilityLabel={t('accessibility.openInBrowser')}
           >
             <ExternalLink size={16} color={c.primary[500]} />
-            <Text style={styles.openSiteText}>Full article</Text>
+            <Text style={styles.openSiteText}>{t('news.fullArticle')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -336,7 +338,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
             style={styles.actionButton}
             onPress={() => onComment?.(item.id)}
             accessibilityRole="button"
-            accessibilityLabel="Comment"
+            accessibilityLabel={t('accessibility.comment')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <MessageCircle size={20} color={tokens.textMuted} />
@@ -350,7 +352,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
           style={styles.actionButton}
           onPress={() => onShare?.(item.id)}
           accessibilityRole="button"
-          accessibilityLabel="Share"
+          accessibilityLabel={t('accessibility.share')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Share2 size={20} color={tokens.textMuted} />
@@ -365,7 +367,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
           style={styles.actionButton}
           onPress={() => onSave?.(item.id)}
           accessibilityRole="button"
-          accessibilityLabel={isSaved ? 'Unsave' : 'Save'}
+          accessibilityLabel={isSaved ? t('accessibility.unsaveArticle') : t('accessibility.saveArticle')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Bookmark

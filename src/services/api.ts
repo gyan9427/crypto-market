@@ -1,5 +1,8 @@
 import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts } from '../types';
+import type { SupportedLanguage } from '@/src/constants/languages';
+import { isSupportedLanguage } from '@/src/constants/languages';
 import { useAuthStore } from '../state/useAuthStore';
+import { getApiLocaleLanguage } from '@/src/services/apiLocale';
 import { resolveApiBaseUrl } from '../config/apiBaseUrl';
 import { fetchJsonCached } from './requestCache';
 
@@ -54,6 +57,7 @@ interface BackendUser {
   username: string;
   followingCoins?: string[];
   rewardPoints?: number;
+  preferredLanguage?: string | null;
   createdAt?: string;
 }
 
@@ -135,6 +139,7 @@ async function apiRequest<T>(
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Accept-Language': getApiLocaleLanguage(),
     ...(options.headers as Record<string, string>),
   };
 
@@ -143,6 +148,13 @@ async function apiRequest<T>(
   }
 
   const url = `${API_BASE_URL}${endpoint}`;
+  // #region agent log
+  if (endpoint.includes('/news')) {
+    const _dbg = { sessionId: '10418d', location: 'api.ts:apiRequest', message: 'news-related API call', data: { endpoint: endpoint.slice(0, 120), acceptLanguageHeader: headers['Accept-Language'] }, timestamp: Date.now(), hypothesisId: 'H-B' };
+    console.log('[i18n-debug]', _dbg);
+    fetch('http://127.0.0.1:7723/ingest/46df119a-fef3-4d2e-b178-17829c05f667', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '10418d' }, body: JSON.stringify(_dbg) }).catch(() => {});
+  }
+  // #endregion
   let response: Response;
   try {
     response = await fetch(url, {
@@ -254,12 +266,17 @@ function transformBackendTrendingCoin(
 }
 
 function transformBackendUser(backendUser: BackendUser): User {
-  return {
+  const pl = backendUser.preferredLanguage;
+  const user: User = {
     id: backendUser._id,
     name: backendUser.username, // Backend doesn't have separate name field
     username: backendUser.username,
     verified: false, // Backend doesn't track verification
   };
+  if (pl != null && pl !== '' && isSupportedLanguage(pl)) {
+    user.preferredLanguage = pl;
+  }
+  return user;
 }
 
 // API Functions
@@ -886,6 +903,21 @@ export const getCurrentUser = async (): Promise<User> => {
   }
 };
 
+export const getUserPreferences = async (): Promise<{
+  preferredLanguage: string | null;
+}> => {
+  return apiRequest<{ preferredLanguage: string | null }>('/user/preferences');
+};
+
+export const patchUserPreferences = async (
+  preferredLanguage: SupportedLanguage
+): Promise<{ preferredLanguage: string }> => {
+  return apiRequest<{ preferredLanguage: string }>('/user/preferences', {
+    method: 'PATCH',
+    body: JSON.stringify({ preferredLanguage }),
+  });
+};
+
 // ── Comments ────────────────────────────────────────────────────────
 
 export const fetchComments = async (
@@ -1020,16 +1052,24 @@ export const fetchKlines = async (
   });
 };
 
+export type FetchMarketTrendOptions = {
+  /** Client-side GET cache TTL (default 45s). Use a shorter value for live overview widgets. */
+  cacheTtlMs?: number;
+  skipMemoryCache?: boolean;
+};
+
 /**
  * Fetch aggregate market trend series and 24h change summary.
  */
 export const fetchMarketTrend = async (
   interval: KlineInterval = '1m',
-  limit: number = 240
+  limit: number = 240,
+  options?: FetchMarketTrendOptions
 ): Promise<MarketTrendResponse> => {
   const url = `${API_BASE_URL}/charts/market-trend?interval=${interval}&limit=${limit}`;
   const data = (await fetchJsonCached<Record<string, unknown>>(url, {
-    cacheTtlMs: 45_000,
+    cacheTtlMs: options?.cacheTtlMs ?? 45_000,
+    skipMemoryCache: options?.skipMemoryCache,
   })) as Record<string, unknown>;
   const pointsRaw = Array.isArray(data?.points) ? data.points : [];
   const points = pointsRaw

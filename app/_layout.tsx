@@ -1,7 +1,9 @@
+import '@/src/i18n';
 import '@/src/polyfills/devtools';
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments, type Href } from 'expo-router';
 import { AppState, InteractionManager, Platform, View } from 'react-native';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ThemeProvider, useAppTheme } from '@/src/theme/ThemeProvider';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '@/src/state/useAuthStore';
@@ -38,6 +40,9 @@ export default function RootLayout() {
   const initializeAuth = useAuthStore((state) => state.initialize);
   const syncFollowingCoins = useAppStore((state) => state.syncFollowingCoins);
   const hydrateThemePreference = useAppStore((state) => state.hydrateThemePreference);
+  const hydrateLanguage = useAppStore((state) => state.hydrateLanguage);
+  const syncLanguageFromServer = useAppStore((state) => state.syncLanguageFromServer);
+  const retryLanguageSync = useAppStore((state) => state.retryLanguageSync);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const hasSeenOnboarding = useOnboardingStore((state) => state.hasSeenOnboarding);
   const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
@@ -52,22 +57,40 @@ export default function RootLayout() {
       useOnboardingStore.getState().hydrate(),
       useFeaturesStore.getState().loadFeatures(),
       hydrateThemePreference(),
+      hydrateLanguage(),
     ]).then(() => {
       setIsReady(true);
       InteractionManager.runAfterInteractions(() => {
         syncFollowingCoins();
       });
     });
-  }, [initializeAuth, syncFollowingCoins, hydrateThemePreference]);
+  }, [
+    initializeAuth,
+    syncFollowingCoins,
+    hydrateThemePreference,
+    hydrateLanguage,
+    syncLanguageFromServer,
+    retryLanguageSync,
+  ]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         useFeaturesStore.getState().refetchFeatures();
+        if (useAuthStore.getState().isAuthenticated) {
+          void useAppStore.getState().syncLanguageFromServer();
+          void useAppStore.getState().retryLanguageSync();
+        }
       }
     });
     return () => subscription.remove();
   }, []);
+
+  useEffect(() => {
+    if (!isReady || !isAuthenticated) return;
+    void syncLanguageFromServer();
+    void retryLanguageSync();
+  }, [isReady, isAuthenticated, syncLanguageFromServer, retryLanguageSync]);
 
   useEffect(() => {
     if (!isReady || !onboardingHydrated || !featuresLoaded) return;
@@ -115,7 +138,9 @@ export default function RootLayout() {
   return (
     <RootView style={{ flex: 1 }}>
       <ThemeProvider>
-        <RootLayoutContent isReady={isReady} />
+        <BottomSheetModalProvider>
+          <RootLayoutContent isReady={isReady} />
+        </BottomSheetModalProvider>
       </ThemeProvider>
     </RootView>
   );

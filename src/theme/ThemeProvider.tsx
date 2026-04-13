@@ -22,10 +22,11 @@ import {
 import { useFonts } from 'expo-font';
 import { useAppStore } from '@/src/state/useAppStore';
 import type { ThemePreference } from '@/src/types';
+import { indicFontAssets, sansWeightsForLanguage } from '@/src/theme/indicFonts';
 import {
   getThemeTokens,
   typography,
-  typographyWithFonts,
+  typographyWithFontsForUiLanguage,
   type ThemeTokens,
 } from './theme';
 
@@ -45,6 +46,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
   const preference = useAppStore((s) => s.themePreference);
   const setThemePreference = useAppStore((s) => s.setThemePreference);
+  const uiLanguage = useAppStore((s) => s.language);
 
   const [fontsLoaded] = useFonts({
     Manrope_400Regular,
@@ -54,6 +56,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     Manrope_800ExtraBold,
     JetBrainsMono_400Regular,
     JetBrainsMono_500Medium,
+    ...indicFontAssets,
   });
 
   const effectiveScheme: 'light' | 'dark' = useMemo(() => {
@@ -67,21 +70,25 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const tokens = useMemo(() => {
     const base = getThemeTokens(isDark);
     if (!fontsLoaded) return base;
-    const typo = typographyWithFonts(typography, {
-      manrope: {
+    const notoSans = sansWeightsForLanguage(uiLanguage);
+    const typo = typographyWithFontsForUiLanguage(
+      typography,
+      uiLanguage,
+      {
         regular: 'Manrope_400Regular',
         medium: 'Manrope_500Medium',
         semiBold: 'Manrope_600SemiBold',
         bold: 'Manrope_700Bold',
         extraBold: 'Manrope_800ExtraBold',
       },
-      jetbrains: {
+      {
         regular: 'JetBrainsMono_400Regular',
         medium: 'JetBrainsMono_500Medium',
       },
-    });
+      notoSans
+    );
     return { ...base, typography: typo };
-  }, [isDark, fontsLoaded]);
+  }, [isDark, fontsLoaded, uiLanguage]);
 
   const setPreference = useCallback(
     (p: ThemePreference) => {

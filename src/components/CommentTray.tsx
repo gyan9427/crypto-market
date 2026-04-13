@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { X, Send, ArrowUpRight } from 'lucide-react-native';
 import { Comment } from '../types';
 import { fetchComments, postComment, deleteComment } from '../services/api';
@@ -41,6 +42,7 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
   onClose,
   onCountChange,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildCommentTrayStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -231,9 +233,7 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
           <View style={styles.header}>
             <View style={styles.handle} />
             <View style={styles.headerRow}>
-              <Text style={styles.headerTitle}>
-                Comments ({localCount})
-              </Text>
+              <Text style={styles.headerTitle}>{t('comments.headerWithCount', { count: localCount })}</Text>
               <TouchableOpacity
                 onPress={onClose}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -255,9 +255,7 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
             ListEmptyComponent={
               !loading ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>
-                    No comments yet. Be the first!
-                  </Text>
+                  <Text style={styles.emptyText}>{t('comments.empty')}</Text>
                 </View>
               ) : null
             }
@@ -276,7 +274,7 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
             <View style={styles.replyBar}>
               <ArrowUpRight size={14} color={c.primary[500]} />
               <Text style={styles.replyBarText} numberOfLines={1}>
-                Replying to @{replyingTo.username}
+                {t('comments.replyingTo', { username: replyingTo.username })}
               </Text>
               <TouchableOpacity onPress={() => setReplyingTo(null)}>
                 <X size={16} color={c.neutral[500]} />
@@ -297,7 +295,9 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
               ref={inputRef}
               style={styles.input}
               placeholder={
-                replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'
+                replyingTo
+                  ? t('comments.placeholderReply', { username: replyingTo.username })
+                  : t('comments.placeholderWrite')
               }
               placeholderTextColor={c.neutral[400]}
               value={inputText}

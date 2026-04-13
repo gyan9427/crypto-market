@@ -11,6 +11,7 @@ import {
   Easing,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useIsFocused } from '@react-navigation/native';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { FilterPills } from '../components/FilterPills';
@@ -29,6 +30,7 @@ import { useMarketPriceStream } from '../hooks/useMarketPriceStream';
 const GRAPH_ANIM_MS = 280;
 
 export const ExploreScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildExploreScreenStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -71,12 +73,12 @@ export const ExploreScreen: React.FC = () => {
       const trendingCoins = await fetchTrendingCoins(exploreCategory);
       setCoins(trendingCoins);
     } catch (err: any) {
-      setError(err.message || 'Failed to load data');
+      setError(err.message || t('errors.failedToLoadData'));
       console.error('Error loading explore data:', err);
     } finally {
       setLoading(false);
     }
-  }, [exploreCategory]);
+  }, [exploreCategory, t]);
 
   usePollingEffect(
     loadData,
@@ -169,9 +171,11 @@ export const ExploreScreen: React.FC = () => {
           onPress={toggleGraph}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel={marketGraphExpanded ? 'Hide market chart' : 'Show market chart'}
+          accessibilityLabel={
+            marketGraphExpanded ? t('accessibility.hideMarketChart') : t('accessibility.showMarketChart')
+          }
         >
-          <Text style={styles.graphToggleLabel}>Market overview</Text>
+          <Text style={styles.graphToggleLabel}>{t('explore.marketOverview')}</Text>
           {marketGraphExpanded ? (
             <ChevronUp size={22} color={c.neutral[700]} accessibilityLabel="" />
           ) : (

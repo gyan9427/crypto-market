@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { Bookmark, Newspaper, User as UserIcon, Wallet } from 'lucide-react-native';
 import { SearchSegment, SearchSegmentKey, UnifiedSearchResult } from '../services/api';
 import type { ThemeTokens } from '../theme/theme';
@@ -70,7 +72,11 @@ type RowData =
   | { key: string; type: 'board'; boardId: string; name: string; itemCount: number }
   | { key: string; type: 'asset'; assetId: string; symbol: string; name: string; chain?: string };
 
-function buildRows(result: UnifiedSearchResult, selectedSegment: SearchSegment): RowData[] {
+function buildRows(
+  result: UnifiedSearchResult,
+  selectedSegment: SearchSegment,
+  t: TFunction
+): RowData[] {
   const coinRows = result.coins.map<RowData>((coin) => ({
     key: `coin-${coin.id}`,
     type: 'coin',
@@ -121,24 +127,30 @@ function buildRows(result: UnifiedSearchResult, selectedSegment: SearchSegment):
   if (selectedSegment === 'portfolioAssets') return assetRows;
 
   const rows: RowData[] = [];
-  if (coinRows.length > 0) rows.push({ key: 'group-coins', type: 'group', title: 'Coins' }, ...coinRows);
-  if (newsRows.length > 0) rows.push({ key: 'group-news', type: 'group', title: 'News' }, ...newsRows);
-  if (userRows.length > 0) rows.push({ key: 'group-users', type: 'group', title: 'Users' }, ...userRows);
-  if (boardRows.length > 0) rows.push({ key: 'group-boards', type: 'group', title: 'News Boards' }, ...boardRows);
-  if (assetRows.length > 0) rows.push({ key: 'group-assets', type: 'group', title: 'Portfolio' }, ...assetRows);
+  if (coinRows.length > 0) rows.push({ key: 'group-coins', type: 'group', title: t('search.segmentCoins') }, ...coinRows);
+  if (newsRows.length > 0) rows.push({ key: 'group-news', type: 'group', title: t('search.segmentNews') }, ...newsRows);
+  if (userRows.length > 0) rows.push({ key: 'group-users', type: 'group', title: t('search.segmentUsers') }, ...userRows);
+  if (boardRows.length > 0)
+    rows.push({ key: 'group-boards', type: 'group', title: t('search.segmentNewsBoards') }, ...boardRows);
+  if (assetRows.length > 0)
+    rows.push({ key: 'group-assets', type: 'group', title: t('search.segmentPortfolio') }, ...assetRows);
   return rows;
 }
 
-function emptyStateMessage(result: UnifiedSearchResult, selectedSegment: SearchSegment): string {
+function emptyStateMessage(
+  result: UnifiedSearchResult,
+  selectedSegment: SearchSegment,
+  t: TFunction
+): string {
   if (selectedSegment === 'all' && result.meta.degraded) {
-    return "Some results couldn't load. Try again.";
+    return t('search.emptyTryAgain');
   }
   if (selectedSegment !== 'all') {
     const st = result.meta.segmentStatus?.[selectedSegment as SearchSegmentKey];
-    if (st === 'timeout') return "Couldn't load this section (timed out).";
-    if (st === 'error') return "Couldn't load this section.";
+    if (st === 'timeout') return t('search.emptySectionTimeout');
+    if (st === 'error') return t('search.emptySectionError');
   }
-  return 'No results found';
+  return t('home.noResults');
 }
 
 export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
@@ -150,12 +162,13 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
   onUserPress,
   renderUserAction,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildUnifiedSearchResultsStyles(tokens), [tokens]);
   const c = tokens.colors;
   const iconMuted = c.neutral[500];
 
-  const rows = React.useMemo(() => buildRows(result, selectedSegment), [result, selectedSegment]);
+  const rows = React.useMemo(() => buildRows(result, selectedSegment, t), [result, selectedSegment, t]);
   const showDegradedBanner =
     Boolean(result.meta.degraded) && selectedSegment === 'all' && rows.length > 0;
 
@@ -170,13 +183,13 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
         ListHeaderComponent={
           showDegradedBanner ? (
             <View style={styles.degradedBanner}>
-              <Text style={styles.degradedText}>Some categories didn&apos;t load completely.</Text>
+              <Text style={styles.degradedText}>{t('search.degradedPartial')}</Text>
             </View>
           ) : null
         }
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>{emptyStateMessage(result, selectedSegment)}</Text>
+            <Text style={styles.emptyText}>{emptyStateMessage(result, selectedSegment, t)}</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -232,7 +245,7 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
                 <ResultAvatar type="board" styles={styles} iconMuted={iconMuted} />
                 <View style={styles.rowContent}>
                   <Text style={styles.primaryText}>{item.name}</Text>
-                  <Text style={styles.secondaryText}>{item.itemCount} saved</Text>
+                  <Text style={styles.secondaryText}>{t('search.boardSavedCount', { count: item.itemCount })}</Text>
                 </View>
               </View>
             );

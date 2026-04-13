@@ -1,9 +1,12 @@
+import type { SupportedLanguage } from '@/src/constants/languages';
+
 export interface User {
   id: string;
   name: string;
   username: string;
   avatar?: string;
   verified?: boolean;
+  preferredLanguage?: SupportedLanguage | null;
 }
 
 export interface Coin {
@@ -214,6 +217,7 @@ export interface AppState {
   feedFilter: FeedFilter;
   exploreCategory: ExploreCategory;
   themePreference: ThemePreference;
+  language: SupportedLanguage;
   likedNews: string[];
   savedNews: string[];
   followingCoins: string[];
@@ -223,6 +227,10 @@ export interface AppState {
   setExploreCategory: (category: ExploreCategory) => void;
   setThemePreference: (preference: ThemePreference) => void;
   hydrateThemePreference: () => Promise<void>;
+  setLanguage: (lang: SupportedLanguage) => Promise<void>;
+  hydrateLanguage: () => Promise<void>;
+  syncLanguageFromServer: () => Promise<void>;
+  retryLanguageSync: () => Promise<void>;
   toggleLike: (newsId: string) => void;
   toggleSave: (newsId: string) => void;
   toggleFollowCoin: (coinId: string) => Promise<void>;

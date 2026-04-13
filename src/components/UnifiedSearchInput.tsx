@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SearchSegment } from '../services/api';
 import { SearchBar } from './SearchBar';
 import type { ThemeTokens } from '../theme/theme';
@@ -12,14 +13,24 @@ export type SegmentConfig = {
   label: string;
 };
 
-export const DEFAULT_SEARCH_SEGMENTS: SegmentConfig[] = [
-  { id: 'all', label: 'All' },
-  { id: 'coins', label: 'Coins' },
-  { id: 'news', label: 'News' },
-  { id: 'users', label: 'Users' },
-  { id: 'newsBoards', label: 'News Boards' },
-  { id: 'portfolioAssets', label: 'Portfolio' },
+/** Segment ids in default filter order (labels come from i18n in UnifiedSearchInput). */
+export const SEARCH_SEGMENT_ORDER: SearchSegment[] = [
+  'all',
+  'coins',
+  'news',
+  'users',
+  'newsBoards',
+  'portfolioAssets',
 ];
+
+const SEGMENT_LABEL_KEY: Record<SearchSegment, string> = {
+  all: 'search.segmentAll',
+  coins: 'search.segmentCoins',
+  news: 'search.segmentNews',
+  users: 'search.segmentUsers',
+  newsBoards: 'search.segmentNewsBoards',
+  portfolioAssets: 'search.segmentPortfolio',
+};
 
 type UnifiedSearchInputProps = {
   query: string;
@@ -46,8 +57,10 @@ export const UnifiedSearchInput: React.FC<UnifiedSearchInputProps> = ({
   resultCount,
   tookMs,
   isActive,
-  placeholder = 'Search coins, news, users...',
+  placeholder: placeholderProp,
 }) => {
+  const { t } = useTranslation();
+  const placeholder = placeholderProp ?? t('search.placeholderDefault');
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildUnifiedSearchInputStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -78,7 +91,14 @@ export const UnifiedSearchInput: React.FC<UnifiedSearchInputProps> = ({
     };
   }, []);
 
-  const visibleSegments = DEFAULT_SEARCH_SEGMENTS.filter((item) => segments.includes(item.id));
+  const visibleSegments = useMemo(
+    () =>
+      SEARCH_SEGMENT_ORDER.filter((id) => segments.includes(id)).map((id) => ({
+        id,
+        label: t(SEGMENT_LABEL_KEY[id]),
+      })),
+    [segments, t]
+  );
 
   return (
     <View style={styles.container}>
@@ -106,7 +126,7 @@ export const UnifiedSearchInput: React.FC<UnifiedSearchInputProps> = ({
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {!loading && !error ? (
             <Text style={styles.metaText}>
-              {resultCount} result{resultCount === 1 ? '' : 's'} in {tookMs}ms
+              {t('search.resultCount', { count: resultCount, ms: tookMs })}
             </Text>
           ) : null}
         </View>

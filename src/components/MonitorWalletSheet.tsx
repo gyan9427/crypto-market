@@ -11,6 +11,7 @@ import {
   TouchableWithoutFeedback,
   PanResponder,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react-native';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { ChainPills } from './ChainPills';
@@ -51,6 +52,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
   visible,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildMonitorWalletSheetStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -125,11 +127,11 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
     clearError();
 
     if (!trimmed) {
-      setAddError('Please enter a wallet address.');
+      setAddError(t('monitorWallet.errorAddressRequired'));
       return;
     }
     if (selectedChains.length === 0) {
-      setAddError('Please select at least one chain.');
+      setAddError(t('monitorWallet.errorChainRequired'));
       return;
     }
 
@@ -142,7 +144,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
     } catch {
       // error is already set in the store
     }
-  }, [addressInput, labelInput, selectedChains, addWallet, clearError, loadEvents]);
+  }, [addressInput, labelInput, selectedChains, addWallet, clearError, loadEvents, t]);
 
   const handleRemoveWallet = useCallback(
     (id: string) => {
@@ -165,7 +167,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
           <View style={styles.handleBar} />
         </View>
         <View style={styles.header}>
-          <Text style={styles.title}>Monitor Wallet</Text>
+          <Text style={styles.title}>{t('monitorWallet.title')}</Text>
           <TouchableOpacity onPress={closeSheet} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <X size={24} color={c.neutral[600]} />
           </TouchableOpacity>
@@ -176,7 +178,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.inputLabel}>Select Chains</Text>
+          <Text style={styles.inputLabel}>{t('monitorWallet.selectChains')}</Text>
           <ChainPills
             chains={supportedChains}
             selectedChains={selectedChains}
@@ -185,7 +187,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
 
           <TextInput
             style={styles.input}
-            placeholder="Wallet address (0x…)"
+            placeholder={t('monitorWallet.addressPlaceholder')}
             placeholderTextColor={c.neutral[400]}
             value={addressInput}
             onChangeText={setAddressInput}
@@ -196,7 +198,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
 
           <TextInput
             style={[styles.input, styles.inputSmall]}
-            placeholder="Label (optional)"
+            placeholder={t('monitorWallet.labelPlaceholder')}
             placeholderTextColor={c.neutral[400]}
             value={labelInput}
             onChangeText={setLabelInput}
@@ -216,13 +218,13 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
             disabled={isLoading}
           >
             <Text style={styles.addButtonText}>
-              {isLoading ? 'Adding…' : 'Add Wallet'}
+              {isLoading ? t('monitorWallet.adding') : t('monitorWallet.addWallet')}
             </Text>
           </TouchableOpacity>
 
           {wallets.length > 0 && (
             <View style={styles.walletsSection}>
-              <Text style={styles.sectionTitle}>Monitored Wallets</Text>
+              <Text style={styles.sectionTitle}>{t('monitorWallet.monitoredWallets')}</Text>
               <View style={styles.walletList}>
                 {wallets.map((w) => (
                   <WalletListItem

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   type TextInputProps,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
@@ -27,7 +28,7 @@ interface SearchBarProps {
 export const SearchBar: React.FC<SearchBarProps> = ({
   value,
   onChangeText,
-  placeholder = 'Search',
+  placeholder: placeholderProp,
   onClear,
   onFocus,
   editable = true,
@@ -35,6 +36,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onPress,
   variant = 'default',
 }) => {
+  const { t } = useTranslation();
+  const placeholder = placeholderProp ?? t('search.placeholderShort');
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildStyles(tokens), [tokens]);
   const isFakeBar = !editable && onPress != null;
@@ -50,7 +53,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         onPressIn={isFakeBar ? undefined : onPressIn}
         placeholder={placeholder}
         placeholderTextColor={tokens.textMuted}
-        accessibilityLabel="Search input"
+        accessibilityLabel={t('accessibility.searchInput')}
         accessibilityRole="search"
         pointerEvents={isFakeBar ? 'none' : 'auto'}
       />
@@ -61,7 +64,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             onClear?.();
           }}
           style={styles.clearButton}
-          accessibilityLabel="Clear search"
+          accessibilityLabel={t('accessibility.clearSearch')}
           accessibilityRole="button"
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -73,7 +76,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   if (isFakeBar) {
     return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Open search">
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={t('accessibility.openSearch')}
+      >
         {content}
       </TouchableOpacity>
     );

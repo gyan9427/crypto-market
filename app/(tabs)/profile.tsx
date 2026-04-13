@@ -1,9 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
+import { getLanguageOption, type SupportedLanguage } from '@/src/constants/languages';
+import { LanguagePickerSheet } from '@/src/components/LanguagePickerSheet';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import type { ThemePreference } from '@/src/types';
@@ -98,11 +102,15 @@ function menuStyles(tokens: ThemeTokens) {
 }
 
 export default function ProfileScreen() {
+  const { t } = useTranslation();
   const { tokens, preference, setPreference } = useAppTheme();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
+  const language = useAppStore((state) => state.language);
+  const setLanguage = useAppStore((state) => state.setLanguage);
+  const languageSheetRef = useRef<BottomSheetModal>(null);
   const [followingUsers, setFollowingUsers] = React.useState<{ id: string; username: string }[]>([]);
   const [stats, setStats] = React.useState<{
     followersCount: number;
@@ -116,6 +124,16 @@ export default function ProfileScreen() {
 
   const prefIndex = PREF_ORDER.indexOf(preference);
   const appearanceIndex = prefIndex >= 0 ? prefIndex : 0;
+
+  const currentLanguageMeta = useMemo(() => getLanguageOption(language), [language]);
+
+  const handleLanguageSelect = useCallback(
+    async (code: SupportedLanguage) => {
+      await setLanguage(code);
+      languageSheetRef.current?.dismiss();
+    },
+    [setLanguage]
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -180,12 +198,12 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Appearance</Text>
-          <Text style={styles.appearanceHint}>Choose light, dark, or match your device.</Text>
+          <Text style={styles.sectionTitle}>{t('profile.appearance')}</Text>
+          <Text style={styles.appearanceHint}>{t('profile.appearanceHint')}</Text>
           <View style={styles.appearanceToggleWrap}>
             <SegmentToggle
               flush
-              options={['System', 'Light', 'Dark']}
+              options={[t('common.themeSystem'), t('common.themeLight'), t('common.themeDark')]}
               selectedIndex={appearanceIndex}
               onSelect={(i) => setPreference(PREF_ORDER[i] ?? 'system')}
             />
@@ -193,7 +211,37 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Social</Text>
+          <Text style={styles.sectionTitle}>{t('profile.languageSection')}</Text>
+          <Text style={styles.appearanceHint}>{t('profile.languageHint')}</Text>
+          <TouchableOpacity
+            style={styles.languageRow}
+            onPress={() => languageSheetRef.current?.present()}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('profile.languageSection')}, ${currentLanguageMeta?.englishLabel ?? language}`}
+            accessibilityHint={t('profile.languageHint')}
+          >
+            <View style={styles.languageRowLeft}>
+              <Text style={styles.languageRowPrimary} numberOfLines={1}>
+                {currentLanguageMeta?.label ?? language}
+              </Text>
+              <Text style={styles.languageRowSecondary} numberOfLines={1}>
+                {currentLanguageMeta?.englishLabel ?? language}
+              </Text>
+            </View>
+            <Text style={styles.languageRowChevron}>{'›'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <LanguagePickerSheet
+          ref={languageSheetRef}
+          tokens={tokens}
+          currentLanguage={language}
+          onSelectLanguage={handleLanguageSelect}
+        />
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('profile.social')}</Text>
           {socialLoading ? (
             <View style={styles.socialLoadingRow}>
               <ActivityIndicator size="small" color={tokens.colors.primary[500]} />
@@ -201,22 +249,22 @@ export default function ProfileScreen() {
           ) : (
             <View style={styles.socialStatsRow}>
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Followers</Text>
+                <Text style={styles.statLabel}>{t('profile.followers')}</Text>
                 <Text style={styles.statValue}>{stats?.followersCount ?? 0}</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Following users</Text>
+                <Text style={styles.statLabel}>{t('profile.followingUsers')}</Text>
                 <Text style={styles.statValue}>{stats?.followingUsersCount ?? 0}</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Following coins</Text>
+                <Text style={styles.statLabel}>{t('profile.followingCoins')}</Text>
                 <Text style={styles.statValue}>{stats?.followingCoinsCount ?? 0}</Text>
               </View>
             </View>
           )}
           {followingUsers.length > 0 && (
             <View style={styles.followingList}>
-              <Text style={styles.subSectionTitle}>Following</Text>
+              <Text style={styles.subSectionTitle}>{t('profile.following')}</Text>
               {followingUsers.slice(0, 8).map((item) => (
                 <View key={item.id} style={styles.followingUserRow}>
                   <Text style={styles.followUsername}>@{item.username}</Text>
@@ -226,7 +274,7 @@ export default function ProfileScreen() {
                     disabled={updatingUserId === item.id}
                   >
                     <Text style={[styles.followChipText, styles.followingChipText]}>
-                      {updatingUserId === item.id ? '...' : 'Unfollow'}
+                      {updatingUserId === item.id ? t('common.ellipsis') : t('profile.unfollow')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -236,11 +284,11 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle}>{t('profile.account')}</Text>
           <ProfileMenuItem
             tokens={tokens}
-            label="Account details"
-            description="View your basic account information"
+            label={t('profile.accountDetails')}
+            description={t('profile.accountDetailsDesc')}
             icon={<UserIcon size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => {
               console.log('Account pressed');
@@ -248,8 +296,8 @@ export default function ProfileScreen() {
           />
           <ProfileMenuItem
             tokens={tokens}
-            label="Security"
-            description="Password and sign-in options"
+            label={t('profile.security')}
+            description={t('profile.securityDesc')}
             icon={<Shield size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => {
               console.log('Security pressed');
@@ -258,22 +306,22 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Collections</Text>
+          <Text style={styles.sectionTitle}>{t('profile.collections')}</Text>
           <ProfileMenuItem
             tokens={tokens}
-            label="News Boards"
-            description="Your saved article collections"
+            label={t('profile.newsBoards')}
+            description={t('profile.newsBoardsDesc')}
             icon={<Bookmark size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => router.push('/news-boards' as never)}
           />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
+          <Text style={styles.sectionTitle}>{t('profile.about')}</Text>
           <ProfileMenuItem
             tokens={tokens}
-            label="About this app"
-            description="Learn more about Crypto Market"
+            label={t('profile.aboutApp')}
+            description={t('profile.aboutAppDesc')}
             icon={<Info size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => {
               console.log('About pressed');
@@ -284,8 +332,8 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <ProfileMenuItem
             tokens={tokens}
-            label="Logout"
-            description="Sign out of your account"
+            label={t('profile.logout')}
+            description={t('profile.logoutDesc')}
             icon={<LogOut size={18} color={tokens.colors.error[500]} />}
             danger
             onPress={handleLogout}
@@ -358,6 +406,37 @@ function buildScreenStyles(tokens: ThemeTokens) {
     appearanceToggleWrap: {
       paddingHorizontal: tokens.spacing.md,
       paddingBottom: tokens.spacing.sm,
+    },
+    languageRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      marginHorizontal: tokens.spacing.sm,
+      marginBottom: tokens.spacing.sm,
+      borderRadius: tokens.semantic.cardRadiusSmall,
+    },
+    languageRowLeft: {
+      flex: 1,
+      marginRight: tokens.spacing.sm,
+    },
+    languageRowPrimary: {
+      fontSize: tokens.typography.fontSizes.md,
+      fontWeight: tokens.typography.fontWeights.semibold,
+      color: tokens.text,
+      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+    },
+    languageRowSecondary: {
+      fontSize: tokens.typography.fontSizes.xs,
+      color: tokens.textMuted,
+      marginTop: 2,
+      fontFamily: tokens.typography.fontFamilies.sans,
+    },
+    languageRowChevron: {
+      fontSize: tokens.typography.fontSizes.xl,
+      color: tokens.textMuted,
+      fontFamily: tokens.typography.fontFamilies.sans,
     },
     socialLoadingRow: {
       paddingVertical: tokens.spacing.md,

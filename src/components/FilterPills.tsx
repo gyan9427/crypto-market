@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, TouchableOpacity, Text, ScrollView, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { ExploreCategory } from '../types';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
@@ -15,13 +16,17 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
   selectedCategory,
   onSelect,
 }) => {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildFilterPillsStyles(tokens), [tokens]);
 
-  const categoryLabels: Record<ExploreCategory, string> = {
-    trending: 'Trending',
-    top: 'Top',
-  };
+  const categoryLabels: Record<ExploreCategory, string> = useMemo(
+    () => ({
+      trending: t('explore.trending'),
+      top: t('explore.top'),
+    }),
+    [t]
+  );
 
   return (
     <ScrollView
