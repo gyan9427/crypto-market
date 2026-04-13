@@ -13,14 +13,12 @@ import type { SupportedLanguage } from '@/src/constants/languages';
 import { SUPPORTED_LANGUAGES } from '@/src/constants/languages';
 import en from '@/src/i18n/locales/en.json';
 import hi from '@/src/i18n/locales/hi.json';
-import ta from '@/src/i18n/locales/ta.json';
 
 export type TranslationResource = typeof en;
 
 /** Partial locale files are merged at runtime with i18n `fallbackLng: 'en'` for missing keys. */
 const LOCALE_BUNDLES: Partial<Record<SupportedLanguage, TranslationResource>> = {
   hi: hi as TranslationResource,
-  ta: ta as TranslationResource,
 };
 
 export function translationFor(lang: SupportedLanguage): TranslationResource {

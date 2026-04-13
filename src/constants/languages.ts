@@ -5,12 +5,6 @@
 export const SUPPORTED_LANGUAGES = [
   'en',
   'hi',
-  'ta',
-  'te',
-  'kn',
-  'ml',
-  'bn',
-  'mr',
 ] as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -31,12 +25,6 @@ export type LanguageOption = {
 export const LANGUAGE_OPTIONS: readonly LanguageOption[] = [
   { code: 'en', label: 'English', englishLabel: 'English' },
   { code: 'hi', label: 'हिन्दी', englishLabel: 'Hindi' },
-  { code: 'ta', label: 'தமிழ்', englishLabel: 'Tamil' },
-  { code: 'te', label: 'తెలుగు', englishLabel: 'Telugu' },
-  { code: 'kn', label: 'ಕನ್ನಡ', englishLabel: 'Kannada' },
-  { code: 'ml', label: 'മലയാളം', englishLabel: 'Malayalam' },
-  { code: 'bn', label: 'বাংলা', englishLabel: 'Bengali' },
-  { code: 'mr', label: 'मराठी', englishLabel: 'Marathi' },
 ] as const;
 
 export function getLanguageOption(
