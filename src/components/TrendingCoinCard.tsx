@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { TrendingCoin } from '../types';
 import { formatPrice, formatPercentage } from '../utils/format';
 import type { ThemeTokens } from '../theme/theme';
@@ -22,10 +22,16 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPre
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildTrendingCoinCardStyles(tokens), [tokens]);
   const c = tokens.colors;
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   const isPositive = coin.change24h >= 0;
   const sparklineData = useKlinesCache(coin.symbol, '1d', 48);
   const sparklineColor = isPositive ? c.success[500] : c.danger[500];
+  const showCoinLogo = Boolean(coin.logo) && !imageLoadFailed;
+
+  useEffect(() => {
+    setImageLoadFailed(false);
+  }, [coin.logo]);
 
   return (
     <TouchableOpacity
@@ -36,8 +42,17 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPre
       activeOpacity={0.8}
     >
       <View style={styles.leftSection}>
-        <View style={styles.symbolBadge}>
-          <Text style={styles.symbolBadgeText}>{coin.symbol}</Text>
+        <View style={styles.coinIconContainer}>
+          {showCoinLogo ? (
+            <Image
+              source={{ uri: coin.logo }}
+              style={styles.coinIcon}
+              resizeMode="cover"
+              onError={() => setImageLoadFailed(true)}
+            />
+          ) : (
+            <Text style={styles.coinIconFallbackText}>{coin.symbol}</Text>
+          )}
         </View>
         <View style={styles.coinDetails}>
           <Text style={styles.coinName} numberOfLines={1}>{coin.name}</Text>
@@ -92,14 +107,23 @@ function buildTrendingCoinCardStyles(tokens: ThemeTokens) {
       flex: 1,
       marginRight: s.sm,
     },
-    symbolBadge: {
+    coinIconContainer: {
+      width: 28,
+      height: 28,
       backgroundColor: c.primary[100],
-      borderRadius: 12,
-      paddingHorizontal: s.sm,
-      paddingVertical: s.xs,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: c.neutral[100],
       marginRight: s.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
     },
-    symbolBadgeText: {
+    coinIcon: {
+      width: '100%',
+      height: '100%',
+    },
+    coinIconFallbackText: {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.bold,
       color: c.primary[700],
