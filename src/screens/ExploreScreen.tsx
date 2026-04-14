@@ -80,7 +80,7 @@ export const ExploreScreen: React.FC = () => {
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
   const setMarketSnapshot = useAppStore((state) => state.setMarketSnapshot);
 
-  /** Phase 2: when true, list uses GET /api/market/snapshot; trending still fetched in parallel for A/B. */
+  /** Phase 5: default true — snapshot-only; `false` only for emergency legacy (EXPO_PUBLIC_MARKET_SNAPSHOT_UI=0). */
   const marketSnapshotUi = useMemo(() => isMarketSnapshotUiEnabled(), []);
 
   const categories: ExploreCategory[] = ['trending', 'top'];

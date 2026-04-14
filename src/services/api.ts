@@ -284,12 +284,8 @@ export const fetchCoinsByIds = async (coinIds: string[]): Promise<Coin[]> => {
 
   let followingIds: Set<string> = new Set();
   if (useAuthStore.getState().isAuthenticated) {
-    try {
-      const wishlist = await getWishlist();
-      followingIds = new Set(wishlist.map((c) => c.id));
-    } catch {
-      followingIds = new Set();
-    }
+    const { useAppStore } = await import('../state/useAppStore');
+    followingIds = new Set(useAppStore.getState().followingCoins);
   }
 
   const response = await apiRequest<{ coins: BackendCoin[] }>(
@@ -412,37 +408,23 @@ export const fetchMarketSnapshot = async (): Promise<MarketSnapshotV2> => {
 };
 
 /**
- * Fetch trending coins from API
+ * Legacy `/market/trending` fetch — **Explore no longer uses this on the hot path** (Phase 5).
+ * Kept for degraded mode when snapshot is unavailable (503). Follow flags come from Zustand `followingCoins`
+ * (hydrated via `syncFollowingCoins`, not per request).
  */
 export const fetchTrendingCoins = async (
   category?: 'trending' | 'top'
 ): Promise<TrendingCoin[]> => {
   try {
-    let endpoint = '/market/trending';
-
-    if (category === 'top') {
-      endpoint = '/market/trending'; // Use trending for now, or could use top-gainers
-    }
+    const endpoint = '/market/trending';
 
     const response = await apiRequest<{ coins: BackendCoin[] }>(endpoint);
-    
-    // Get user's following coins if authenticated
-    const followingCoins: string[] = [];
-    if (useAuthStore.getState().isAuthenticated) {
-      try {
-        const wishlist = await getWishlist();
-        followingCoins.push(...wishlist.map((coin) => coin.id));
-      } catch (error) {
-        // Ignore errors fetching wishlist
-      }
-    }
+
+    const { useAppStore } = await import('../state/useAppStore');
+    const followingSet = new Set(useAppStore.getState().followingCoins);
 
     return response.coins.map((coin) =>
-      transformBackendTrendingCoin(
-        coin,
-        category || 'trending',
-        followingCoins.includes(coin.coinId)
-      )
+      transformBackendTrendingCoin(coin, category || 'trending', followingSet.has(coin.coinId))
     );
   } catch (error: any) {
     throw new Error(`Failed to fetch trending coins: ${error.message}`);
@@ -455,16 +437,11 @@ export const fetchTrendingCoins = async (
 export const fetchCoinDetails = async (coinId: string): Promise<Coin> => {
   try {
     const response = await apiRequest<{ coin: BackendCoin }>(`/coins/${coinId}`);
-    
-    // Check if user is following this coin
+
     let isFollowing = false;
     if (useAuthStore.getState().isAuthenticated) {
-      try {
-        const wishlist = await getWishlist();
-        isFollowing = wishlist.some((coin) => coin.id === coinId);
-      } catch (error) {
-        // Ignore errors
-      }
+      const { useAppStore } = await import('../state/useAppStore');
+      isFollowing = useAppStore.getState().followingCoins.includes(coinId);
     }
 
     return transformBackendCoin(response.coin, isFollowing);

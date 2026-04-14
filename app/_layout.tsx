@@ -80,6 +80,7 @@ export default function RootLayout() {
         if (useAuthStore.getState().isAuthenticated) {
           void useAppStore.getState().syncLanguageFromServer();
           void useAppStore.getState().retryLanguageSync();
+          void useAppStore.getState().syncFollowingCoins();
         }
       }
     });
@@ -90,7 +91,8 @@ export default function RootLayout() {
     if (!isReady || !isAuthenticated) return;
     void syncLanguageFromServer();
     void retryLanguageSync();
-  }, [isReady, isAuthenticated, syncLanguageFromServer, retryLanguageSync]);
+    void syncFollowingCoins();
+  }, [isReady, isAuthenticated, syncLanguageFromServer, retryLanguageSync, syncFollowingCoins]);
 
   useEffect(() => {
     if (!isReady || !onboardingHydrated || !featuresLoaded) return;
