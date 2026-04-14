@@ -149,13 +149,6 @@ async function apiRequest<T>(
   }
 
   const url = `${API_BASE_URL}${endpoint}`;
-  // #region agent log
-  if (endpoint.includes('/news')) {
-    const _dbg = { sessionId: '10418d', location: 'api.ts:apiRequest', message: 'news-related API call', data: { endpoint: endpoint.slice(0, 120), acceptLanguageHeader: headers['Accept-Language'] }, timestamp: Date.now(), hypothesisId: 'H-B' };
-    console.log('[i18n-debug]', _dbg);
-    fetch('http://127.0.0.1:7723/ingest/46df119a-fef3-4d2e-b178-17829c05f667', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '10418d' }, body: JSON.stringify(_dbg) }).catch(() => {});
-  }
-  // #endregion
   let response: Response;
   try {
     response = await fetch(url, {

@@ -9,6 +9,7 @@ import {
   LayoutChangeEvent,
   Animated,
   Easing,
+  type ViewToken,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +36,12 @@ import { usePollingEffect } from '../hooks/usePollingEffect';
 import { useMarketPriceStream } from '../hooks/useMarketPriceStream';
 
 const GRAPH_ANIM_MS = 280;
+const LIST_POLL_MS_WS_HEALTHY = 4 * 60 * 1000;
+const LIST_POLL_MS_WS_FALLBACK = 20_000;
+const VIEWPORT_SUB_DEBOUNCE_MS = 200;
+const VIEWPORT_SYMBOL_BUFFER_BEFORE = 3;
+const VIEWPORT_SYMBOL_BUFFER_AFTER = 6;
+const INITIAL_WS_SYMBOLS = 16;
 
 export const ExploreScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -50,6 +57,8 @@ export const ExploreScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState<TrendingCoin[]>([]);
+  /** Phase 4: symbols for WS subscribe, derived from visible rows (+buffer), debounced. */
+  const [viewportSymbolList, setViewportSymbolList] = useState<string[]>([]);
   const [marketGraphExpanded, setMarketGraphExpanded] = useState(true);
   const [measuredGraphHeight, setMeasuredGraphHeight] = useState(0);
   const graphHeightAnim = useRef(new Animated.Value(0)).current;
@@ -76,52 +85,61 @@ export const ExploreScreen: React.FC = () => {
 
   const categories: ExploreCategory[] = ['trending', 'top'];
 
+  useEffect(() => {
+    setViewportSymbolList([]);
+  }, [exploreCategory]);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [trendingRes, snapshotRes] = await Promise.allSettled([
-        fetchTrendingCoins(exploreCategory),
-        fetchMarketSnapshot(),
-      ]);
-
-      if (snapshotRes.status === 'fulfilled') {
-        setMarketSnapshot(snapshotRes.value, null);
-      } else {
-        const msg =
-          snapshotRes.reason instanceof Error
-            ? snapshotRes.reason.message
-            : String(snapshotRes.reason);
-        // Keep last-good snapshot for sparklines when a poll fails (Phase 3).
-        setMarketSnapshot(useAppStore.getState().marketSnapshot, msg);
-      }
-
-      const snapshotForSparklines: MarketSnapshotV2 | null =
-        snapshotRes.status === 'fulfilled'
-          ? snapshotRes.value
-          : useAppStore.getState().marketSnapshot;
-
+      /**
+       * Snapshot path must NOT await `/market/trending` — that route can take 10s+ (CMC + DB).
+       * Redis snapshot is enough for list + sparklines; only fall back to trending if snapshot fails.
+       */
       if (marketSnapshotUi) {
-        if (snapshotRes.status === 'fulfilled') {
-          const snap = snapshotRes.value;
-          // Match legacy API: both pills used the same trending list — snapshot `trending` tab only for Phase 2.
+        try {
+          const snap = await fetchMarketSnapshot();
+          setMarketSnapshot(snap, null);
           const rows = snap.tabs.trending;
           const fid = new Set(useAppStore.getState().followingCoins);
           const mapped = rows.map((r) => mapSnapshotRowToTrendingCoin(r, exploreCategory, fid));
-          setCoins(enrichTrendingCoinsWithSnapshot(mapped, snapshotForSparklines));
-        } else if (trendingRes.status === 'fulfilled') {
-          setCoins(enrichTrendingCoinsWithSnapshot(trendingRes.value, snapshotForSparklines));
-        } else {
-          throw trendingRes.status === 'rejected' ? trendingRes.reason : new Error('No market data');
+          setCoins(enrichTrendingCoinsWithSnapshot(mapped, snap));
+        } catch (snapErr) {
+          const msg = snapErr instanceof Error ? snapErr.message : String(snapErr);
+          setMarketSnapshot(useAppStore.getState().marketSnapshot, msg);
+          const lastSnap = useAppStore.getState().marketSnapshot;
+          try {
+            const trendingCoins = await fetchTrendingCoins(exploreCategory);
+            setCoins(enrichTrendingCoinsWithSnapshot(trendingCoins, lastSnap));
+          } catch (trendErr) {
+            throw trendErr instanceof Error ? trendErr : new Error(String(trendErr));
+          }
         }
-      } else {
-        if (trendingRes.status === 'fulfilled') {
-          setCoins(enrichTrendingCoinsWithSnapshot(trendingRes.value, snapshotForSparklines));
-        } else {
-          throw trendingRes.status === 'rejected' ? trendingRes.reason : new Error('No market data');
-        }
+        return;
       }
+
+      const snapshotPromise = fetchMarketSnapshot().catch(() => null);
+      const trendingRes = await fetchTrendingCoins(exploreCategory).then(
+        (v) => ({ ok: true as const, v }),
+        (e) => ({ ok: false as const, e })
+      );
+      const snapshotValue = await snapshotPromise;
+
+      if (snapshotValue) {
+        setMarketSnapshot(snapshotValue, null);
+      } else {
+        setMarketSnapshot(useAppStore.getState().marketSnapshot, null);
+      }
+
+      const snapshotForSparklines: MarketSnapshotV2 | null =
+        snapshotValue ?? useAppStore.getState().marketSnapshot;
+
+      if (!trendingRes.ok) {
+        throw trendingRes.e instanceof Error ? trendingRes.e : new Error(String(trendingRes.e));
+      }
+      setCoins(enrichTrendingCoinsWithSnapshot(trendingRes.v, snapshotForSparklines));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message || t('errors.failedToLoadData'));
@@ -131,31 +149,68 @@ export const ExploreScreen: React.FC = () => {
     }
   }, [exploreCategory, marketSnapshotUi, setMarketSnapshot, t]);
 
-  usePollingEffect(
-    loadData,
-    [loadData, isFocused],
-    { enabled: isFocused, intervalMs: 20000, immediate: true }
+  const coinsRef = useRef(coins);
+  coinsRef.current = coins;
+  const viewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushViewportSymbols = useCallback((indices: number[]) => {
+    const list = coinsRef.current;
+    if (!list.length || !indices.length) return;
+    const minRaw = Math.min(...indices);
+    const maxRaw = Math.max(...indices);
+    const minIdx = Math.max(0, minRaw - VIEWPORT_SYMBOL_BUFFER_BEFORE);
+    const maxIdx = Math.min(list.length - 1, maxRaw + VIEWPORT_SYMBOL_BUFFER_AFTER);
+    const out: string[] = [];
+    for (let i = minIdx; i <= maxIdx; i++) {
+      out.push(list[i].symbol.trim().toUpperCase());
+    }
+    setViewportSymbolList(Array.from(new Set(out)));
+  }, []);
+
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (viewportDebounceRef.current) clearTimeout(viewportDebounceRef.current);
+      const idxs = viewableItems
+        .filter((v) => v.isViewable && typeof v.index === 'number')
+        .map((v) => v.index as number);
+      if (!idxs.length) return;
+      viewportDebounceRef.current = setTimeout(() => {
+        flushViewportSymbols(idxs);
+      }, VIEWPORT_SUB_DEBOUNCE_MS);
+    },
+    [flushViewportSymbols]
   );
+
+  useEffect(
+    () => () => {
+      if (viewportDebounceRef.current) clearTimeout(viewportDebounceRef.current);
+    },
+    []
+  );
+
+  const subscriptionSymbols = useMemo(() => {
+    if (viewportSymbolList.length > 0) return viewportSymbolList;
+    return coins.slice(0, INITIAL_WS_SYMBOLS).map((c) => c.symbol.trim().toUpperCase());
+  }, [viewportSymbolList, coins]);
+
+  const { quotes, isConnected } = useMarketPriceStream(subscriptionSymbols, { enabled: isFocused });
+
+  const listPollIntervalMs = isConnected ? LIST_POLL_MS_WS_HEALTHY : LIST_POLL_MS_WS_FALLBACK;
+
+  usePollingEffect(loadData, [loadData, isFocused, listPollIntervalMs], {
+    enabled: isFocused,
+    intervalMs: listPollIntervalMs,
+    immediate: true,
+  });
 
   const handleCoinPress = (coinId: string) => {
     router.push(`/coin/${coinId}` as never);
   };
 
-  const visibleCoins = coins;
-  const visibleSymbols = useMemo(
-    () => visibleCoins.map((c) => c.symbol),
-    [visibleCoins]
-  );
-  const { quotes } = useMarketPriceStream(visibleSymbols, { enabled: isFocused });
-  const liveVisibleCoins = visibleCoins.map((coin) => {
-    const q = quotes[coin.symbol.toUpperCase()];
-    if (!q) return coin;
-    return {
-      ...coin,
-      price: Number.isFinite(q.price) ? q.price : coin.price,
-      change24h: Number.isFinite(q.percentChange24h) ? q.percentChange24h : coin.change24h,
-    };
-  });
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 25,
+    minimumViewTime: 100,
+  }).current;
 
   const onMarketGraphLayout = (e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
@@ -264,14 +319,29 @@ export const ExploreScreen: React.FC = () => {
     <View style={styles.container}>
       {renderHeader()}
       <FlatList
-        data={loading && coins.length === 0 ? Array(5).fill(null) : liveVisibleCoins}
+        data={loading && coins.length === 0 ? Array(5).fill(null) : coins}
+        extraData={quotes}
         keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
         renderItem={({ item, index }) => {
           if (loading && coins.length === 0) {
             return <TrendingCoinCardSkeleton key={`skeleton-${index}`} />;
           }
-          return <TrendingCoinCard coin={item} onPress={handleCoinPress} />;
+          const coin = item as TrendingCoin;
+          const q = quotes[coin.symbol.toUpperCase()];
+          const liveCoin =
+            q && Number.isFinite(q.price)
+              ? {
+                  ...coin,
+                  price: q.price,
+                  change24h: Number.isFinite(q.percentChange24h)
+                    ? q.percentChange24h
+                    : coin.change24h,
+                }
+              : coin;
+          return <TrendingCoinCard coin={liveCoin} onPress={handleCoinPress} />;
         }}
+        viewabilityConfig={viewabilityConfig}
+        onViewableItemsChanged={onViewableItemsChanged}
         contentContainerStyle={styles.listContent}
         initialNumToRender={10}
         maxToRenderPerBatch={5}
