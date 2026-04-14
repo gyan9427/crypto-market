@@ -1,4 +1,5 @@
 import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts } from '../types';
+import type { MarketSnapshotV2, SnapshotRow } from '../types/marketSnapshot';
 import type { SupportedLanguage } from '@/src/constants/languages';
 import { isSupportedLanguage } from '@/src/constants/languages';
 import { useAuthStore } from '../state/useAuthStore';
@@ -348,6 +349,73 @@ export const fetchNews = async (
   } catch (error: any) {
     throw new Error(`Failed to fetch news: ${error.message}`);
   }
+};
+
+/** Close prices for Explore sparkline (≥2 points for SparklineChart). */
+function sparklineValuesFromSnapshotRow(row: SnapshotRow): number[] | undefined {
+  if (row.sparkline.encoding === 'closes' && row.sparkline.values.length >= 2) {
+    return row.sparkline.values;
+  }
+  if (row.sparkline.encoding === 'flat') {
+    const v = row.sparkline.value;
+    if (Number.isFinite(v)) return [v, v];
+  }
+  return undefined;
+}
+
+/**
+ * Attach `sparklineData` from snapshot rows by `coinId` (Phase 3 — no per-card /charts/klines).
+ */
+export function enrichTrendingCoinsWithSnapshot(
+  coins: TrendingCoin[],
+  snapshot: MarketSnapshotV2 | null | undefined
+): TrendingCoin[] {
+  if (!snapshot) return coins;
+  const byId = new Map<string, SnapshotRow>();
+  for (const row of snapshot.tabs.trending) byId.set(row.coinId, row);
+  for (const row of snapshot.tabs.topGainers) byId.set(row.coinId, row);
+  for (const row of snapshot.tabs.topLosers) byId.set(row.coinId, row);
+
+  return coins.map((c) => {
+    const row = byId.get(c.id);
+    if (!row) return c;
+    const sparklineData = sparklineValuesFromSnapshotRow(row);
+    if (!sparklineData) return c;
+    return { ...c, sparklineData };
+  });
+}
+
+/**
+ * Map a snapshot row to the Explore list `TrendingCoin` shape (Phase 2+).
+ */
+export function mapSnapshotRowToTrendingCoin(
+  row: SnapshotRow,
+  category: 'trending' | 'top',
+  followingIds: Set<string>
+): TrendingCoin {
+  const sparklineData = sparklineValuesFromSnapshotRow(row);
+
+  return {
+    id: row.coinId,
+    symbol: row.symbol,
+    name: row.name,
+    logo: row.image,
+    price: row.price,
+    change24h: row.percentChange24h,
+    marketCap: row.marketCap,
+    volume24h: row.volume24h,
+    rank: row.rank ?? 0,
+    category,
+    isFollowing: followingIds.has(row.coinId),
+    sparklineData,
+  };
+}
+
+/**
+ * GET /api/market/snapshot — precomputed market snapshot (Redis-only on server).
+ */
+export const fetchMarketSnapshot = async (): Promise<MarketSnapshotV2> => {
+  return apiRequest<MarketSnapshotV2>('/market/snapshot');
 };
 
 /**

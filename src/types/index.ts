@@ -1,4 +1,5 @@
 import type { SupportedLanguage } from '@/src/constants/languages';
+import type { MarketSnapshotV2 } from './marketSnapshot';
 
 export interface User {
   id: string;
@@ -223,6 +224,10 @@ export interface AppState {
   followingCoins: string[];
   boards: NewsBoard[];
   newsReactions: Record<string, ReactionType>;
+  /** Phase 2: last successful GET /api/market/snapshot (parallel with trending for A/B). */
+  marketSnapshot: MarketSnapshotV2 | null;
+  marketSnapshotError: string | null;
+  setMarketSnapshot: (snapshot: MarketSnapshotV2 | null, error?: string | null) => void;
   setFeedFilter: (filter: FeedFilter) => void;
   setExploreCategory: (category: ExploreCategory) => void;
   setThemePreference: (preference: ThemePreference) => void;

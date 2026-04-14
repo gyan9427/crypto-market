@@ -5,17 +5,28 @@ import { formatPrice, formatPercentage } from '../utils/format';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { SparklineChart } from './SparklineChart';
-import { useKlinesCache } from '../hooks/useKlinesCache';
 
 interface TrendingCoinCardProps {
   coin: TrendingCoin;
   onPress?: (coinId: string) => void;
 }
 
+function sparklineDataSignature(sp?: number[]): string {
+  if (!sp || sp.length < 2) return '';
+  return `${sp.length}:${sp[0]}:${sp[sp.length - 1]}`;
+}
+
 function areTrendingCoinCardPropsEqual(prev: TrendingCoinCardProps, next: TrendingCoinCardProps): boolean {
   const a = prev.coin;
   const b = next.coin;
-  return a.id === b.id && a.symbol === b.symbol && a.price === b.price && a.change24h === b.change24h && a.rank === b.rank;
+  return (
+    a.id === b.id &&
+    a.symbol === b.symbol &&
+    a.price === b.price &&
+    a.change24h === b.change24h &&
+    a.rank === b.rank &&
+    sparklineDataSignature(a.sparklineData) === sparklineDataSignature(b.sparklineData)
+  );
 }
 
 export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPress }) => {
@@ -25,7 +36,14 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPre
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   const isPositive = coin.change24h >= 0;
-  const sparklineData = useKlinesCache(coin.symbol, '1d', 48);
+  /** Phase 3: snapshot-backed closes only; no per-card /charts/klines. Fallback: flat line from price. */
+  const sparklineData = useMemo(() => {
+    const s = coin.sparklineData;
+    if (s && s.length >= 2) return s;
+    const p = coin.price;
+    if (Number.isFinite(p)) return [p, p];
+    return [];
+  }, [coin.sparklineData, coin.price]);
   const sparklineColor = isPositive ? c.success[500] : c.danger[500];
   const showCoinLogo = Boolean(coin.logo) && !imageLoadFailed;
 

@@ -20,8 +20,15 @@ import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
 import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import { useAppStore } from '../state/useAppStore';
-import { fetchTrendingCoins } from '../services/api';
+import {
+  fetchTrendingCoins,
+  fetchMarketSnapshot,
+  mapSnapshotRowToTrendingCoin,
+  enrichTrendingCoinsWithSnapshot,
+} from '../services/api';
+import { isMarketSnapshotUiEnabled } from '../config/marketSnapshotFlags';
 import { ExploreCategory, TrendingCoin } from '../types';
+import type { MarketSnapshotV2 } from '../types/marketSnapshot';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { usePollingEffect } from '../hooks/usePollingEffect';
@@ -62,6 +69,10 @@ export const ExploreScreen: React.FC = () => {
 
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
+  const setMarketSnapshot = useAppStore((state) => state.setMarketSnapshot);
+
+  /** Phase 2: when true, list uses GET /api/market/snapshot; trending still fetched in parallel for A/B. */
+  const marketSnapshotUi = useMemo(() => isMarketSnapshotUiEnabled(), []);
 
   const categories: ExploreCategory[] = ['trending', 'top'];
 
@@ -70,15 +81,55 @@ export const ExploreScreen: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const trendingCoins = await fetchTrendingCoins(exploreCategory);
-      setCoins(trendingCoins);
-    } catch (err: any) {
-      setError(err.message || t('errors.failedToLoadData'));
+      const [trendingRes, snapshotRes] = await Promise.allSettled([
+        fetchTrendingCoins(exploreCategory),
+        fetchMarketSnapshot(),
+      ]);
+
+      if (snapshotRes.status === 'fulfilled') {
+        setMarketSnapshot(snapshotRes.value, null);
+      } else {
+        const msg =
+          snapshotRes.reason instanceof Error
+            ? snapshotRes.reason.message
+            : String(snapshotRes.reason);
+        // Keep last-good snapshot for sparklines when a poll fails (Phase 3).
+        setMarketSnapshot(useAppStore.getState().marketSnapshot, msg);
+      }
+
+      const snapshotForSparklines: MarketSnapshotV2 | null =
+        snapshotRes.status === 'fulfilled'
+          ? snapshotRes.value
+          : useAppStore.getState().marketSnapshot;
+
+      if (marketSnapshotUi) {
+        if (snapshotRes.status === 'fulfilled') {
+          const snap = snapshotRes.value;
+          // Match legacy API: both pills used the same trending list — snapshot `trending` tab only for Phase 2.
+          const rows = snap.tabs.trending;
+          const fid = new Set(useAppStore.getState().followingCoins);
+          const mapped = rows.map((r) => mapSnapshotRowToTrendingCoin(r, exploreCategory, fid));
+          setCoins(enrichTrendingCoinsWithSnapshot(mapped, snapshotForSparklines));
+        } else if (trendingRes.status === 'fulfilled') {
+          setCoins(enrichTrendingCoinsWithSnapshot(trendingRes.value, snapshotForSparklines));
+        } else {
+          throw trendingRes.status === 'rejected' ? trendingRes.reason : new Error('No market data');
+        }
+      } else {
+        if (trendingRes.status === 'fulfilled') {
+          setCoins(enrichTrendingCoinsWithSnapshot(trendingRes.value, snapshotForSparklines));
+        } else {
+          throw trendingRes.status === 'rejected' ? trendingRes.reason : new Error('No market data');
+        }
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message || t('errors.failedToLoadData'));
       console.error('Error loading explore data:', err);
     } finally {
       setLoading(false);
     }
-  }, [exploreCategory, t]);
+  }, [exploreCategory, marketSnapshotUi, setMarketSnapshot, t]);
 
   usePollingEffect(
     loadData,
