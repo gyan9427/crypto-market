@@ -46,6 +46,14 @@ export const useAppStore = create<AppState>((set, get) => {
     followingCoins: [],
     boards: [],
     newsReactions: {},
+    marketSnapshot: null,
+    marketSnapshotError: null,
+
+    setMarketSnapshot: (snapshot, error = null) =>
+      set({
+        marketSnapshot: snapshot,
+        marketSnapshotError: error ?? null,
+      }),
 
     setFeedFilter: (filter: FeedFilter) => set({ feedFilter: filter }),
 

@@ -1,31 +1,55 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { TrendingCoin } from '../types';
 import { formatPrice, formatPercentage } from '../utils/format';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { SparklineChart } from './SparklineChart';
-import { useKlinesCache } from '../hooks/useKlinesCache';
 
 interface TrendingCoinCardProps {
   coin: TrendingCoin;
   onPress?: (coinId: string) => void;
 }
 
+function sparklineDataSignature(sp?: number[]): string {
+  if (!sp || sp.length < 2) return '';
+  return `${sp.length}:${sp[0]}:${sp[sp.length - 1]}`;
+}
+
 function areTrendingCoinCardPropsEqual(prev: TrendingCoinCardProps, next: TrendingCoinCardProps): boolean {
   const a = prev.coin;
   const b = next.coin;
-  return a.id === b.id && a.symbol === b.symbol && a.price === b.price && a.change24h === b.change24h && a.rank === b.rank;
+  return (
+    a.id === b.id &&
+    a.symbol === b.symbol &&
+    a.price === b.price &&
+    a.change24h === b.change24h &&
+    a.rank === b.rank &&
+    sparklineDataSignature(a.sparklineData) === sparklineDataSignature(b.sparklineData)
+  );
 }
 
 export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPress }) => {
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildTrendingCoinCardStyles(tokens), [tokens]);
   const c = tokens.colors;
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   const isPositive = coin.change24h >= 0;
-  const sparklineData = useKlinesCache(coin.symbol, '1d', 48);
+  /** Phase 3: snapshot-backed closes only; no per-card /charts/klines. Fallback: flat line from price. */
+  const sparklineData = useMemo(() => {
+    const s = coin.sparklineData;
+    if (s && s.length >= 2) return s;
+    const p = coin.price;
+    if (Number.isFinite(p)) return [p, p];
+    return [];
+  }, [coin.sparklineData, coin.price]);
   const sparklineColor = isPositive ? c.success[500] : c.danger[500];
+  const showCoinLogo = Boolean(coin.logo) && !imageLoadFailed;
+
+  useEffect(() => {
+    setImageLoadFailed(false);
+  }, [coin.logo]);
 
   return (
     <TouchableOpacity
@@ -36,8 +60,17 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPre
       activeOpacity={0.8}
     >
       <View style={styles.leftSection}>
-        <View style={styles.symbolBadge}>
-          <Text style={styles.symbolBadgeText}>{coin.symbol}</Text>
+        <View style={styles.coinIconContainer}>
+          {showCoinLogo ? (
+            <Image
+              source={{ uri: coin.logo }}
+              style={styles.coinIcon}
+              resizeMode="cover"
+              onError={() => setImageLoadFailed(true)}
+            />
+          ) : (
+            <Text style={styles.coinIconFallbackText}>{coin.symbol}</Text>
+          )}
         </View>
         <View style={styles.coinDetails}>
           <Text style={styles.coinName} numberOfLines={1}>{coin.name}</Text>
@@ -92,14 +125,23 @@ function buildTrendingCoinCardStyles(tokens: ThemeTokens) {
       flex: 1,
       marginRight: s.sm,
     },
-    symbolBadge: {
+    coinIconContainer: {
+      width: 28,
+      height: 28,
       backgroundColor: c.primary[100],
-      borderRadius: 12,
-      paddingHorizontal: s.sm,
-      paddingVertical: s.xs,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: c.neutral[100],
       marginRight: s.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
     },
-    symbolBadgeText: {
+    coinIcon: {
+      width: '100%',
+      height: '100%',
+    },
+    coinIconFallbackText: {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.bold,
       color: c.primary[700],

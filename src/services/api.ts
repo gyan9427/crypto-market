@@ -1,4 +1,5 @@
 import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts } from '../types';
+import type { MarketSnapshotV2, SnapshotRow } from '../types/marketSnapshot';
 import type { SupportedLanguage } from '@/src/constants/languages';
 import { isSupportedLanguage } from '@/src/constants/languages';
 import { useAuthStore } from '../state/useAuthStore';
@@ -148,13 +149,6 @@ async function apiRequest<T>(
   }
 
   const url = `${API_BASE_URL}${endpoint}`;
-  // #region agent log
-  if (endpoint.includes('/news')) {
-    const _dbg = { sessionId: '10418d', location: 'api.ts:apiRequest', message: 'news-related API call', data: { endpoint: endpoint.slice(0, 120), acceptLanguageHeader: headers['Accept-Language'] }, timestamp: Date.now(), hypothesisId: 'H-B' };
-    console.log('[i18n-debug]', _dbg);
-    fetch('http://127.0.0.1:7723/ingest/46df119a-fef3-4d2e-b178-17829c05f667', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '10418d' }, body: JSON.stringify(_dbg) }).catch(() => {});
-  }
-  // #endregion
   let response: Response;
   try {
     response = await fetch(url, {
@@ -290,12 +284,8 @@ export const fetchCoinsByIds = async (coinIds: string[]): Promise<Coin[]> => {
 
   let followingIds: Set<string> = new Set();
   if (useAuthStore.getState().isAuthenticated) {
-    try {
-      const wishlist = await getWishlist();
-      followingIds = new Set(wishlist.map((c) => c.id));
-    } catch {
-      followingIds = new Set();
-    }
+    const { useAppStore } = await import('../state/useAppStore');
+    followingIds = new Set(useAppStore.getState().followingCoins);
   }
 
   const response = await apiRequest<{ coins: BackendCoin[] }>(
@@ -350,38 +340,91 @@ export const fetchNews = async (
   }
 };
 
+/** Close prices for Explore sparkline (≥2 points for SparklineChart). */
+function sparklineValuesFromSnapshotRow(row: SnapshotRow): number[] | undefined {
+  if (row.sparkline.encoding === 'closes' && row.sparkline.values.length >= 2) {
+    return row.sparkline.values;
+  }
+  if (row.sparkline.encoding === 'flat') {
+    const v = row.sparkline.value;
+    if (Number.isFinite(v)) return [v, v];
+  }
+  return undefined;
+}
+
 /**
- * Fetch trending coins from API
+ * Attach `sparklineData` from snapshot rows by `coinId` (Phase 3 — no per-card /charts/klines).
+ */
+export function enrichTrendingCoinsWithSnapshot(
+  coins: TrendingCoin[],
+  snapshot: MarketSnapshotV2 | null | undefined
+): TrendingCoin[] {
+  if (!snapshot) return coins;
+  const byId = new Map<string, SnapshotRow>();
+  for (const row of snapshot.tabs.trending) byId.set(row.coinId, row);
+  for (const row of snapshot.tabs.topGainers) byId.set(row.coinId, row);
+  for (const row of snapshot.tabs.topLosers) byId.set(row.coinId, row);
+
+  return coins.map((c) => {
+    const row = byId.get(c.id);
+    if (!row) return c;
+    const sparklineData = sparklineValuesFromSnapshotRow(row);
+    if (!sparklineData) return c;
+    return { ...c, sparklineData };
+  });
+}
+
+/**
+ * Map a snapshot row to the Explore list `TrendingCoin` shape (Phase 2+).
+ */
+export function mapSnapshotRowToTrendingCoin(
+  row: SnapshotRow,
+  category: 'trending' | 'top',
+  followingIds: Set<string>
+): TrendingCoin {
+  const sparklineData = sparklineValuesFromSnapshotRow(row);
+
+  return {
+    id: row.coinId,
+    symbol: row.symbol,
+    name: row.name,
+    logo: row.image,
+    price: row.price,
+    change24h: row.percentChange24h,
+    marketCap: row.marketCap,
+    volume24h: row.volume24h,
+    rank: row.rank ?? 0,
+    category,
+    isFollowing: followingIds.has(row.coinId),
+    sparklineData,
+  };
+}
+
+/**
+ * GET /api/market/snapshot — precomputed market snapshot (Redis-only on server).
+ */
+export const fetchMarketSnapshot = async (): Promise<MarketSnapshotV2> => {
+  return apiRequest<MarketSnapshotV2>('/market/snapshot');
+};
+
+/**
+ * Legacy `/market/trending` fetch — **Explore no longer uses this on the hot path** (Phase 5).
+ * Kept for degraded mode when snapshot is unavailable (503). Follow flags come from Zustand `followingCoins`
+ * (hydrated via `syncFollowingCoins`, not per request).
  */
 export const fetchTrendingCoins = async (
   category?: 'trending' | 'top'
 ): Promise<TrendingCoin[]> => {
   try {
-    let endpoint = '/market/trending';
-
-    if (category === 'top') {
-      endpoint = '/market/trending'; // Use trending for now, or could use top-gainers
-    }
+    const endpoint = '/market/trending';
 
     const response = await apiRequest<{ coins: BackendCoin[] }>(endpoint);
-    
-    // Get user's following coins if authenticated
-    const followingCoins: string[] = [];
-    if (useAuthStore.getState().isAuthenticated) {
-      try {
-        const wishlist = await getWishlist();
-        followingCoins.push(...wishlist.map((coin) => coin.id));
-      } catch (error) {
-        // Ignore errors fetching wishlist
-      }
-    }
+
+    const { useAppStore } = await import('../state/useAppStore');
+    const followingSet = new Set(useAppStore.getState().followingCoins);
 
     return response.coins.map((coin) =>
-      transformBackendTrendingCoin(
-        coin,
-        category || 'trending',
-        followingCoins.includes(coin.coinId)
-      )
+      transformBackendTrendingCoin(coin, category || 'trending', followingSet.has(coin.coinId))
     );
   } catch (error: any) {
     throw new Error(`Failed to fetch trending coins: ${error.message}`);
@@ -394,16 +437,11 @@ export const fetchTrendingCoins = async (
 export const fetchCoinDetails = async (coinId: string): Promise<Coin> => {
   try {
     const response = await apiRequest<{ coin: BackendCoin }>(`/coins/${coinId}`);
-    
-    // Check if user is following this coin
+
     let isFollowing = false;
     if (useAuthStore.getState().isAuthenticated) {
-      try {
-        const wishlist = await getWishlist();
-        isFollowing = wishlist.some((coin) => coin.id === coinId);
-      } catch (error) {
-        // Ignore errors
-      }
+      const { useAppStore } = await import('../state/useAppStore');
+      isFollowing = useAppStore.getState().followingCoins.includes(coinId);
     }
 
     return transformBackendCoin(response.coin, isFollowing);

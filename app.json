@@ -39,6 +39,7 @@
     },
     "extra": {
       "router": {},
+      "marketSnapshotUi": true,
       "eas": {
         "projectId": "d3f86c59-3e74-49ce-a53a-e6963ec1226b"
       }
