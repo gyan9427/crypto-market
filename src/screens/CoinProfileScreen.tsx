@@ -27,6 +27,7 @@ import { formatTimeAgo } from '../utils/format';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useAppStore } from '../state/useAppStore';
+import { useAuthStore } from '../state/useAuthStore';
 import { useHasFeature } from '../utils/features';
 
 export const CoinProfileScreen: React.FC = () => {
@@ -52,55 +53,79 @@ export const CoinProfileScreen: React.FC = () => {
 
   useEffect(() => {
     if (!coinId) return;
+
+    // Drop previous coin immediately when `coinId` changes so we never flash stale data
+    // while `fetchCoinDetails` is in flight (same screen instance on param change).
+    setCoin(null);
+    setNews([]);
+    setStats(null);
+    setError(null);
+    setFollowersCount(null);
+    setIsFollowing(false);
+    setLoading(true);
+    setLoadingDetails(true);
+
+    const isAuthenticated = useAuthStore.getState().isAuthenticated;
+
     let cancelled = false;
     const load = async () => {
+      const loadStart = Date.now();
       try {
-        setLoading(true);
-        setLoadingDetails(true);
-        setError(null);
-        setNews([]);
-        setStats(null);
+        // Fire all requests together; unblock header as soon as profile returns.
+        const detailsPromise = fetchCoinDetails(coinId);
+        const newsPromise = fetchCoinNews(coinId);
+        const statsPromise = fetchCoinStats(coinId);
+        const followPromise = isAuthenticated ? getCoinFollowStats(coinId) : null;
 
-        // Fetch primary coin payload first to render the screen quickly.
-        const coinData = await fetchCoinDetails(coinId);
+        const secondary = [newsPromise, statsPromise, followPromise].filter(Boolean) as Promise<unknown>[];
+
+        let coinData: Awaited<ReturnType<typeof fetchCoinDetails>>;
+        try {
+          coinData = await detailsPromise;
+        } catch (detailErr) {
+          await Promise.allSettled(secondary);
+          throw detailErr;
+        }
+
         if (cancelled) return;
         setCoin(coinData);
         setIsFollowing(Boolean(coinData.isFollowing));
+        setError(null);
         setLoading(false);
 
-        // Load secondary sections in parallel without blocking route transition.
-        const [newsResult, statsResult] = await Promise.allSettled([
-          fetchCoinNews(coinId),
-          fetchCoinStats(coinId),
-        ]);
+        const settled = await Promise.allSettled(secondary);
         if (cancelled) return;
 
+        const newsResult = settled[0] as PromiseSettledResult<Awaited<ReturnType<typeof fetchCoinNews>>>;
+        const statsResult = settled[1] as PromiseSettledResult<Awaited<ReturnType<typeof fetchCoinStats>>>;
         if (newsResult.status === 'fulfilled') {
           setNews(newsResult.value);
         } else {
           console.warn('Failed to load coin news:', newsResult.reason);
         }
-
         if (statsResult.status === 'fulfilled') {
           setStats(statsResult.value);
         } else {
           console.warn('Failed to load coin stats:', statsResult.reason);
         }
-
-        try {
-          const followStats = await getCoinFollowStats(coinId);
-          if (!cancelled) {
-            setFollowersCount(followStats.followersCount ?? null);
+        if (isAuthenticated && settled[2]) {
+          const followResult = settled[2] as PromiseSettledResult<
+            Awaited<ReturnType<typeof getCoinFollowStats>>
+          >;
+          if (followResult.status === 'fulfilled') {
+            setFollowersCount(followResult.value.followersCount ?? null);
+          } else {
+            console.warn('Failed to load coin followers count:', followResult.reason);
           }
-        } catch (followStatsError) {
-          console.warn('Failed to load coin followers count:', followStatsError);
         }
       } catch (err: any) {
         if (!cancelled) {
           setError(err.message || t('errors.failedToLoadCoin'));
           setCoin(null);
+          setLoading(false);
         }
       } finally {
+        console.log('[CoinProfile] load settled in', Date.now() - loadStart, 'ms', coinId);
         if (!cancelled) {
           setLoading(false);
           setLoadingDetails(false);
