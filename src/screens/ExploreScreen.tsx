@@ -1,64 +1,67 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, FlatList, StyleSheet, Text, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
+import { setPerformanceScreen } from '../services/requestCache';
+import {
+  View,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  LayoutChangeEvent,
+  Animated,
+  Easing,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { FilterPills } from '../components/FilterPills';
-import { MarketCapChart } from '../charts';
-import { FeaturedMarketHeader } from '../components/FeaturedMarketHeader';
+import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
-import { LivePriceTrendingCoinCard } from '../components/LivePriceTrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
-import { CoinTableView } from '../components/CoinTableView';
-import { ViewToggle } from '../components/ViewToggle';
-import { SearchBar } from '../components/SearchBar';
+import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import { useAppStore } from '../state/useAppStore';
-import { fetchActiveCoinsPage, search } from '../services/api';
-import { useMarketPrices } from '../hooks/useMarketPrices';
+import { fetchActiveCoinsPage } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
-import { colors } from '../theme/theme';
+import type { ThemeTokens } from '../theme/theme';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { usePollingEffect } from '../hooks/usePollingEffect';
+import { useMarketPriceStream } from '../hooks/useMarketPriceStream';
+
+const GRAPH_ANIM_MS = 280;
 
 export const ExploreScreen: React.FC = () => {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildExploreScreenStyles(tokens), [tokens]);
+  const c = tokens.colors;
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (isFocused) setPerformanceScreen('Explore');
+  }, [isFocused]);
+
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState<TrendingCoin[]>([]);
   const [nextCursor, setNextCursor] = useState<number | null | undefined>(undefined);
-  const [searchResults, setSearchResults] = useState<{ coins: TrendingCoin[] } | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
+  const [marketGraphExpanded, setMarketGraphExpanded] = useState(true);
+  const [measuredGraphHeight, setMeasuredGraphHeight] = useState(0);
+  const graphHeightAnim = useRef(new Animated.Value(0)).current;
+  const graphMeasureReadyRef = useRef(false);
+  const recordedGraphFullHeightRef = useRef(0);
+  const lastSyncedGraphHeightRef = useRef(0);
+  const skipToggleEffectOnceRef = useRef(false);
+
+  const expandedGraphTargetHeight = useCallback(() => {
+    const recorded = recordedGraphFullHeightRef.current;
+    return recorded > 0 ? recorded : measuredGraphHeight;
+  }, [measuredGraphHeight]);
 
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
-  const visibleSymbols = useMemo(() => {
-    const fromCoins = coins.map((c) => c.symbol).filter(Boolean);
-    if (searchResults?.coins?.length) {
-      const fromSearch = searchResults.coins.map((c) => c.symbol).filter(Boolean);
-      return [...new Set([...fromCoins, ...fromSearch])];
-    }
-    return fromCoins;
-  }, [coins, searchResults]);
-  const { prices: livePrices } = useMarketPrices(visibleSymbols);
 
-  const categories: ExploreCategory[] = ['trending', 'top', 'nft', 'defi'];
-
-  const mergeLivePrices = useCallback(
-    (coin: TrendingCoin): TrendingCoin => {
-      const key = coin.symbol?.toUpperCase();
-      const live = key ? livePrices.get(key) : undefined;
-      if (live) {
-        return { ...coin, price: live.price, change24h: live.percentChange24h };
-      }
-      return coin;
-    },
-    [livePrices]
-  );
-
-  const categoryMap: Record<ExploreCategory, 'trending' | 'top' | 'nft' | 'defi'> = {
-    trending: 'trending',
-    top: 'top',
-    nft: 'trending',
-    defi: 'trending',
-  };
+  const categories: ExploreCategory[] = ['trending', 'top'];
 
   const loadInitialPage = useCallback(async () => {
     try {
@@ -69,7 +72,7 @@ export const ExploreScreen: React.FC = () => {
       const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
         undefined,
         20,
-        categoryMap[exploreCategory]
+        exploreCategory
       );
       setCoins(pageCoins);
       setNextCursor(cursor);
@@ -88,7 +91,7 @@ export const ExploreScreen: React.FC = () => {
       const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
         nextCursor,
         20,
-        categoryMap[exploreCategory]
+        exploreCategory
       );
       setCoins((prev) => [...prev, ...pageCoins]);
       setNextCursor(cursor);
@@ -99,250 +102,210 @@ export const ExploreScreen: React.FC = () => {
     }
   }, [loadingMore, nextCursor, exploreCategory]);
 
-  useEffect(() => {
-    loadInitialPage();
-  }, [loadInitialPage]);
-
-  // Handle search
-  useEffect(() => {
-    if (searchQuery.trim().length > 0) {
-      const timeoutId = setTimeout(() => {
-        handleSearch(searchQuery);
-      }, 500); // Debounce search
-
-      return () => clearTimeout(timeoutId);
-    } else {
-      setSearchResults(null);
-    }
-  }, [searchQuery]);
-
-  const handleSearch = async (query: string) => {
-    try {
-      const results = await search(query);
-      setSearchResults({
-        coins: results.coins.map((coin) => ({
-          ...coin,
-          rank: 0, // Search results don't have rank
-          category: exploreCategory,
-        })) as TrendingCoin[],
-      });
-    } catch (err: any) {
-      console.error('Search error:', err);
-      setSearchResults({ coins: [] });
-    }
-  };
+  usePollingEffect(
+    loadInitialPage,
+    [loadInitialPage, isFocused],
+    { enabled: isFocused, intervalMs: 20000, immediate: true }
+  );
 
   const handleCoinPress = (coinId: string) => {
     router.push(`/coin/${coinId}` as never);
   };
 
-  if (error && coins.length === 0) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.retryText} onPress={loadInitialPage}>
-          Tap to retry
-        </Text>
-      </View>
-    );
-  }
+  const visibleCoins = coins;
+  const visibleSymbols = useMemo(() => visibleCoins.map((c) => c.symbol), [visibleCoins]);
+  const { quotes } = useMarketPriceStream(visibleSymbols, { enabled: isFocused });
+  const liveVisibleCoins = visibleCoins.map((coin) => {
+    const q = quotes[coin.symbol.toUpperCase()];
+    if (!q) return coin;
+    return {
+      ...coin,
+      price: Number.isFinite(q.price) ? q.price : coin.price,
+      change24h: Number.isFinite(q.percentChange24h) ? q.percentChange24h : coin.change24h,
+    };
+  });
 
-  const searchResultsWithLivePrices = useMemo(
-    () =>
-      searchResults
-        ? { ...searchResults, coins: searchResults.coins.map(mergeLivePrices) }
-        : null,
-    [searchResults, mergeLivePrices]
-  );
+  const onMarketGraphLayout = (e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h <= 0) return;
+    if (!marketGraphExpanded) return;
+    recordedGraphFullHeightRef.current = Math.max(recordedGraphFullHeightRef.current, h);
+    setMeasuredGraphHeight((prev) => (Math.abs(prev - h) < 1 ? prev : h));
+  };
 
-  // If searching, show search results
-  if (searchResultsWithLivePrices !== null) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.headerSection}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search coins, tokens..."
-          />
-          <View style={styles.headerRow}>
-            <FeaturedMarketHeader />
-        </View>
-        <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
-          {error && (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>{error}</Text>
-            </View>
-          )}
-        </View>
-        {viewMode === 'table' ? (
-          <ScrollView style={styles.tableContainer}>
-            <CoinTableView coins={searchResultsWithLivePrices.coins} onCoinPress={handleCoinPress} />
-          </ScrollView>
-        ) : (
-          <FlatList
-            data={searchResultsWithLivePrices.coins}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TrendingCoinCard coin={item} onPress={handleCoinPress} />
-            )}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No results found</Text>
-              </View>
-            }
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-      </View>
-    );
-  }
+  useLayoutEffect(() => {
+    if (measuredGraphHeight <= 0) return;
 
-  // Table and list use base coins; LivePriceCell/LiveChangeCell and LivePriceTrendingCoinCard read from store for granular updates
-  const displayCoins = useMemo(() => coins, [coins]);
-
-  const renderContent = () => {
-    if (viewMode === 'table') {
-      return (
-        <ScrollView style={styles.tableContainer}>
-          {loading && coins.length === 0 ? (
-            <View style={styles.skeletonContainer}>
-              {Array(5).fill(null).map((_, index) => (
-                <TrendingCoinCardSkeleton key={`skeleton-${index}`} />
-              ))}
-            </View>
-          ) : (
-            <CoinTableView
-              coins={displayCoins}
-              onCoinPress={handleCoinPress}
-              onEndReached={loadMore}
-              onEndReachedThreshold={0.5}
-              hasMore={nextCursor != null}
-              loadingMore={loadingMore}
-            />
-          )}
-        </ScrollView>
-      );
+    if (!graphMeasureReadyRef.current) {
+      graphMeasureReadyRef.current = true;
+      const fullH = expandedGraphTargetHeight();
+      lastSyncedGraphHeightRef.current = fullH;
+      const target = marketGraphExpanded ? fullH : 0;
+      graphHeightAnim.setValue(target);
+      skipToggleEffectOnceRef.current = true;
+      return;
     }
 
+    if (marketGraphExpanded) {
+      const fullH = expandedGraphTargetHeight();
+      if (Math.abs(fullH - lastSyncedGraphHeightRef.current) >= 1) {
+        lastSyncedGraphHeightRef.current = fullH;
+        graphHeightAnim.setValue(fullH);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- graphHeightAnim is stable Animated.Value
+  }, [measuredGraphHeight, marketGraphExpanded, expandedGraphTargetHeight]);
+
+  useEffect(() => {
+    if (measuredGraphHeight <= 0 || !graphMeasureReadyRef.current) return;
+    if (skipToggleEffectOnceRef.current) {
+      skipToggleEffectOnceRef.current = false;
+      return;
+    }
+    const target = marketGraphExpanded ? expandedGraphTargetHeight() : 0;
+    Animated.timing(graphHeightAnim, {
+      toValue: target,
+      duration: GRAPH_ANIM_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [marketGraphExpanded, measuredGraphHeight, graphHeightAnim, expandedGraphTargetHeight]);
+
+  const toggleGraph = () => {
+    setMarketGraphExpanded((v) => !v);
+  };
+
+  const graphClipStyle =
+    measuredGraphHeight > 0
+      ? { height: graphHeightAnim, overflow: 'hidden' as const }
+      : { alignSelf: 'stretch' as const };
+
+  const renderHeader = () => (
+    <View style={styles.headerSection}>
+      <View style={styles.graphChrome}>
+        <TouchableOpacity
+          style={styles.graphToggleRow}
+          onPress={toggleGraph}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={marketGraphExpanded ? 'Hide market chart' : 'Show market chart'}
+        >
+          <Text style={styles.graphToggleLabel}>Market overview</Text>
+          {marketGraphExpanded ? (
+            <ChevronUp size={22} color={c.neutral[700]} accessibilityLabel="" />
+          ) : (
+            <ChevronDown size={22} color={c.neutral[700]} accessibilityLabel="" />
+          )}
+        </TouchableOpacity>
+        <Animated.View style={[styles.graphClip, graphClipStyle]}>
+          <View onLayout={onMarketGraphLayout} collapsable={false}>
+            <MarketCapPlaceholder liveUpdatesEnabled={isFocused && marketGraphExpanded} />
+          </View>
+        </Animated.View>
+      </View>
+      <FilterPills
+        categories={categories}
+        selectedCategory={exploreCategory}
+        onSelect={setExploreCategory}
+      />
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{error}</Text>
+        </View>
+      )}
+    </View>
+  );
+
+  if (error && coins.length === 0) {
     return (
+      <View style={styles.container}>
+        <ServiceUnavailableState onRetry={loadInitialPage} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {renderHeader()}
       <FlatList
-        data={loading && coins.length === 0 ? Array(5).fill(null) : displayCoins}
+        data={loading && coins.length === 0 ? Array(5).fill(null) : liveVisibleCoins}
         keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
         renderItem={({ item, index }) => {
           if (loading && coins.length === 0) {
             return <TrendingCoinCardSkeleton key={`skeleton-${index}`} />;
           }
-          return <LivePriceTrendingCoinCard coin={item} onPress={handleCoinPress} />;
+          return <TrendingCoinCard coin={item} onPress={handleCoinPress} />;
         }}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.footerLoader}>
-              <ActivityIndicator size="small" color={colors.primary[500]} />
+              <ActivityIndicator size="small" color={c.primary[500]} />
             </View>
           ) : null
         }
         contentContainerStyle={styles.listContent}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
         showsVerticalScrollIndicator={false}
       />
-    );
-  };
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.headerSection}>
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search coins, tokens..."
-        />
-        <View style={styles.headerRow}>
-          <FeaturedMarketHeader />
-        </View>
-        <FilterPills
-          categories={categories}
-          selectedCategory={exploreCategory}
-          onSelect={setExploreCategory}
-        />
-        <ViewToggle selectedView={viewMode} onSelect={setViewMode} />
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText}>{error}</Text>
-          </View>
-        )}
-      </View>
-      {renderContent()}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.neutral[50],
-  },
-  headerSection: {
-    zIndex: 10,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    alignSelf: 'stretch',
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: colors.error[500],
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  retryText: {
-    color: colors.primary[500],
-    fontSize: 14,
-    textDecorationLine: 'underline',
-  },
-  errorBanner: {
-    backgroundColor: colors.error[50],
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 8,
-  },
-  errorBannerText: {
-    color: colors.error[700],
-    fontSize: 14,
-  },
-  emptyContainer: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: colors.neutral[500],
-    fontSize: 16,
-  },
-  listContent: {
-    paddingTop: 8,
-    paddingBottom: 100,
-    paddingHorizontal: 16,
-  },
-  tableContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  skeletonContainer: {
-    paddingTop: 8,
-    paddingBottom: 100,
-  },
-  footerLoader: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-});
+function buildExploreScreenStyles(tokens: ThemeTokens) {
+  const c = tokens.colors;
+  const s = tokens.spacing;
+  const typo = tokens.typography;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tokens.bg,
+    },
+    headerSection: {
+      zIndex: 10,
+      backgroundColor: tokens.bg,
+      paddingBottom: s.xs,
+    },
+    graphChrome: {
+      marginBottom: 0,
+    },
+    graphToggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: s.lg,
+      paddingTop: s.xs,
+      paddingBottom: s.sm,
+    },
+    graphToggleLabel: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+      color: tokens.text,
+    },
+    graphClip: {
+      marginBottom: 0,
+    },
+    errorBanner: {
+      backgroundColor: c.error[50],
+      padding: s.md,
+      marginHorizontal: 24,
+      marginTop: s.xs,
+      borderRadius: 16,
+    },
+    errorBannerText: {
+      color: c.error[700],
+      fontSize: 14,
+    },
+    listContent: {
+      paddingTop: s.xs,
+      paddingBottom: 96,
+      paddingHorizontal: s.lg,
+    },
+    footerLoader: {
+      paddingVertical: s.md,
+      alignItems: 'center',
+    },
+  });
+}
