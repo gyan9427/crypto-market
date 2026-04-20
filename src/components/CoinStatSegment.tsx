@@ -52,17 +52,9 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
   const styles = useMemo(() => buildCoinStatSegmentStyles(tokens), [tokens]);
   const c = tokens.colors;
 
-  if (!stats) return null;
-  const low = stats.low_24h;
-  const high = stats.high_24h;
-  const current = stats.current_price;
-  const hasRange = low != null && high != null && high > low && current != null;
-  const fillRatio = hasRange
-    ? Math.max(0, Math.min(1, (current - low) / (high - low)))
-    : 0;
-
-  const leftColumn: Omit<StatCellProps, 'styles'>[] = useMemo(
-    () => [
+  const leftColumn: Omit<StatCellProps, 'styles'>[] = useMemo(() => {
+    if (!stats) return [];
+    return [
       {
         label: t('coin.statMarketCap'),
         value: stats.market_cap != null ? formatMarketCap(stats.market_cap) : '—',
@@ -92,12 +84,12 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
             ? `(${formatDate(new Date(stats.atl_date))})`
             : undefined,
       },
-    ],
-    [stats, coinSymbol, t]
-  );
+    ];
+  }, [stats, coinSymbol, t]);
 
-  const rightColumn: Omit<StatCellProps, 'styles'>[] = useMemo(
-    () => [
+  const rightColumn: Omit<StatCellProps, 'styles'>[] = useMemo(() => {
+    if (!stats) return [];
+    return [
       {
         label: t('coin.statFullyDiluted'),
         value:
@@ -113,9 +105,18 @@ export const CoinStatSegment: React.FC<CoinStatSegmentProps> = ({
         label: t('coin.statTotalSupply'),
         value: formatSupplyWithSymbol(stats.total_supply, coinSymbol),
       },
-    ],
-    [stats, coinSymbol, t]
-  );
+    ];
+  }, [stats, coinSymbol, t]);
+
+  if (!stats) return null;
+
+  const low = stats.low_24h;
+  const high = stats.high_24h;
+  const current = stats.current_price;
+  const hasRange = low != null && high != null && high > low && current != null;
+  const fillRatio = hasRange
+    ? Math.max(0, Math.min(1, (current - low) / (high - low)))
+    : 0;
 
   return (
     <View style={styles.card}>

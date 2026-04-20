@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -18,12 +19,16 @@ import {
   followCoin,
   unfollowCoin,
   getCoinFollowStats,
+  toggleReaction,
 } from '../services/api';
-import { Coin, CoinStats, NewsItem } from '../types';
+import { Coin, CoinStats, NewsItem, ReactionType } from '../types';
 import { CoinStatSegment } from '../components/CoinStatSegment';
 import { CoinPriceChart } from '../components/CoinPriceChart';
-import { openInAppBrowser } from '../utils/browser';
-import { formatTimeAgo } from '../utils/format';
+import { NewsCard } from '../components/NewsCard';
+import { NewsCardSkeleton } from '../components/NewsCardSkeleton';
+import { SaveToBoardModal } from '../components/SaveToBoardModal';
+import { CommentTray } from '../components/CommentTray';
+import { NewsDetailModal } from './NewsDetailModal';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useAppStore } from '../state/useAppStore';
@@ -49,7 +54,15 @@ export const CoinProfileScreen: React.FC = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const [isDetailVisible, setIsDetailVisible] = useState(false);
+  const [savingNewsId, setSavingNewsId] = useState<string | null>(null);
+  const [commentingNewsId, setCommentingNewsId] = useState<string | null>(null);
+
   const syncFollowingCoins = useAppStore((state) => state.syncFollowingCoins);
+  const setReaction = useAppStore((state) => state.setReaction);
+  const newsReactions = useAppStore((state) => state.newsReactions);
+  const boards = useAppStore((state) => state.boards);
 
   useEffect(() => {
     if (!coinId) return;
@@ -75,15 +88,12 @@ export const CoinProfileScreen: React.FC = () => {
         const detailsPromise = fetchCoinDetails(coinId);
         const newsPromise = fetchCoinNews(coinId);
         const statsPromise = fetchCoinStats(coinId);
-        const followPromise = isAuthenticated ? getCoinFollowStats(coinId) : null;
-
-        const secondary = [newsPromise, statsPromise, followPromise].filter(Boolean) as Promise<unknown>[];
 
         let coinData: Awaited<ReturnType<typeof fetchCoinDetails>>;
         try {
           coinData = await detailsPromise;
         } catch (detailErr) {
-          await Promise.allSettled(secondary);
+          await Promise.allSettled([newsPromise, statsPromise]);
           throw detailErr;
         }
 
@@ -92,6 +102,10 @@ export const CoinProfileScreen: React.FC = () => {
         setIsFollowing(Boolean(coinData.isFollowing));
         setError(null);
         setLoading(false);
+
+        const followKey = coinData.id;
+        const followPromise = isAuthenticated ? getCoinFollowStats(followKey) : null;
+        const secondary = [newsPromise, statsPromise, followPromise].filter(Boolean) as Promise<unknown>[];
 
         const settled = await Promise.allSettled(secondary);
         if (cancelled) return;
@@ -138,13 +152,130 @@ export const CoinProfileScreen: React.FC = () => {
     };
   }, [coinId]);
 
-  const handleNewsPress = (item: NewsItem) => {
-    const url = item.url || item.sourceUrl;
-    if (url) openInAppBrowser(url, { barTintColor: c.neutral[900] });
-  };
+  const newsForFeed = useMemo(() => {
+    const savedToBoard = (id: string) => boards.some((board) => board.newsIds.includes(id));
+    return news.map((item) => ({
+      ...item,
+      userReaction: newsReactions[item.id] ?? item.userReaction ?? null,
+      isSaved: savedToBoard(item.id) || Boolean(item.isSaved),
+    }));
+  }, [news, newsReactions, boards]);
+
+  const openNewsDetailById = useCallback(
+    (newsId: string) => {
+      const newsItem = newsForFeed.find((item) => item.id === newsId);
+      if (!newsItem) return;
+
+      const dummyBody =
+        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum at magna euismod, consectetur nibh at, sollicitudin tortor. ' +
+        'Integer finibus, nibh vel tempor placerat, nunc sem pretium sapien, vel pulvinar nisi justo non urna.\n\n' +
+        'Suspendisse potenti. Morbi non magna eget elit gravida hendrerit. Donec aliquam, nisl in dictum sagittis, ' +
+        'lectus lorem pulvinar enim, quis hendrerit dui nunc sit amet metus. This is placeholder copy used while the full article integration is in progress.';
+
+      setSelectedNews({
+        ...newsItem,
+        content: newsItem.content || `${newsItem.snippet}\n\n${dummyBody}`,
+      });
+      setIsDetailVisible(true);
+    },
+    [newsForFeed]
+  );
+
+  const handleCloseDetail = useCallback(() => {
+    setIsDetailVisible(false);
+    setSelectedNews(null);
+  }, []);
+
+  const handleReact = useCallback(
+    async (newsId: string, type: ReactionType) => {
+      const currentReaction = newsReactions[newsId] ?? null;
+      const newReaction = currentReaction === type ? null : type;
+      setReaction(newsId, newReaction);
+
+      const optimisticUpdate = (item: NewsItem): NewsItem => {
+        if (item.id !== newsId) return item;
+        const prev = {
+          ...(item.reactions ?? {
+            appreciate: 0,
+            insightful: 0,
+            bullish: 0,
+            risk: 0,
+            deepDive: 0,
+            debatable: 0,
+            total: 0,
+          }),
+        };
+        if (currentReaction) {
+          prev[currentReaction] = Math.max(0, (prev[currentReaction] ?? 0) - 1);
+          prev.total = Math.max(0, prev.total - 1);
+        }
+        if (newReaction) {
+          prev[newReaction] = (prev[newReaction] ?? 0) + 1;
+          prev.total = prev.total + 1;
+        }
+        return { ...item, userReaction: newReaction, reactions: prev };
+      };
+
+      setNews((prev) => prev.map(optimisticUpdate));
+
+      try {
+        const result = await toggleReaction(newsId, type);
+        setReaction(newsId, result.userReaction);
+        setNews((prev) =>
+          prev.map((item) =>
+            item.id === newsId
+              ? { ...item, reactions: result.reactions, userReaction: result.userReaction }
+              : item
+          )
+        );
+      } catch (toggleErr) {
+        setReaction(newsId, currentReaction);
+        setNews((prev) =>
+          prev.map((item) =>
+            item.id === newsId ? { ...item, userReaction: currentReaction } : item
+          )
+        );
+        console.error('Failed to toggle reaction:', toggleErr);
+      }
+    },
+    [newsReactions, setReaction]
+  );
+
+  const handleSave = useCallback((newsId: string) => {
+    setSavingNewsId(newsId);
+  }, []);
+
+  const handleSaved = useCallback((newsId: string, saveCount: number) => {
+    setNews((prev) =>
+      prev.map((item) => (item.id === newsId ? { ...item, isSaved: true, saveCount } : item))
+    );
+    setSavingNewsId(null);
+  }, []);
+
+  const handleComment = useCallback((newsId: string) => {
+    setCommentingNewsId(newsId);
+  }, []);
+
+  const handleCommentCountChange = useCallback((newsId: string, count: number) => {
+    setNews((prev) =>
+      prev.map((item) => (item.id === newsId ? { ...item, comments: count } : item))
+    );
+  }, []);
+
+  const handleShare = useCallback((newsId: string) => {
+    console.log('Share:', newsId);
+  }, []);
+
+  const handleCoinPress = useCallback(
+    (targetCoinId: string) => {
+      router.push(`/coin/${targetCoinId}` as never);
+    },
+    [router]
+  );
 
   const handleFollowToggle = async () => {
-    if (!coinId || followLoading) return;
+    if (!coinId || !coin || followLoading) return;
+    const followTargetId = coin.id;
     const nextFollowing = !isFollowing;
     const prevFollowers = followersCount;
 
@@ -157,12 +288,12 @@ export const CoinProfileScreen: React.FC = () => {
 
     try {
       if (nextFollowing) {
-        await followCoin(coinId);
+        await followCoin(followTargetId);
       } else {
-        await unfollowCoin(coinId);
+        await unfollowCoin(followTargetId);
       }
       await syncFollowingCoins();
-      const refreshedStats = await getCoinFollowStats(coinId);
+      const refreshedStats = await getCoinFollowStats(followTargetId);
       setFollowersCount(refreshedStats.followersCount ?? prevFollowers);
     } catch (toggleError) {
       setIsFollowing(!nextFollowing);
@@ -247,65 +378,74 @@ export const CoinProfileScreen: React.FC = () => {
         </View>
       </View>
 
-      <View style={styles.fixedSegment}>
-        {hasCharts ? (
-          <CoinPriceChart symbol={coin.symbol} />
-        ) : (
-          <View style={styles.chartPlaceholder}>
-            <Text style={styles.chartPlaceholderText}>{t('coin.chartsUnavailable')}</Text>
-          </View>
-        )}
-        <CoinStatSegment stats={stats} coinSymbol={coin.symbol} />
-      </View>
-
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        <View style={styles.chartStatsPad}>
+          {hasCharts ? (
+            <CoinPriceChart symbol={coin.symbol} />
+          ) : (
+            <View style={styles.chartPlaceholder}>
+              <Text style={styles.chartPlaceholderText}>{t('coin.chartsUnavailable')}</Text>
+            </View>
+          )}
+          <CoinStatSegment stats={stats} coinSymbol={coin.symbol} />
+        </View>
+
         <View style={styles.newsSection}>
           <Text style={styles.sectionTitle}>{t('coin.relatedNews')}</Text>
-          {loadingDetails ? (
-            <Text style={styles.loadingDetailText}>{t('coin.refreshingData')}</Text>
-          ) : null}
-          {news.length === 0 ? (
+          {loadingDetails && news.length === 0 ? (
+            <>
+              <Text style={styles.loadingDetailText}>{t('coin.refreshingData')}</Text>
+              {[0, 1, 2].map((i) => (
+                <NewsCardSkeleton key={`coin-news-skel-${i}`} />
+              ))}
+            </>
+          ) : newsForFeed.length === 0 ? (
             <Text style={styles.emptyText}>{t('coin.noRelatedNews')}</Text>
           ) : (
-            <View style={styles.newsList}>
-              {news.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.newsCard}
-                  onPress={() => handleNewsPress(item)}
-                  activeOpacity={0.9}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('news.readNewsTitle', { title: item.title })}
-                >
-                  <View style={styles.newsCardImageContainer}>
-                    {item.imageUrl ? (
-                      <Image
-                        source={{ uri: item.imageUrl }}
-                        style={styles.newsCardImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={styles.newsCardImagePlaceholder} />
-                    )}
-                  </View>
-                  <View style={styles.newsCardContent}>
-                    <Text style={styles.newsCardTitle} numberOfLines={2}>
-                      {item.title}
-                    </Text>
-                    <Text style={styles.newsCardMeta}>
-                      {item.source} • {formatTimeAgo(item.publishedAt)}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
+            newsForFeed.map((item) => (
+              <NewsCard
+                key={item.id}
+                item={item}
+                onReact={handleReact}
+                onComment={handleComment}
+                onShare={handleShare}
+                onSave={handleSave}
+                onCoinPress={handleCoinPress}
+                onPress={openNewsDetailById}
+              />
+            ))
           )}
         </View>
       </ScrollView>
+
+      {selectedNews ? (
+        <Modal visible={isDetailVisible} animationType="slide" onRequestClose={handleCloseDetail}>
+          <NewsDetailModal newsItem={selectedNews} onClose={handleCloseDetail} />
+        </Modal>
+      ) : null}
+
+      <SaveToBoardModal
+        visible={savingNewsId !== null}
+        newsId={savingNewsId}
+        onClose={() => setSavingNewsId(null)}
+        onSaved={handleSaved}
+      />
+
+      <CommentTray
+        visible={commentingNewsId !== null}
+        newsId={commentingNewsId}
+        commentCount={
+          commentingNewsId
+            ? (newsForFeed.find((n) => n.id === commentingNewsId)?.comments ?? 0)
+            : 0
+        }
+        onClose={() => setCommentingNewsId(null)}
+        onCountChange={handleCommentCountChange}
+      />
     </View>
   );
 };
@@ -424,12 +564,13 @@ function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
   },
   scrollView: {
     flex: 1,
+    minHeight: 0,
   },
   scrollContent: {
-    paddingHorizontal: s.md,
     paddingBottom: s.xxl,
+    flexGrow: 1,
   },
-  fixedSegment: {
+  chartStatsPad: {
     paddingHorizontal: s.md,
     paddingTop: s.lg,
   },
@@ -447,50 +588,14 @@ function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
     fontWeight: '500',
   },
   newsSection: {
-    paddingTop: s.sm,
+    paddingTop: s.lg,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: c.neutral[800],
     marginBottom: s.md,
-  },
-  newsList: {
-    paddingBottom: s.xxl,
-  },
-  newsCard: {
-    backgroundColor: tokens.surface,
-    borderRadius: br.card,
-    marginBottom: s.md,
-    ...tokens.shadows.md,
-    overflow: 'hidden',
-  },
-  newsCardImageContainer: {
-    width: '100%',
-    height: 140,
-  },
-  newsCardImage: {
-    width: '100%',
-    height: '100%',
-  },
-  newsCardImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: c.neutral[200],
-  },
-  newsCardContent: {
-    padding: s.md,
-  },
-  newsCardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: tokens.text,
-    lineHeight: 20,
-    marginBottom: s.sm,
-  },
-  newsCardMeta: {
-    fontSize: 12,
-    color: tokens.textMuted,
+    marginHorizontal: s.md,
   },
   errorText: {
     color: c.error[500],
@@ -511,12 +616,14 @@ function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
     fontSize: 14,
     textAlign: 'center',
     marginTop: s.lg,
+    marginHorizontal: s.md,
   },
   loadingDetailText: {
     color: tokens.textMuted,
     fontSize: 12,
     marginTop: -s.xs,
     marginBottom: s.sm,
+    marginHorizontal: s.md,
   },
 });
 }
