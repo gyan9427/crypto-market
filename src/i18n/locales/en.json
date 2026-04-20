@@ -116,6 +116,13 @@
     "failedToLoadData": "Failed to load data",
     "failedToLoadCoin": "Failed to load coin profile"
   },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "subtitle": "An unexpected error interrupted the app. You can try again — your session and data are safe.",
+    "tryAgain": "Try again",
+    "reloadApp": "Reload page",
+    "devDetails": "Development details"
+  },
   "serviceUnavailable": {
     "title": "We're offline for a moment",
     "message": "Our servers are taking a short break. Your markets and news will sync again soon.",
