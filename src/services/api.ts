@@ -743,9 +743,10 @@ export const getUserFollowStats = async (userId: string): Promise<FollowStats> =
 
 export const getCoinFollowStats = async (coinId: string): Promise<FollowStats> => {
   try {
-    return await apiRequest<FollowStats>(`/follow/coins/${coinId}/stats`);
+    return await apiRequest<FollowStats>(`/follow/coins/${encodeURIComponent(coinId)}/stats`);
   } catch (error: any) {
-    throw new Error(`Failed to fetch coin follow stats: ${error.message}`);
+    console.warn('getCoinFollowStats failed:', error?.message || error);
+    return { followersCount: 0 };
   }
 };
 

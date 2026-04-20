@@ -5,6 +5,7 @@ import { Stack, useRouter, useSegments, type Href } from 'expo-router';
 import { AppState, InteractionManager, Platform, View } from 'react-native';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ThemeProvider, useAppTheme } from '@/src/theme/ThemeProvider';
+import { GlobalErrorBoundary } from '@/src/components/GlobalErrorBoundary';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
@@ -140,9 +141,11 @@ export default function RootLayout() {
   return (
     <RootView style={{ flex: 1 }}>
       <ThemeProvider>
-        <BottomSheetModalProvider>
-          <RootLayoutContent isReady={isReady} />
-        </BottomSheetModalProvider>
+        <GlobalErrorBoundary>
+          <BottomSheetModalProvider>
+            <RootLayoutContent isReady={isReady} />
+          </BottomSheetModalProvider>
+        </GlobalErrorBoundary>
       </ThemeProvider>
     </RootView>
   );
