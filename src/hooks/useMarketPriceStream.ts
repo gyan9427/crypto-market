@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { resolveApiBaseUrl } from '@/src/config/apiBaseUrl';
 
 export interface LivePriceQuote {
@@ -31,8 +31,156 @@ function resolveWsUrl(): string {
   return parsed.toString();
 }
 
+// ── Shared hub: one WebSocket, merged subscriptions, all quotes ───────────────
+
+let hubQuotes: Record<string, LivePriceQuote> = {};
+let storeVersion = 0;
+const storeListeners = new Set<() => void>();
+
+function subscribeStore(onStoreChange: () => void) {
+  storeListeners.add(onStoreChange);
+  return () => storeListeners.delete(onStoreChange);
+}
+
+function getStoreVersion() {
+  return storeVersion;
+}
+
+function bumpStore() {
+  storeVersion += 1;
+  storeListeners.forEach((l) => l());
+}
+
+function applySnapshot(prices: Record<string, LivePriceQuote>) {
+  const upper: Record<string, LivePriceQuote> = {};
+  for (const [k, v] of Object.entries(prices)) {
+    upper[k.toUpperCase()] = v;
+  }
+  hubQuotes = { ...hubQuotes, ...upper };
+  bumpStore();
+}
+
+function applyUpdates(updates: Array<{ symbol: string; price: number; percentChange24h: number }>) {
+  const next = { ...hubQuotes };
+  for (const u of updates) {
+    if (!u.symbol) continue;
+    next[u.symbol.toUpperCase()] = {
+      price: u.price,
+      percentChange24h: u.percentChange24h,
+    };
+  }
+  hubQuotes = next;
+  bumpStore();
+}
+
+const clientSymbols = new Map<number, string[]>();
+let hubClientIdSeq = 0;
+let ws: WebSocket | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let socketSession = 0;
+
+function mergedSymbols(): string[] {
+  const s = new Set<string>();
+  for (const arr of clientSymbols.values()) {
+    for (const sym of arr) s.add(sym);
+  }
+  return Array.from(s);
+}
+
+function sendSubscribe() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  const symbols = mergedSymbols();
+  ws.send(JSON.stringify({ type: 'subscribe', symbols }));
+}
+
+function syncConnection() {
+  const want = mergedSymbols();
+  if (want.length === 0) {
+    socketSession += 1;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+    bumpStore();
+    return;
+  }
+
+  if (ws?.readyState === WebSocket.OPEN) {
+    sendSubscribe();
+    return;
+  }
+
+  if (ws?.readyState === WebSocket.CONNECTING) {
+    return;
+  }
+
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+
+  const mySession = ++socketSession;
+  const socket = new WebSocket(resolveWsUrl());
+  ws = socket;
+
+  socket.onopen = () => {
+    if (mySession !== socketSession) return;
+    bumpStore();
+    sendSubscribe();
+  };
+
+  socket.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(String(event.data)) as StreamMessage;
+      if (msg.type === 'snapshot' && msg.prices) {
+        applySnapshot(msg.prices);
+        return;
+      }
+      if (msg.type === 'price' && Array.isArray(msg.updates)) {
+        applyUpdates(msg.updates);
+      }
+    } catch {
+      // ignore malformed messages
+    }
+  };
+
+  socket.onclose = () => {
+    if (mySession !== socketSession) return;
+    ws = null;
+    bumpStore();
+    if (mergedSymbols().length === 0) return;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      syncConnection();
+    }, 2000);
+  };
+
+  socket.onerror = () => {
+    socket.close();
+  };
+}
+
+function setClientSymbols(clientId: number, symbols: string[]) {
+  if (symbols.length === 0) {
+    clientSymbols.delete(clientId);
+  } else {
+    clientSymbols.set(clientId, symbols);
+  }
+  syncConnection();
+}
+
+function removeClient(clientId: number) {
+  clientSymbols.delete(clientId);
+  syncConnection();
+}
+
 /**
- * Reusable market quote stream. Opens one socket and keeps subscribed symbols in sync.
+ * Market quote stream backed by a single shared WebSocket. Multiple hook instances
+ * merge their symbol lists into one subscribe payload.
  */
 export function useMarketPriceStream(
   symbols: string[],
@@ -42,103 +190,44 @@ export function useMarketPriceStream(
   isConnected: boolean;
 } {
   const { enabled = true } = options;
-  const [quotes, setQuotes] = useState<Record<string, LivePriceQuote>>({});
-  const [isConnected, setIsConnected] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idRef = useRef<number | null>(null);
+  if (idRef.current === null) {
+    idRef.current = ++hubClientIdSeq;
+  }
+  const clientId = idRef.current;
+
+  const symbolKey = useMemo(() => {
+    const set = new Set(symbols.filter(Boolean).map((s) => s.trim().toUpperCase()));
+    return Array.from(set).sort().join('|');
+  }, [symbols]);
 
   const normalizedSymbols = useMemo(
-    () => Array.from(new Set(symbols.filter(Boolean).map((s) => s.trim().toUpperCase()))),
-    [symbols]
+    () => (symbolKey.length > 0 ? symbolKey.split('|') : []),
+    [symbolKey]
   );
-  const normalizedSymbolsRef = useRef<string[]>(normalizedSymbols);
-  normalizedSymbolsRef.current = normalizedSymbols;
 
   useEffect(() => {
-    if (!enabled || normalizedSymbolsRef.current.length === 0) {
-      setIsConnected(false);
-      return;
+    if (!enabled || normalizedSymbols.length === 0) {
+      removeClient(clientId);
+      return () => removeClient(clientId);
     }
+    setClientSymbols(clientId, normalizedSymbols);
+    return () => removeClient(clientId);
+  }, [enabled, clientId, symbolKey]);
 
-    let disposed = false;
+  const version = useSyncExternalStore(subscribeStore, getStoreVersion, getStoreVersion);
 
-    const sendSubscribe = () => {
-      const ws = wsRef.current;
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({ type: 'subscribe', symbols: normalizedSymbolsRef.current }));
-    };
+  const quotes = useMemo(() => {
+    void version;
+    const out: Record<string, LivePriceQuote> = {};
+    for (const sym of normalizedSymbols) {
+      const q = hubQuotes[sym];
+      if (q) out[sym] = q;
+    }
+    return out;
+  }, [version, symbolKey]);
 
-    const connect = () => {
-      if (disposed) return;
-      const ws = new WebSocket(resolveWsUrl());
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        if (disposed) return;
-        setIsConnected(true);
-        sendSubscribe();
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(String(event.data)) as StreamMessage;
-          // Server sends snapshot only after subscribe (no full-market dump on connect).
-          if (msg.type === 'snapshot' && msg.prices) {
-            setQuotes((prev) => ({ ...prev, ...msg.prices }));
-            return;
-          }
-          if (msg.type === 'price' && Array.isArray(msg.updates)) {
-            setQuotes((prev) => {
-              const next = { ...prev };
-              for (const u of msg.updates) {
-                if (!u.symbol) continue;
-                next[u.symbol.toUpperCase()] = {
-                  price: u.price,
-                  percentChange24h: u.percentChange24h,
-                };
-              }
-              return next;
-            });
-          }
-        } catch {
-          // ignore malformed messages
-        }
-      };
-
-      ws.onclose = () => {
-        setIsConnected(false);
-        if (disposed) return;
-        reconnectRef.current = setTimeout(connect, 2000);
-      };
-
-      ws.onerror = () => {
-        // close triggers reconnect strategy
-        ws.close();
-      };
-    };
-
-    connect();
-
-    return () => {
-      disposed = true;
-      setIsConnected(false);
-      if (reconnectRef.current) {
-        clearTimeout(reconnectRef.current);
-        reconnectRef.current = null;
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
-  }, [enabled, normalizedSymbols.length]);
-
-  useEffect(() => {
-    if (!enabled || normalizedSymbols.length === 0) return;
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({ type: 'subscribe', symbols: normalizedSymbols }));
-  }, [enabled, normalizedSymbols]);
+  const isConnected = ws !== null && ws.readyState === WebSocket.OPEN;
 
   return { quotes, isConnected };
 }

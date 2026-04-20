@@ -432,6 +432,33 @@ export const fetchTrendingCoins = async (
 };
 
 /**
+ * GET /market/active-coins — paginated labeled active coins (cursor = last page's market_cap_rank).
+ */
+export async function fetchActiveCoinsPage(
+  cursor: number | null | undefined,
+  limit: number,
+  category: 'trending' | 'top' = 'trending'
+): Promise<{ coins: TrendingCoin[]; nextCursor: number | null }> {
+  const params = new URLSearchParams();
+  if (cursor != null) {
+    params.set('cursor', String(cursor));
+  }
+  params.set('limit', String(limit));
+  const response = await apiRequest<{ coins: BackendCoin[]; nextCursor: number | null }>(
+    `/market/active-coins?${params.toString()}`
+  );
+  const { useAppStore } = await import('../state/useAppStore');
+  const followingSet = new Set(useAppStore.getState().followingCoins);
+  const cat = category || 'trending';
+  return {
+    coins: response.coins.map((coin) =>
+      transformBackendTrendingCoin(coin, cat, followingSet.has(coin.coinId))
+    ),
+    nextCursor: response.nextCursor ?? null,
+  };
+}
+
+/**
  * Fetch coin details by ID
  */
 export const fetchCoinDetails = async (coinId: string): Promise<Coin> => {
