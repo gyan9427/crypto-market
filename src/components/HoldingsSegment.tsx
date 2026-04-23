@@ -41,9 +41,9 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildHoldingsSegmentStyles(tokens), [tokens]);
 
-  const { wallets, holdings, holdingsLoading } = usePortfolioStore();
-
-  console.log('[Holdings] HoldingsSegment render', { walletsCount: wallets.length, holdingsLoading, hasHoldings: !!holdings, totalValue: holdings?.totalValue });
+  const wallets = usePortfolioStore((state) => state.wallets);
+  const holdings = usePortfolioStore((state) => state.holdings);
+  const holdingsLoading = usePortfolioStore((state) => state.holdingsLoading);
 
   if (wallets.length === 0) {
     return (
@@ -74,11 +74,10 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
   }
 
   if (!holdings) {
-    console.log('[Holdings] HoldingsSegment: no holdings data, returning null');
     return null;
   }
 
-  const { totalValue, absoluteChange24h, relativeChange24h, positions } = holdings;
+  const { totalValue, relativeChange24h, positions } = holdings;
   const changePositive = relativeChange24h >= 0;
 
   return (

@@ -5,9 +5,11 @@ import { formatPrice, formatPercentage } from '../utils/format';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { SparklineChart } from './SparklineChart';
+import type { LivePriceQuote } from '../hooks/useMarketPriceStream';
 
 interface TrendingCoinCardProps {
   coin: TrendingCoin;
+  liveQuote?: LivePriceQuote;
   onPress?: (coinId: string) => void;
 }
 
@@ -25,25 +27,35 @@ function areTrendingCoinCardPropsEqual(prev: TrendingCoinCardProps, next: Trendi
     a.price === b.price &&
     a.change24h === b.change24h &&
     a.rank === b.rank &&
-    sparklineDataSignature(a.sparklineData) === sparklineDataSignature(b.sparklineData)
+    sparklineDataSignature(a.sparklineData) === sparklineDataSignature(b.sparklineData) &&
+    prev.liveQuote?.price === next.liveQuote?.price &&
+    prev.liveQuote?.percentChange24h === next.liveQuote?.percentChange24h
   );
 }
 
-export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPress }) => {
+export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, liveQuote, onPress }) => {
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildTrendingCoinCardStyles(tokens), [tokens]);
   const c = tokens.colors;
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
-  const isPositive = coin.change24h >= 0;
+  const rawLivePrice = liveQuote?.price;
+  const livePrice = typeof rawLivePrice === 'number' && Number.isFinite(rawLivePrice)
+    ? rawLivePrice
+    : coin.price;
+  const livePercentChange24h = liveQuote?.percentChange24h;
+  const liveChange24h = typeof livePercentChange24h === 'number' && Number.isFinite(livePercentChange24h)
+    ? livePercentChange24h
+    : coin.change24h;
+  const isPositive = liveChange24h >= 0;
   /** Phase 3: snapshot-backed closes only; no per-card /charts/klines. Fallback: flat line from price. */
   const sparklineData = useMemo(() => {
     const s = coin.sparklineData;
     if (s && s.length >= 2) return s;
-    const p = coin.price;
+    const p = livePrice;
     if (Number.isFinite(p)) return [p, p];
     return [];
-  }, [coin.sparklineData, coin.price]);
+  }, [coin.sparklineData, livePrice]);
   const sparklineColor = isPositive ? c.success[500] : c.danger[500];
   const showCoinLogo = Boolean(coin.logo) && !imageLoadFailed;
 
@@ -56,7 +68,7 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPre
       style={styles.container}
       onPress={() => onPress?.(coin.id)}
       accessibilityRole="button"
-      accessibilityLabel={`${coin.name} ${formatPrice(coin.price)}`}
+      accessibilityLabel={`${coin.name} ${formatPrice(livePrice)}`}
       activeOpacity={0.8}
     >
       <View style={styles.leftSection}>
@@ -86,9 +98,9 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPre
           />
           <View style={styles.priceBlock}>
             <Text style={[styles.change, isPositive ? styles.changePositive : styles.changeNegative]}>
-              {formatPercentage(coin.change24h)}
+              {formatPercentage(liveChange24h)}
             </Text>
-            <Text style={styles.price}>{formatPrice(coin.price)}</Text>
+            <Text style={styles.price}>{formatPrice(livePrice)}</Text>
           </View>
         </View>
         {coin.rank > 0 && (
@@ -98,6 +110,8 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, onPre
     </TouchableOpacity>
   );
 }, areTrendingCoinCardPropsEqual);
+
+TrendingCoinCard.displayName = 'TrendingCoinCard';
 
 function buildTrendingCoinCardStyles(tokens: ThemeTokens) {
   const c = tokens.colors;

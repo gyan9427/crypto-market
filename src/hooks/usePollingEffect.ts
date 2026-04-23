@@ -1,4 +1,4 @@
-import { DependencyList, useEffect } from 'react';
+import { DependencyList, useEffect, useRef } from 'react';
 
 interface PollingOptions {
   enabled?: boolean;
@@ -16,32 +16,43 @@ export function usePollingEffect(
   options: PollingOptions
 ): void {
   const { enabled = true, intervalMs, immediate = true } = options;
+  const taskRef = useRef(task);
+  const runningRef = useRef(false);
+
+  useEffect(() => {
+    taskRef.current = task;
+  }, [task]);
 
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
 
     const run = async () => {
+      if (runningRef.current) return;
+      runningRef.current = true;
       try {
-        await task();
+        await taskRef.current();
       } catch {
         // Intentionally swallow to keep polling loop alive.
+      } finally {
+        runningRef.current = false;
       }
     };
 
     if (immediate) {
-      run();
+      void run();
     }
 
     const timer = setInterval(() => {
       if (!cancelled) {
-        run();
+        void run();
       }
     }, intervalMs);
 
     return () => {
       cancelled = true;
       clearInterval(timer);
+      runningRef.current = false;
     };
-  }, deps);
+  }, [enabled, intervalMs, immediate, ...deps]);
 }
