@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  InteractionManager,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { usePortfolioStore } from '../state/usePortfolioStore';
@@ -42,8 +43,11 @@ export const PortfolioScreen: React.FC = () => {
   useEffect(() => {
     loadSupportedChains();
     loadWallets();
-    loadEvents();
     loadHoldings();
+    const task = InteractionManager.runAfterInteractions(() => {
+      void loadEvents();
+    });
+    return () => task.cancel();
   }, [loadSupportedChains, loadWallets, loadEvents, loadHoldings]);
 
   const handleRefresh = useCallback(async () => {

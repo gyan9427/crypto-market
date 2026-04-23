@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { resolveApiBaseUrl } from '@/src/config/apiBaseUrl';
 
 export interface LivePriceQuote {
@@ -17,7 +17,7 @@ interface SnapshotMessage {
 
 interface PriceUpdateMessage {
   type: 'price';
-  updates: Array<{ symbol: string; price: number; percentChange24h: number }>;
+  updates: { symbol: string; price: number; percentChange24h: number }[];
 }
 
 type StreamMessage = SnapshotMessage | PriceUpdateMessage;
@@ -34,21 +34,48 @@ function resolveWsUrl(): string {
 // ── Shared hub: one WebSocket, merged subscriptions, all quotes ───────────────
 
 let hubQuotes: Record<string, LivePriceQuote> = {};
-let storeVersion = 0;
-const storeListeners = new Set<() => void>();
+let connectionVersion = 0;
+const connectionListeners = new Set<() => void>();
+const symbolVersions = new Map<string, number>();
+const symbolListeners = new Map<string, Set<() => void>>();
 
-function subscribeStore(onStoreChange: () => void) {
-  storeListeners.add(onStoreChange);
-  return () => storeListeners.delete(onStoreChange);
+function bumpConnectionVersion() {
+  connectionVersion += 1;
+  connectionListeners.forEach((listener) => listener());
 }
 
-function getStoreVersion() {
-  return storeVersion;
+function bumpSymbolVersion(symbol: string) {
+  symbolVersions.set(symbol, (symbolVersions.get(symbol) ?? 0) + 1);
+  const listeners = symbolListeners.get(symbol);
+  listeners?.forEach((listener) => listener());
 }
 
-function bumpStore() {
-  storeVersion += 1;
-  storeListeners.forEach((l) => l());
+function quotesEqual(a: LivePriceQuote | undefined, b: LivePriceQuote | undefined): boolean {
+  return a?.price === b?.price && a?.percentChange24h === b?.percentChange24h;
+}
+
+function subscribeSymbols(symbols: string[], onStoreChange: () => void) {
+  connectionListeners.add(onStoreChange);
+  for (const symbol of symbols) {
+    let listeners = symbolListeners.get(symbol);
+    if (!listeners) {
+      listeners = new Set();
+      symbolListeners.set(symbol, listeners);
+    }
+    listeners.add(onStoreChange);
+  }
+
+  return () => {
+    connectionListeners.delete(onStoreChange);
+    for (const symbol of symbols) {
+      const listeners = symbolListeners.get(symbol);
+      if (!listeners) continue;
+      listeners.delete(onStoreChange);
+      if (listeners.size === 0) {
+        symbolListeners.delete(symbol);
+      }
+    }
+  };
 }
 
 function applySnapshot(prices: Record<string, LivePriceQuote>) {
@@ -56,21 +83,32 @@ function applySnapshot(prices: Record<string, LivePriceQuote>) {
   for (const [k, v] of Object.entries(prices)) {
     upper[k.toUpperCase()] = v;
   }
-  hubQuotes = { ...hubQuotes, ...upper };
-  bumpStore();
+  const previousQuotes = hubQuotes;
+  const nextQuotes = { ...hubQuotes, ...upper };
+  hubQuotes = nextQuotes;
+
+  for (const [symbol, quote] of Object.entries(upper)) {
+    if (!quotesEqual(previousQuotes[symbol], quote)) {
+      bumpSymbolVersion(symbol);
+    }
+  }
 }
 
-function applyUpdates(updates: Array<{ symbol: string; price: number; percentChange24h: number }>) {
+function applyUpdates(updates: { symbol: string; price: number; percentChange24h: number }[]) {
   const next = { ...hubQuotes };
   for (const u of updates) {
     if (!u.symbol) continue;
-    next[u.symbol.toUpperCase()] = {
+    const symbol = u.symbol.toUpperCase();
+    const nextQuote = {
       price: u.price,
       percentChange24h: u.percentChange24h,
     };
+    if (!quotesEqual(next[symbol], nextQuote)) {
+      next[symbol] = nextQuote;
+      bumpSymbolVersion(symbol);
+    }
   }
   hubQuotes = next;
-  bumpStore();
 }
 
 const clientSymbols = new Map<number, string[]>();
@@ -105,7 +143,7 @@ function syncConnection() {
       ws.close();
       ws = null;
     }
-    bumpStore();
+    bumpConnectionVersion();
     return;
   }
 
@@ -129,7 +167,7 @@ function syncConnection() {
 
   socket.onopen = () => {
     if (mySession !== socketSession) return;
-    bumpStore();
+    bumpConnectionVersion();
     sendSubscribe();
   };
 
@@ -151,7 +189,7 @@ function syncConnection() {
   socket.onclose = () => {
     if (mySession !== socketSession) return;
     ws = null;
-    bumpStore();
+    bumpConnectionVersion();
     if (mergedSymbols().length === 0) return;
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
@@ -213,19 +251,27 @@ export function useMarketPriceStream(
     }
     setClientSymbols(clientId, normalizedSymbols);
     return () => removeClient(clientId);
-  }, [enabled, clientId, symbolKey]);
+  }, [enabled, clientId, normalizedSymbols]);
 
-  const version = useSyncExternalStore(subscribeStore, getStoreVersion, getStoreVersion);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => subscribeSymbols(normalizedSymbols, onStoreChange),
+    [normalizedSymbols]
+  );
+  const getSnapshot = useCallback(
+    () => `${connectionVersion}:${normalizedSymbols.map((symbol) => symbolVersions.get(symbol) ?? 0).join('|')}`,
+    [normalizedSymbols]
+  );
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   const quotes = useMemo(() => {
-    void version;
+    void snapshot;
     const out: Record<string, LivePriceQuote> = {};
     for (const sym of normalizedSymbols) {
       const q = hubQuotes[sym];
       if (q) out[sym] = q;
     }
     return out;
-  }, [version, symbolKey]);
+  }, [snapshot, normalizedSymbols]);
 
   const isConnected = ws !== null && ws.readyState === WebSocket.OPEN;
 

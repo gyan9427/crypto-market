@@ -1,6 +1,6 @@
 import '@/src/i18n';
 import '@/src/polyfills/devtools';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments, type Href } from 'expo-router';
 import { AppState, InteractionManager, Platform, View } from 'react-native';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -49,6 +49,24 @@ export default function RootLayout() {
   const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
   const featuresLoaded = useFeaturesStore((state) => state.loaded);
   const [isReady, setIsReady] = useState(false);
+  const authSyncInFlightRef = useRef<Promise<void> | null>(null);
+
+  const runAuthenticatedBackgroundSync = useCallback(() => {
+    if (!useAuthStore.getState().isAuthenticated) return Promise.resolve();
+    if (authSyncInFlightRef.current) return authSyncInFlightRef.current;
+
+    const task = Promise.allSettled([
+      syncLanguageFromServer(),
+      retryLanguageSync(),
+      syncFollowingCoins(),
+    ]).then(() => undefined);
+
+    authSyncInFlightRef.current = task.finally(() => {
+      authSyncInFlightRef.current = null;
+    });
+
+    return authSyncInFlightRef.current;
+  }, [retryLanguageSync, syncFollowingCoins, syncLanguageFromServer]);
 
   useEffect(() => {
     Promise.all([
@@ -62,16 +80,14 @@ export default function RootLayout() {
     ]).then(() => {
       setIsReady(true);
       InteractionManager.runAfterInteractions(() => {
-        syncFollowingCoins();
+        void runAuthenticatedBackgroundSync();
       });
     });
   }, [
     initializeAuth,
-    syncFollowingCoins,
     hydrateThemePreference,
     hydrateLanguage,
-    syncLanguageFromServer,
-    retryLanguageSync,
+    runAuthenticatedBackgroundSync,
   ]);
 
   useEffect(() => {
@@ -79,21 +95,17 @@ export default function RootLayout() {
       if (nextState === 'active') {
         useFeaturesStore.getState().refetchFeatures();
         if (useAuthStore.getState().isAuthenticated) {
-          void useAppStore.getState().syncLanguageFromServer();
-          void useAppStore.getState().retryLanguageSync();
-          void useAppStore.getState().syncFollowingCoins();
+          void runAuthenticatedBackgroundSync();
         }
       }
     });
     return () => subscription.remove();
-  }, []);
+  }, [runAuthenticatedBackgroundSync]);
 
   useEffect(() => {
     if (!isReady || !isAuthenticated) return;
-    void syncLanguageFromServer();
-    void retryLanguageSync();
-    void syncFollowingCoins();
-  }, [isReady, isAuthenticated, syncLanguageFromServer, retryLanguageSync, syncFollowingCoins]);
+    void runAuthenticatedBackgroundSync();
+  }, [isReady, isAuthenticated, runAuthenticatedBackgroundSync]);
 
   useEffect(() => {
     if (!isReady || !onboardingHydrated || !featuresLoaded) return;
