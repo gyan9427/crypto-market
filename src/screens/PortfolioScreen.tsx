@@ -27,38 +27,32 @@ export const PortfolioScreen: React.FC = () => {
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildPortfolioScreenStyles(tokens), [tokens]);
 
-  const {
-    wallets,
-    isLoading,
-    loadWallets,
-    loadSupportedChains,
-    loadEvents,
-    loadHoldings,
-    monitorSheetOpen,
-    closeMonitorSheet,
-  } = usePortfolioStore();
+  const wallets = usePortfolioStore((state) => state.wallets);
+  const loadWallets = usePortfolioStore((state) => state.loadWallets);
+  const loadSupportedChains = usePortfolioStore((state) => state.loadSupportedChains);
+  const loadEvents = usePortfolioStore((state) => state.loadEvents);
+  const loadHoldings = usePortfolioStore((state) => state.loadHoldings);
+  const monitorSheetOpen = usePortfolioStore((state) => state.monitorSheetOpen);
+  const closeMonitorSheet = usePortfolioStore((state) => state.closeMonitorSheet);
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [showActivity, setShowActivity] = useState(false);
 
   useEffect(() => {
-    console.log('[Holdings] PortfolioScreen mount: loading chains, wallets, events, holdings');
     loadSupportedChains();
     loadWallets();
     loadEvents();
     loadHoldings();
-  }, []);
+  }, [loadSupportedChains, loadWallets, loadEvents, loadHoldings]);
 
   const handleRefresh = useCallback(async () => {
-    console.log('[Holdings] PortfolioScreen handleRefresh: reloading wallets, events, holdings (forceRefresh)');
     setRefreshing(true);
     await Promise.all([loadWallets(), loadEvents(), loadHoldings(true)]);
     setRefreshing(false);
   }, [loadWallets, loadEvents, loadHoldings]);
 
   const handleHoldingPress = useCallback((symbol: string) => {
-    console.log('[Holdings] Opening activity for symbol:', symbol);
     setSelectedSymbol(symbol);
     setShowActivity(true);
   }, []);
@@ -111,7 +105,6 @@ export const PortfolioScreen: React.FC = () => {
 // ── Styles ───────────────────────────────────────────────────────────────────
 
 function buildPortfolioScreenStyles(tokens: ThemeTokens) {
-  const c = tokens.colors;
   const sem = tokens.semantic;
   const typo = tokens.typography;
   return StyleSheet.create({

@@ -25,9 +25,26 @@ import { ExploreCategory, TrendingCoin } from '../types';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { usePollingEffect } from '../hooks/usePollingEffect';
-import { useMarketPriceStream } from '../hooks/useMarketPriceStream';
+import { LivePriceQuote, useMarketPriceStream } from '../hooks/useMarketPriceStream';
 
 const GRAPH_ANIM_MS = 280;
+
+const ExploreCoinRow = React.memo(function ExploreCoinRow({
+  coin,
+  isFocused,
+  onPress,
+}: {
+  coin: TrendingCoin;
+  isFocused: boolean;
+  onPress: (coinId: string) => void;
+}) {
+  const { quotes } = useMarketPriceStream([coin.symbol], { enabled: isFocused });
+  const liveQuote: LivePriceQuote | undefined = quotes[coin.symbol.toUpperCase()];
+
+  return <TrendingCoinCard coin={coin} liveQuote={liveQuote} onPress={onPress} />;
+});
+
+ExploreCoinRow.displayName = 'ExploreCoinRow';
 
 export const ExploreScreen: React.FC = () => {
   const { tokens } = useAppTheme();
@@ -111,19 +128,6 @@ export const ExploreScreen: React.FC = () => {
   const handleCoinPress = (coinId: string) => {
     router.push(`/coin/${coinId}` as never);
   };
-
-  const visibleCoins = coins;
-  const visibleSymbols = useMemo(() => visibleCoins.map((c) => c.symbol), [visibleCoins]);
-  const { quotes } = useMarketPriceStream(visibleSymbols, { enabled: isFocused });
-  const liveVisibleCoins = visibleCoins.map((coin) => {
-    const q = quotes[coin.symbol.toUpperCase()];
-    if (!q) return coin;
-    return {
-      ...coin,
-      price: Number.isFinite(q.price) ? q.price : coin.price,
-      change24h: Number.isFinite(q.percentChange24h) ? q.percentChange24h : coin.change24h,
-    };
-  });
 
   const onMarketGraphLayout = (e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
@@ -228,13 +232,13 @@ export const ExploreScreen: React.FC = () => {
     <View style={styles.container}>
       {renderHeader()}
       <FlatList
-        data={loading && coins.length === 0 ? Array(5).fill(null) : liveVisibleCoins}
+        data={loading && coins.length === 0 ? Array(5).fill(null) : coins}
         keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
         renderItem={({ item, index }) => {
           if (loading && coins.length === 0) {
             return <TrendingCoinCardSkeleton key={`skeleton-${index}`} />;
           }
-          return <TrendingCoinCard coin={item} onPress={handleCoinPress} />;
+          return <ExploreCoinRow coin={item} isFocused={isFocused} onPress={handleCoinPress} />;
         }}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}

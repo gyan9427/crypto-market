@@ -85,16 +85,12 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   },
 
   loadHoldings: async (forceRefresh = false) => {
-    console.log('[Holdings] usePortfolioStore.loadHoldings: starting', { forceRefresh });
     set({ holdingsLoading: true });
     try {
       const { getHoldings } = await import('../services/api');
-      console.log('[Holdings] usePortfolioStore.loadHoldings: calling getHoldings API');
       const holdings = await getHoldings(forceRefresh);
-      console.log('[Holdings] usePortfolioStore.loadHoldings: success', { totalValue: holdings?.totalValue, positionsCount: holdings?.positions?.length });
       set({ holdings, holdingsLoading: false });
-    } catch (err: any) {
-      console.error('[Holdings] usePortfolioStore.loadHoldings: failed', err);
+    } catch {
       set({ holdingsLoading: false });
     }
   },

@@ -1278,14 +1278,10 @@ export const getWalletEvents = async (
  */
 export const getHoldings = async (forceRefresh = false): Promise<Holdings> => {
   const url = forceRefresh ? '/portfolio/holdings?refresh=1' : '/portfolio/holdings';
-  console.log('[Holdings] api.getHoldings: calling GET', url);
   try {
     const response = await apiRequest<{ holdings: Holdings }>(url);
-    const holdings = response.holdings;
-    console.log('[Holdings] api.getHoldings: success', { totalValue: holdings?.totalValue, positionsCount: holdings?.positions?.length });
-    return holdings;
+    return response.holdings;
   } catch (error: any) {
-    console.error('[Holdings] api.getHoldings: failed', error?.message);
     throw new Error(`Failed to fetch holdings: ${error.message}`);
   }
 };
