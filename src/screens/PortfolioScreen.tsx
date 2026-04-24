@@ -6,7 +6,6 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  InteractionManager,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { usePortfolioStore } from '../state/usePortfolioStore';
@@ -21,6 +20,13 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
+const PORTFOLIO_ACTIVITY_EVENT_LIMIT = 100;
+
+type SelectedHolding = {
+  symbol: string;
+  chain: string;
+};
+
 // ── Main screen ──────────────────────────────────────────────────────────────
 
 export const PortfolioScreen: React.FC = () => {
@@ -31,39 +37,42 @@ export const PortfolioScreen: React.FC = () => {
   const wallets = usePortfolioStore((state) => state.wallets);
   const loadWallets = usePortfolioStore((state) => state.loadWallets);
   const loadSupportedChains = usePortfolioStore((state) => state.loadSupportedChains);
-  const loadEvents = usePortfolioStore((state) => state.loadEvents);
+  const loadEvents = usePortfolioStore((state) => {
+    return state.loadEvents;
+  });
   const loadHoldings = usePortfolioStore((state) => state.loadHoldings);
   const monitorSheetOpen = usePortfolioStore((state) => state.monitorSheetOpen);
   const closeMonitorSheet = usePortfolioStore((state) => state.closeMonitorSheet);
 
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [selectedHolding, setSelectedHolding] = useState<SelectedHolding | null>(null);
   const [showActivity, setShowActivity] = useState(false);
 
   useEffect(() => {
     loadSupportedChains();
     loadWallets();
     loadHoldings();
-    const task = InteractionManager.runAfterInteractions(() => {
-      void loadEvents();
-    });
-    return () => task.cancel();
+    void loadEvents(1, PORTFOLIO_ACTIVITY_EVENT_LIMIT);
   }, [loadSupportedChains, loadWallets, loadEvents, loadHoldings]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadWallets(), loadEvents(), loadHoldings(true)]);
+    await Promise.all([
+      loadWallets(),
+      loadEvents(1, PORTFOLIO_ACTIVITY_EVENT_LIMIT),
+      loadHoldings(true),
+    ]);
     setRefreshing(false);
   }, [loadWallets, loadEvents, loadHoldings]);
 
-  const handleHoldingPress = useCallback((symbol: string) => {
-    setSelectedSymbol(symbol);
+  const handleHoldingPress = useCallback((holding: SelectedHolding) => {
+    setSelectedHolding(holding);
     setShowActivity(true);
   }, []);
 
   const handleCloseActivity = useCallback(() => {
     setShowActivity(false);
-    setSelectedSymbol(null);
+    setSelectedHolding(null);
   }, []);
 
   const accountLabel = wallets.length > 0
@@ -74,7 +83,8 @@ export const PortfolioScreen: React.FC = () => {
   if (showActivity) {
     return (
       <ActivityScreen 
-        symbol={selectedSymbol ?? undefined} 
+        symbol={selectedHolding?.symbol}
+        chain={selectedHolding?.chain}
         onClose={handleCloseActivity} 
       />
     );

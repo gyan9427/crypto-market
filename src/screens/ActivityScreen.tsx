@@ -55,6 +55,37 @@ function mapAssetDisplay(text: string): string {
   return text.replace(/\bMATIC\b/gi, 'POL');
 }
 
+function canonicalizeSymbol(text: string | undefined | null): string {
+  const raw = (text ?? '').trim().toUpperCase();
+  if (!raw) return '';
+  return raw === 'MATIC' ? 'POL' : raw;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const CHAIN_NATIVE_SYMBOL_ALIASES: Record<string, string[]> = {
+  polygon: ['POL', 'MATIC'],
+  eth: ['ETH'],
+  ethereum: ['ETH'],
+  bnb: ['BNB'],
+  'binance-smart-chain': ['BNB'],
+  arb: ['ETH'],
+  arbitrum: ['ETH'],
+  opt: ['ETH'],
+  optimism: ['ETH'],
+  base: ['ETH'],
+};
+
+function matchesNativeChainAsset(symbol: string, chain: string | undefined, event: WalletEvent): boolean {
+  if (!chain || event.type !== 'native_transfer') return false;
+  const aliases = CHAIN_NATIVE_SYMBOL_ALIASES[chain.toLowerCase()] ?? [];
+  const normalizedSymbol = canonicalizeSymbol(symbol);
+  if (!aliases.map(canonicalizeSymbol).includes(normalizedSymbol)) return false;
+  return event.chain.toLowerCase() === chain.toLowerCase();
+}
+
 type ActivityStyles = ReturnType<typeof buildActivityScreenStyles>;
 
 // ── Event row ────────────────────────────────────────────────────────────────
@@ -148,10 +179,11 @@ const EventRow: React.FC<EventRowProps> = ({ event, styles }) => {
 
 interface ActivityScreenProps {
   symbol?: string;
+  chain?: string;
   onClose: () => void;
 }
 
-export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, onClose }) => {
+export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, onClose }) => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildActivityScreenStyles(tokens), [tokens]);
@@ -160,16 +192,21 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, onClose 
   // Filter events by symbol if provided
   const filteredEvents = useMemo(() => {
     if (!symbol) return events;
-    
+
+    const normalizedSymbol = canonicalizeSymbol(symbol);
+    const symbolPattern = new RegExp(`\\b${escapeRegExp(normalizedSymbol)}\\b`, 'i');
+
     return events.filter(event => {
-      // Check if the event summaries contain the symbol
       const summaries = event.eventSummaries ?? [];
-      const symbolPattern = new RegExp(`\\b${symbol}\\b`, 'i');
-      
-      return summaries.some(summary => symbolPattern.test(summary)) ||
-             event.activity?.asset?.toUpperCase() === symbol.toUpperCase();
+      const summaryMatches = summaries.some((summary) =>
+        symbolPattern.test(canonicalizeSymbol(summary))
+      );
+      const activityAsset = canonicalizeSymbol(event.activity?.asset);
+      const nativeChainMatch = matchesNativeChainAsset(normalizedSymbol, chain, event);
+
+      return summaryMatches || activityAsset === normalizedSymbol || nativeChainMatch;
     });
-  }, [events, symbol]);
+  }, [chain, events, symbol]);
 
   const renderItem = ({ item }: { item: WalletEvent }) => {
     return <EventRow event={item} styles={styles} />;

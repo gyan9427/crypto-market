@@ -33,7 +33,7 @@ function formatQuantity(n: number | undefined | null): string {
 }
 
 interface HoldingsSegmentProps {
-  onHoldingPress?: (symbol: string) => void;
+  onHoldingPress?: (holding: { symbol: string; chain: string }) => void;
 }
 
 export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress }) => {
@@ -106,7 +106,7 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
                 styles.positionRow,
                 i < Math.min(positions.length, 10) - 1 && styles.positionRowBorder,
               ]}
-              onPress={() => onHoldingPress?.(p.symbol)}
+              onPress={() => onHoldingPress?.({ symbol: p.symbol, chain: p.chain })}
               activeOpacity={0.7}
             >
               <View style={styles.positionLeft}>
