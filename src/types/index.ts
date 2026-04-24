@@ -182,6 +182,8 @@ export interface WalletEventActivity {
   value?:      number;
   fromAddress?: string;
   toAddress?:   string;
+  tokenContract?: string;
+  tokenDecimals?: string;
 }
 
 export interface WalletEvent {

@@ -234,6 +234,8 @@
   "activity": {
     "title": "Activity",
     "titleWithSymbol": "{{symbol}} Activity",
+    "batchView": "Batch",
+    "listView": "List",
     "empty": "No transactions to display",
     "statusSuccess": "Success",
     "statusFailed": "Failed",
@@ -251,7 +253,15 @@
     "eventTypeTokenTransfer": "Token Transfer",
     "eventTypeNativeTransfer": "Native Transfer",
     "eventTypeContractInteraction": "Contract Interaction",
-    "eventTypeMultiChain": "Multi-Chain Activity"
+    "eventTypeMultiChain": "Multi-Chain Activity",
+    "from": "From",
+    "to": "To",
+    "hash": "Hash",
+    "block": "Block",
+    "contract": "Contract",
+    "directionSent": "Sent",
+    "directionReceived": "Received",
+    "directionInvolved": "Involved"
   },
   "accessibility": {
     "searchInput": "Search input",

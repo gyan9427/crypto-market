@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import {
@@ -10,6 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { usePortfolioStore } from '../state/usePortfolioStore';
+import { SegmentToggle } from '../components/SegmentToggle';
 import { WalletEvent } from '../types';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
@@ -40,6 +41,11 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
+function truncateHash(hash: string): string {
+  if (hash.length <= 22) return hash;
+  return `${hash.slice(0, 10)}…${hash.slice(-8)}`;
+}
+
 function formatTime(iso: string): string {
   const date = new Date(iso);
   return date.toLocaleString(undefined, {
@@ -53,6 +59,16 @@ function formatTime(iso: string): string {
 /** Map MATIC to POL for display (Polygon rebrand) */
 function mapAssetDisplay(text: string): string {
   return text.replace(/\bMATIC\b/gi, 'POL');
+}
+
+function formatActivityAmount(value: number | undefined, asset: string | undefined): string | null {
+  const displayAsset = asset ? mapAssetDisplay(asset) : '';
+  if (value == null || Number.isNaN(value)) return displayAsset || null;
+
+  const formattedValue = value.toLocaleString(undefined, {
+    maximumFractionDigits: value >= 1 ? 6 : 8,
+  });
+  return displayAsset ? `${formattedValue} ${displayAsset}` : formattedValue;
 }
 
 function canonicalizeSymbol(text: string | undefined | null): string {
@@ -87,8 +103,9 @@ function matchesNativeChainAsset(symbol: string, chain: string | undefined, even
 }
 
 type ActivityStyles = ReturnType<typeof buildActivityScreenStyles>;
+type ActivityViewMode = 'batch' | 'list';
 
-// ── Event row ────────────────────────────────────────────────────────────────
+// ── Batch event row ──────────────────────────────────────────────────────────
 
 interface EventRowProps {
   event: WalletEvent;
@@ -175,6 +192,149 @@ const EventRow: React.FC<EventRowProps> = ({ event, styles }) => {
   );
 };
 
+// ── Individual transaction row ──────────────────────────────────────────────
+
+interface TransactionDetailProps {
+  label: string;
+  value?: string | number | null;
+  styles: ActivityStyles;
+  mono?: boolean;
+}
+
+const TransactionDetail: React.FC<TransactionDetailProps> = ({
+  label,
+  value,
+  styles,
+  mono = false,
+}) => {
+  if (value == null || value === '') return null;
+
+  return (
+    <View style={styles.transactionDetailRow}>
+      <Text style={styles.transactionDetailLabel}>{label}</Text>
+      <Text
+        style={[
+          styles.transactionDetailValue,
+          mono && styles.transactionDetailValueMono,
+        ]}
+        numberOfLines={1}
+        ellipsizeMode="middle"
+      >
+        {value}
+      </Text>
+    </View>
+  );
+};
+
+function transactionDirectionLabel(t: TFunction, event: WalletEvent): string {
+  const monitoredAddress = event.address.toLowerCase();
+  const fromAddress = event.activity?.fromAddress?.toLowerCase();
+  const toAddress = event.activity?.toAddress?.toLowerCase();
+
+  if (fromAddress === monitoredAddress && toAddress !== monitoredAddress) {
+    return t('activity.directionSent');
+  }
+  if (toAddress === monitoredAddress && fromAddress !== monitoredAddress) {
+    return t('activity.directionReceived');
+  }
+  return t('activity.directionInvolved');
+}
+
+const TransactionEventRow: React.FC<EventRowProps> = ({ event, styles }) => {
+  const { t } = useTranslation();
+  const activity = event.activity;
+  const txStatus = activity?.txStatus;
+  const explorerUrl = activity?.explorerUrl;
+  const amount = formatActivityAmount(activity?.value, activity?.asset);
+  const direction = transactionDirectionLabel(t, event);
+
+  return (
+    <View style={styles.transactionRow}>
+      <View style={styles.transactionHeader}>
+        <View style={styles.transactionTitleBlock}>
+          <View style={styles.transactionMetaRow}>
+            <View style={[styles.chainBadge]}>
+              <Text style={styles.chainBadgeText}>{event.chain.toUpperCase()}</Text>
+            </View>
+            <View style={styles.directionBadge}>
+              <Text style={styles.directionBadgeText}>{direction}</Text>
+            </View>
+          </View>
+          <Text style={styles.eventType} numberOfLines={1}>
+            {eventTypeLabel(t, event.type)}
+          </Text>
+        </View>
+        <Text style={styles.eventTime}>{formatTime(event.aggregatedAt)}</Text>
+      </View>
+
+      {amount && (
+        <Text style={styles.transactionAmount} numberOfLines={1}>
+          {amount}
+        </Text>
+      )}
+
+      {txStatus && (
+        <View style={styles.transactionBadges}>
+          <View style={[
+            styles.statusBadge,
+            styles.transactionStatusBadge,
+            txStatus === 'success' && styles.statusSuccess,
+            txStatus === 'failed' && styles.statusFailed,
+            txStatus === 'pending' && styles.statusPending,
+          ]}>
+            <Text style={styles.statusBadgeText}>
+              {txStatusLabel(t, txStatus)}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      <View style={styles.transactionDetailsBlock}>
+        <TransactionDetail
+          label={t('activity.from')}
+          value={activity?.fromAddress ? truncateAddress(activity.fromAddress) : null}
+          styles={styles}
+          mono
+        />
+        <TransactionDetail
+          label={t('activity.to')}
+          value={activity?.toAddress ? truncateAddress(activity.toAddress) : null}
+          styles={styles}
+          mono
+        />
+        <TransactionDetail
+          label={t('activity.hash')}
+          value={activity?.txHash ? truncateHash(activity.txHash) : null}
+          styles={styles}
+          mono
+        />
+        <TransactionDetail
+          label={t('activity.block')}
+          value={activity?.blockNum}
+          styles={styles}
+          mono
+        />
+        <TransactionDetail
+          label={t('activity.contract')}
+          value={activity?.tokenContract ? truncateAddress(activity.tokenContract) : null}
+          styles={styles}
+          mono
+        />
+      </View>
+
+      {explorerUrl && (
+        <TouchableOpacity
+          onPress={() => Linking.openURL(explorerUrl)}
+          style={styles.transactionExplorerLink}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.explorerLinkText}>{t('activity.viewOnExplorer')}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+};
+
 // ── Main screen ──────────────────────────────────────────────────────────────
 
 interface ActivityScreenProps {
@@ -188,6 +348,12 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildActivityScreenStyles(tokens), [tokens]);
   const { events } = usePortfolioStore();
+  const [viewMode, setViewMode] = useState<ActivityViewMode>('batch');
+  const viewOptions = useMemo(
+    () => [t('activity.batchView'), t('activity.listView')],
+    [t]
+  );
+  const selectedViewIndex = viewMode === 'batch' ? 0 : 1;
 
   // Filter events by symbol if provided
   const filteredEvents = useMemo(() => {
@@ -209,6 +375,9 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
   }, [chain, events, symbol]);
 
   const renderItem = ({ item }: { item: WalletEvent }) => {
+    if (viewMode === 'list') {
+      return <TransactionEventRow event={item} styles={styles} />;
+    }
     return <EventRow event={item} styles={styles} />;
   };
 
@@ -231,10 +400,19 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
           <Text style={styles.closeButtonText}>✕</Text>
         </TouchableOpacity>
       </View>
+      <View style={styles.viewToggleContainer}>
+        <SegmentToggle
+          options={viewOptions}
+          selectedIndex={selectedViewIndex}
+          onSelect={(index) => setViewMode(index === 0 ? 'batch' : 'list')}
+          flush
+        />
+      </View>
       <FlatList
         data={filteredEvents}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
+        extraData={viewMode}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>{t('activity.noActivityFound')}</Text>
@@ -300,6 +478,11 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.xl,
       fontWeight: typo.fontWeights.semibold,
       color: c.neutral[600],
+    },
+    viewToggleContainer: {
+      paddingHorizontal: sem.listMarginH,
+      paddingTop: s.md,
+      paddingBottom: s.xs,
     },
     listContent: {
       paddingTop: sem.listMarginH,
@@ -424,6 +607,94 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.xs,
       color: c.neutral[400],
       marginTop: 2,
+    },
+
+    // ── Individual transaction row ──
+    transactionRow: {
+      marginHorizontal: sem.listMarginH,
+      marginBottom: sem.listGap,
+      backgroundColor: sem.surface,
+      borderRadius: sem.cardRadiusSmall,
+      padding: sem.cardPadding,
+      minHeight: 112,
+      ...sem.cardShadow,
+    },
+    transactionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+    },
+    transactionTitleBlock: {
+      flex: 1,
+      minWidth: 0,
+      marginRight: s.sm,
+    },
+    transactionMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      marginBottom: s.xs,
+    },
+    directionBadge: {
+      backgroundColor: tokens.inputBg,
+      borderWidth: 1,
+      borderColor: tokens.borderSubtle,
+      borderRadius: sem.cardRadiusSmall,
+      paddingHorizontal: s.sm,
+      paddingVertical: s.xs,
+    },
+    directionBadgeText: {
+      fontSize: typo.fontSizes.badge,
+      fontWeight: typo.fontWeights.bold,
+      color: tokens.textMuted,
+      textTransform: 'uppercase',
+    },
+    transactionAmount: {
+      marginTop: s.sm,
+      fontSize: typo.fontSizes.lg,
+      fontWeight: typo.fontWeights.bold,
+      color: tokens.textStrong,
+    },
+    transactionBadges: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: s.sm,
+    },
+    transactionStatusBadge: {
+      marginTop: 0,
+    },
+    transactionDetailsBlock: {
+      marginTop: s.sm,
+      paddingTop: s.sm,
+      borderTopWidth: 1,
+      borderTopColor: tokens.borderSubtle,
+    },
+    transactionDetailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: s.xs,
+      minHeight: 20,
+    },
+    transactionDetailLabel: {
+      width: 70,
+      fontSize: typo.fontSizes.xs,
+      fontWeight: typo.fontWeights.medium,
+      color: tokens.textMuted,
+    },
+    transactionDetailValue: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: typo.fontSizes.sm,
+      color: tokens.text,
+      textAlign: 'right',
+    },
+    transactionDetailValueMono: {
+      fontFamily: typo.fontFamilies.mono,
+      fontSize: typo.fontSizes.xs,
+    },
+    transactionExplorerLink: {
+      marginTop: s.sm,
+      alignSelf: 'flex-start',
     },
 
     // ── Empty state ──
