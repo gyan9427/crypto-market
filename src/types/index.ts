@@ -155,6 +155,8 @@ export interface SupportedChain {
   id:     string;
   name:   string;
   symbol: string;
+  kind?: 'evm' | 'solana';
+  nativeSymbol?: string;
 }
 
 export interface WalletAddress {

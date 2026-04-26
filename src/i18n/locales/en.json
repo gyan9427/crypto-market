@@ -195,6 +195,7 @@
     "labelPlaceholder": "Label (optional)",
     "errorAddressRequired": "Please enter a wallet address.",
     "errorChainRequired": "Please select at least one chain.",
+    "errorChainsUnavailable": "Unable to load supported chains. Please try again.",
     "adding": "Adding…",
     "addWallet": "Add Wallet",
     "monitoredWallets": "Monitored Wallets"
