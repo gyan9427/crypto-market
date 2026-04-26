@@ -1201,15 +1201,70 @@ export function toSparklineData(klines: KlineRecord[]): number[] {
 
 import { SupportedChain, WalletAddress, WalletEvent, Holdings } from '../types';
 
+export type PortfolioSessionMode = 'bootstrap' | 'live' | 'degraded' | 'recovery';
+export type PortfolioTriggerReason =
+  | 'bootstrap'
+  | 'ui_default'
+  | 'manual_refresh'
+  | 'reconnect_recovery'
+  | 'stale_reconciliation';
+
+export interface PortfolioRequestContext {
+  mode?: PortfolioSessionMode;
+  triggerReason?: PortfolioTriggerReason;
+}
+
+const DEFAULT_PORTFOLIO_CONTEXT: Required<PortfolioRequestContext> = {
+  mode: 'bootstrap',
+  triggerReason: 'bootstrap',
+};
+
+const LIVE_ALLOWED_TRIGGERS = new Set<PortfolioTriggerReason>(['manual_refresh']);
+
+function normalizePortfolioContext(
+  context?: PortfolioRequestContext
+): Required<PortfolioRequestContext> {
+  return {
+    mode: context?.mode ?? DEFAULT_PORTFOLIO_CONTEXT.mode,
+    triggerReason: context?.triggerReason ?? DEFAULT_PORTFOLIO_CONTEXT.triggerReason,
+  };
+}
+
+function assertPortfolioApiAllowed(endpoint: string, context?: PortfolioRequestContext): Required<PortfolioRequestContext> {
+  const normalized = normalizePortfolioContext(context);
+  if (normalized.mode === 'live' && !LIVE_ALLOWED_TRIGGERS.has(normalized.triggerReason)) {
+    throw new Error(
+      `Portfolio API blocked in live mode for ${endpoint} (trigger=${normalized.triggerReason}).`
+    );
+  }
+  return normalized;
+}
+
+function withPortfolioHeaders(
+  headers: Record<string, string> | undefined,
+  context: Required<PortfolioRequestContext>
+): Record<string, string> {
+  return {
+    ...(headers || {}),
+    'X-Portfolio-Session-Mode': context.mode,
+    'X-Portfolio-Trigger-Reason': context.triggerReason,
+  };
+}
+
 /**
  * Returns the list of blockchain networks supported by the backend configuration.
  */
 export const getSupportedChains = async (): Promise<SupportedChain[]> => {
   try {
     const response = await apiRequest<{ chains: SupportedChain[] }>('/portfolio/chains');
-    return response.chains;
+    return (response.chains || [])
+      .filter((chain) => Boolean(chain?.id))
+      .map((chain) => ({
+        ...chain,
+        id: chain.id.trim().toLowerCase(),
+      }));
   } catch (error: any) {
-    throw new Error(`Failed to fetch supported chains: ${error.message}`);
+    throw new Error(`Unable to load supported chains: ${error.message}`);
   }
 };
 
@@ -1260,11 +1315,15 @@ export const removeWallet = async (id: string): Promise<void> => {
  */
 export const getWalletEvents = async (
   page:  number = 1,
-  limit: number = 20
+  limit: number = 20,
+  context?: PortfolioRequestContext
 ): Promise<WalletEvent[]> => {
+  const normalized =
+    page <= 1 ? assertPortfolioApiAllowed('/portfolio/events', context) : normalizePortfolioContext(context);
   try {
     const response = await apiRequest<{ events: WalletEvent[] }>(
-      `/portfolio/events?page=${page}&limit=${limit}`
+      `/portfolio/events?page=${page}&limit=${limit}`,
+      { headers: withPortfolioHeaders(undefined, normalized) }
     );
     return response.events;
   } catch (error: any) {
@@ -1277,9 +1336,19 @@ export const getWalletEvents = async (
  * @param forceRefresh - if true, bypasses cache and fetches fresh from Zerion
  */
 export const getHoldings = async (forceRefresh = false): Promise<Holdings> => {
+  return getHoldingsWithContext(forceRefresh);
+};
+
+export const getHoldingsWithContext = async (
+  forceRefresh = false,
+  context?: PortfolioRequestContext
+): Promise<Holdings> => {
+  const normalized = assertPortfolioApiAllowed('/portfolio/holdings', context);
   const url = forceRefresh ? '/portfolio/holdings?refresh=1' : '/portfolio/holdings';
   try {
-    const response = await apiRequest<{ holdings: Holdings }>(url);
+    const response = await apiRequest<{ holdings: Holdings }>(url, {
+      headers: withPortfolioHeaders(undefined, normalized),
+    });
     return response.holdings;
   } catch (error: any) {
     throw new Error(`Failed to fetch holdings: ${error.message}`);
@@ -1290,11 +1359,17 @@ export const getHoldings = async (forceRefresh = false): Promise<Holdings> => {
  * Refreshes transaction status for events that are pending.
  * Call before loading events to fix stale statuses.
  */
-export const refreshEventStatuses = async (): Promise<{ updated: number }> => {
+export const refreshEventStatuses = async (
+  context?: PortfolioRequestContext
+): Promise<{ updated: number }> => {
+  const normalized = assertPortfolioApiAllowed('/portfolio/events/refresh-status', context);
   try {
     const response = await apiRequest<{ updated: number }>(
       '/portfolio/events/refresh-status',
-      { method: 'POST' }
+      {
+        method: 'POST',
+        headers: withPortfolioHeaders(undefined, normalized),
+      }
     );
     return response;
   } catch (error: any) {

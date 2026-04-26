@@ -60,6 +60,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
   const {
     wallets,
     supportedChains,
+    supportedChainsError,
     isLoading,
     error,
     loadWallets,
@@ -74,6 +75,9 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
   const [labelInput, setLabelInput] = useState('');
   const [selectedChains, setSelectedChains] = useState<string[]>([]);
   const [addError, setAddError] = useState<string | null>(null);
+  const chainsUnavailable = supportedChains.length === 0 || Boolean(supportedChainsError);
+  const chainsUnavailableMessage =
+    supportedChainsError || t('monitorWallet.errorChainsUnavailable');
 
   const [isClosing, setIsClosing] = useState(false);
   const slideAnim = useRef(new Animated.Value(-600)).current;
@@ -126,6 +130,10 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
     setAddError(null);
     clearError();
 
+    if (chainsUnavailable) {
+      setAddError(chainsUnavailableMessage);
+      return;
+    }
     if (!trimmed) {
       setAddError(t('monitorWallet.errorAddressRequired'));
       return;
@@ -140,11 +148,21 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
       setAddressInput('');
       setLabelInput('');
       setSelectedChains([]);
-      loadEvents();
+      void loadEvents(1, 20, { triggerReason: 'manual_refresh' });
     } catch {
       // error is already set in the store
     }
-  }, [addressInput, labelInput, selectedChains, addWallet, clearError, loadEvents, t]);
+  }, [
+    addressInput,
+    chainsUnavailable,
+    chainsUnavailableMessage,
+    labelInput,
+    selectedChains,
+    addWallet,
+    clearError,
+    loadEvents,
+    t,
+  ]);
 
   const handleRemoveWallet = useCallback(
     (id: string) => {
@@ -183,6 +201,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
             chains={supportedChains}
             selectedChains={selectedChains}
             onToggle={toggleChain}
+            disabled={chainsUnavailable}
           />
 
           <TextInput
@@ -206,16 +225,16 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
             autoCorrect={false}
           />
 
-          {(addError || error) ? (
+          {(addError || supportedChainsError || error) ? (
             <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>{addError || error}</Text>
+              <Text style={styles.errorBannerText}>{addError || supportedChainsError || error}</Text>
             </View>
           ) : null}
 
           <TouchableOpacity
-            style={[styles.addButton, isLoading && styles.addButtonDisabled]}
+            style={[styles.addButton, (isLoading || chainsUnavailable) && styles.addButtonDisabled]}
             onPress={handleAddWallet}
-            disabled={isLoading}
+            disabled={isLoading || chainsUnavailable}
           >
             <Text style={styles.addButtonText}>
               {isLoading ? t('monitorWallet.adding') : t('monitorWallet.addWallet')}

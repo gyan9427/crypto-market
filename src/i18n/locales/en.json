@@ -195,6 +195,7 @@
     "labelPlaceholder": "Label (optional)",
     "errorAddressRequired": "Please enter a wallet address.",
     "errorChainRequired": "Please select at least one chain.",
+    "errorChainsUnavailable": "Unable to load supported chains. Please try again.",
     "adding": "Adding…",
     "addWallet": "Add Wallet",
     "monitoredWallets": "Monitored Wallets"
@@ -234,11 +235,15 @@
   "activity": {
     "title": "Activity",
     "titleWithSymbol": "{{symbol}} Activity",
+    "batchView": "Batch",
+    "listView": "List",
     "empty": "No transactions to display",
     "statusSuccess": "Success",
     "statusFailed": "Failed",
     "statusPending": "Pending",
     "viewOnExplorer": "View on Explorer",
+    "primaryTxHint": "Primary explorer link opens {{asset}} tx",
+    "loading": "Loading activity...",
     "noActivityFound": "No activity found",
     "emptyForSymbol": "No transactions found for {{symbol}}",
     "transactionSingular": "transaction",
@@ -251,7 +256,15 @@
     "eventTypeTokenTransfer": "Token Transfer",
     "eventTypeNativeTransfer": "Native Transfer",
     "eventTypeContractInteraction": "Contract Interaction",
-    "eventTypeMultiChain": "Multi-Chain Activity"
+    "eventTypeMultiChain": "Multi-Chain Activity",
+    "from": "From",
+    "to": "To",
+    "hash": "Hash",
+    "block": "Block",
+    "contract": "Contract",
+    "directionSent": "Sent",
+    "directionReceived": "Received",
+    "directionInvolved": "Involved"
   },
   "accessibility": {
     "searchInput": "Search input",
