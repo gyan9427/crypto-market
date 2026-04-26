@@ -242,6 +242,8 @@
     "statusFailed": "Failed",
     "statusPending": "Pending",
     "viewOnExplorer": "View on Explorer",
+    "primaryTxHint": "Primary explorer link opens {{asset}} tx",
+    "loading": "Loading activity...",
     "noActivityFound": "No activity found",
     "emptyForSymbol": "No transactions found for {{symbol}}",
     "transactionSingular": "transaction",

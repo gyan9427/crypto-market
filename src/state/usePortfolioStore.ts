@@ -24,6 +24,7 @@ interface PortfolioState {
   wallets: WalletAddress[];
   supportedChains: SupportedChain[];
   supportedChainsError: string | null;
+  statusRefreshWarning: string | null;
   events: WalletEvent[];
   holdings: Holdings | null;
   holdingsLoading: boolean;
@@ -82,6 +83,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   wallets: [],
   supportedChains: [],
   supportedChainsError: null,
+  statusRefreshWarning: null,
   events: [],
   holdings: null,
   holdingsLoading: false,
@@ -110,7 +112,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
     set({ streamHealthy: true, lastHeartbeatAt: Date.now() });
   },
 
-  clearError: () => set({ error: null }),
+  clearError: () => set({ error: null, statusRefreshWarning: null }),
   openMonitorSheet: () => set({ monitorSheetOpen: true }),
   closeMonitorSheet: () => set({ monitorSheetOpen: false }),
 
@@ -205,13 +207,28 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
     const context = resolveContext(get(), options);
     if (page <= 1 && shouldBlockLiveApi(context)) return;
 
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, statusRefreshWarning: null });
     try {
       const { getWalletEvents, refreshEventStatuses } = await import('../services/api');
-      if (page === 1 && context.triggerReason !== 'ui_default') {
-        await refreshEventStatuses(context).catch(() => {
-          /* best effort */
-        });
+      if (page === 1 && context.mode !== 'live') {
+        try {
+          await refreshEventStatuses(context);
+        } catch (firstErr) {
+          // Retry once to reduce stale "pending" statuses from transient RPC/provider hiccups.
+          await new Promise((resolve) => setTimeout(resolve, 350));
+          try {
+            await refreshEventStatuses(context);
+          } catch (secondErr) {
+            console.warn('[PortfolioStore] refreshEventStatuses failed after retry', {
+              firstError: firstErr instanceof Error ? firstErr.message : String(firstErr),
+              secondError: secondErr instanceof Error ? secondErr.message : String(secondErr),
+              context,
+            });
+            set({
+              statusRefreshWarning: 'Transaction status updates are temporarily delayed. Explorer may show newer status.',
+            });
+          }
+        }
       }
       const events = await getWalletEvents(page, limit, context);
       set((state) => ({

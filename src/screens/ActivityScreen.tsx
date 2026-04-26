@@ -94,6 +94,38 @@ const CHAIN_NATIVE_SYMBOL_ALIASES: Record<string, string[]> = {
   base: ['ETH'],
 };
 
+const CHAIN_ID_ALIASES: Record<string, string> = {
+  eth: 'eth',
+  ethereum: 'eth',
+  'chain_1': 'eth',
+  'chain-1': 'eth',
+  '1': 'eth',
+  polygon: 'polygon',
+  matic: 'polygon',
+  'chain_137': 'polygon',
+  'chain-137': 'polygon',
+  '137': 'polygon',
+  bnb: 'bnb',
+  bsc: 'bnb',
+  'binance-smart-chain': 'bnb',
+  'chain_56': 'bnb',
+  'chain-56': 'bnb',
+  '56': 'bnb',
+  arb: 'arb',
+  arbitrum: 'arb',
+  'arbitrum-one': 'arb',
+  'chain_42161': 'arb',
+  'chain-42161': 'arb',
+  '42161': 'arb',
+  sol: 'sol',
+  solana: 'sol',
+};
+
+function canonicalizeChain(chain: string | undefined): string {
+  const normalized = (chain ?? '').trim().toLowerCase();
+  return CHAIN_ID_ALIASES[normalized] ?? normalized;
+}
+
 function matchesNativeChainAsset(symbol: string, chain: string | undefined, event: WalletEvent): boolean {
   if (!chain || event.type !== 'native_transfer') return false;
   const aliases = CHAIN_NATIVE_SYMBOL_ALIASES[chain.toLowerCase()] ?? [];
@@ -128,6 +160,11 @@ const EventRow: React.FC<EventRowProps> = ({ event, styles }) => {
     : null;
   const visibleSummaries = summaries.slice(0, MAX_SUMMARIES_VISIBLE);
   const remainingCount = summaries.length - MAX_SUMMARIES_VISIBLE;
+  const primaryAsset = mapAssetDisplay(activity?.asset ?? '');
+  const primaryTxHint =
+    hasNewFormat && primaryAsset
+      ? t('activity.primaryTxHint', { asset: primaryAsset })
+      : null;
 
   return (
     <View style={styles.eventRow}>
@@ -181,6 +218,9 @@ const EventRow: React.FC<EventRowProps> = ({ event, styles }) => {
                   <Text style={styles.eventSummaryMore}>{t('activity.andMore', { count: remainingCount })}</Text>
                 )}
               </View>
+            )}
+            {primaryTxHint && (
+              <Text style={styles.eventSummaryMore}>{primaryTxHint}</Text>
             )}
           </View>
         )}
@@ -347,7 +387,7 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildActivityScreenStyles(tokens), [tokens]);
-  const { events } = usePortfolioStore();
+  const { events, isLoading, statusRefreshWarning } = usePortfolioStore();
   const [viewMode, setViewMode] = useState<ActivityViewMode>('batch');
   const viewOptions = useMemo(
     () => [t('activity.batchView'), t('activity.listView')],
@@ -360,9 +400,14 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
     if (!symbol) return events;
 
     const normalizedSymbol = canonicalizeSymbol(symbol);
+    const selectedChain = canonicalizeChain(chain);
     const symbolPattern = new RegExp(`\\b${escapeRegExp(normalizedSymbol)}\\b`, 'i');
 
     return events.filter(event => {
+      if (selectedChain) {
+        const eventChain = canonicalizeChain(event.chain);
+        if (eventChain !== selectedChain) return false;
+      }
       const summaries = event.eventSummaries ?? [];
       const summaryMatches = summaries.some((summary) =>
         symbolPattern.test(canonicalizeSymbol(summary))
@@ -408,6 +453,11 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
           flush
         />
       </View>
+      {statusRefreshWarning ? (
+        <View style={styles.warningBanner}>
+          <Text style={styles.warningBannerText}>{statusRefreshWarning}</Text>
+        </View>
+      ) : null}
       <FlatList
         data={filteredEvents}
         keyExtractor={(item) => item.id}
@@ -415,10 +465,19 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
         extraData={viewMode}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>{t('activity.noActivityFound')}</Text>
-            <Text style={styles.emptySubtitle}>
-              {symbol ? t('activity.emptyForSymbol', { symbol }) : t('activity.empty')}
-            </Text>
+            {isLoading ? (
+              <>
+                <Text style={styles.emptyTitle}>{t('activity.loading')}</Text>
+                <Text style={styles.emptySubtitle}>{t('coin.refreshingData')}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.emptyTitle}>{t('activity.noActivityFound')}</Text>
+                <Text style={styles.emptySubtitle}>
+                  {symbol ? t('activity.emptyForSymbol', { symbol }) : t('activity.empty')}
+                </Text>
+              </>
+            )}
           </View>
         }
         contentContainerStyle={styles.listContent}
@@ -483,6 +542,21 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       paddingHorizontal: sem.listMarginH,
       paddingTop: s.md,
       paddingBottom: s.xs,
+    },
+    warningBanner: {
+      marginHorizontal: sem.listMarginH,
+      marginBottom: s.xs,
+      paddingVertical: s.xs,
+      paddingHorizontal: s.sm,
+      borderRadius: sem.cardRadiusSmall,
+      backgroundColor: c.error[50],
+      borderWidth: 1,
+      borderColor: c.error[200],
+    },
+    warningBannerText: {
+      fontSize: typo.fontSizes.xs,
+      color: c.error[700],
+      fontWeight: typo.fontWeights.medium,
     },
     listContent: {
       paddingTop: sem.listMarginH,
