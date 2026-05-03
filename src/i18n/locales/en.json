@@ -188,6 +188,34 @@
     "holdings": "Holdings",
     "addWalletHint": "Add a wallet to see holdings"
   },
+  "monitorSources": {
+    "title": "Portfolio sources",
+    "tabWallet": "Wallet",
+    "tabExchange": "Exchange"
+  },
+  "monitorExchange": {
+    "disabledHint": "Exchange linking is not enabled for this app environment. Enable it on the server to connect CoinDCX.",
+    "providerCoinDcx": "CoinDCX",
+    "apiKeyPlaceholder": "API key",
+    "apiSecretPlaceholder": "API secret",
+    "labelPlaceholder": "Label (optional)",
+    "addExchange": "Add exchange",
+    "updateExchange": "Save keys",
+    "adding": "Linking…",
+    "updating": "Saving…",
+    "cancelEdit": "Cancel edit",
+    "editConnection": "Edit",
+    "linkedExchanges": "Linked exchanges",
+    "errorCredentialsRequired": "Enter API key and secret.",
+    "keyPrefix": "Key {{masked}}",
+    "status_active": "Active",
+    "status_invalid_credentials": "Invalid credentials",
+    "status_rate_limited": "Rate limited",
+    "status_error": "Error",
+    "status_requires_reauth": "Re-auth needed",
+    "needsAttention": "Needs attention",
+    "loadingExchanges": "Loading connections…"
+  },
   "monitorWallet": {
     "title": "Monitor Wallet",
     "selectChains": "Select Chains",

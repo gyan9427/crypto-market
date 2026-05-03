@@ -47,6 +47,7 @@ export const PortfolioScreen: React.FC = () => {
   const loadSupportedChains = usePortfolioStore((state) => state.loadSupportedChains);
   const loadEvents = usePortfolioStore((state) => state.loadEvents);
   const loadHoldings = usePortfolioStore((state) => state.loadHoldings);
+  const loadExchanges = usePortfolioStore((state) => state.loadExchanges);
   const runRecoverySync = usePortfolioStore((state) => state.runRecoverySync);
   const sessionMode = usePortfolioStore((state) => state.sessionMode);
   const canRunManualRefresh = usePortfolioStore((state) => state.canRunManualRefresh);
@@ -67,12 +68,13 @@ export const PortfolioScreen: React.FC = () => {
   useEffect(() => {
     loadSupportedChains();
     void loadWallets();
+    void loadExchanges();
     void loadHoldings(false, { modeOverride: 'bootstrap', triggerReason: 'bootstrap' });
     void loadEvents(1, PORTFOLIO_ACTIVITY_EVENT_LIMIT, {
       modeOverride: 'bootstrap',
       triggerReason: 'bootstrap',
     });
-  }, [loadSupportedChains, loadWallets, loadEvents, loadHoldings]);
+  }, [loadSupportedChains, loadWallets, loadExchanges, loadEvents, loadHoldings]);
 
   useEffect(() => {
     if (sessionMode !== 'degraded') return;
@@ -86,6 +88,7 @@ export const PortfolioScreen: React.FC = () => {
     setRefreshing(true);
     await Promise.all([
       loadWallets(),
+      loadExchanges(),
       loadEvents(1, PORTFOLIO_ACTIVITY_EVENT_LIMIT, { triggerReason: 'manual_refresh' }),
       loadHoldings(true, { triggerReason: 'manual_refresh' }),
     ]);

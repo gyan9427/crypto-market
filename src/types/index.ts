@@ -167,6 +167,41 @@ export interface WalletAddress {
   createdAt: string;
 }
 
+/** CoinDCX (and future) portfolio exchange link — aligns with backend `exchangeToDto`. */
+export type ExchangeProviderId = 'coindcx';
+
+export type ExchangeConnectionStatus =
+  | 'active'
+  | 'invalid_credentials'
+  | 'rate_limited'
+  | 'error'
+  | 'requires_reauth';
+
+export interface ExchangeConnection {
+  id: string;
+  provider: ExchangeProviderId;
+  label?: string;
+  maskedApiKey: string;
+  status: ExchangeConnectionStatus;
+  syncPhase: string;
+  balancesFreshness: string;
+  tradesFreshness: string;
+  balancesStaleReason?: string;
+  tradesStaleReason?: string;
+  lastBalancesSyncAt?: string;
+  lastTradesSyncAt?: string;
+  balancesLastError?: string;
+  tradesLastError?: string;
+  requiresReauth: boolean;
+  nextPollAt?: string;
+  pollingIntervalMs: number;
+  lastSuccessAt?: string;
+  lastErrorAt?: string;
+  lastErrorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type WalletEventType =
   | 'token_transfer'
   | 'native_transfer'

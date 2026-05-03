@@ -10,9 +10,11 @@ import {
   Animated,
   TouchableWithoutFeedback,
   PanResponder,
+  ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react-native';
+import type { ExchangeConnection } from '../types';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { ChainPills } from './ChainPills';
 import type { ThemeTokens } from '../theme/theme';
@@ -21,6 +23,29 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 function truncateAddress(address: string): string {
   if (address.length <= 12) return address;
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
+function exchangeStatusKey(status: ExchangeConnection['status']): string {
+  switch (status) {
+    case 'active':
+      return 'monitorExchange.status_active';
+    case 'invalid_credentials':
+      return 'monitorExchange.status_invalid_credentials';
+    case 'rate_limited':
+      return 'monitorExchange.status_rate_limited';
+    case 'error':
+      return 'monitorExchange.status_error';
+    case 'requires_reauth':
+      return 'monitorExchange.status_requires_reauth';
+    default:
+      return 'monitorExchange.status_error';
+  }
+}
+
+function providerLabel(ex: ExchangeConnection, t: (k: string) => string): string {
+  if (ex.label?.trim()) return ex.label.trim();
+  if (ex.provider === 'coindcx') return t('monitorExchange.providerCoinDcx');
+  return ex.provider;
 }
 
 type SheetStyles = ReturnType<typeof buildMonitorWalletSheetStyles>;
@@ -48,6 +73,8 @@ interface MonitorWalletSheetProps {
   onClose: () => void;
 }
 
+type SegmentId = 'wallet' | 'exchange';
+
 export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
   visible,
   onClose,
@@ -66,15 +93,35 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
     loadWallets,
     loadSupportedChains,
     loadEvents,
+    loadHoldings,
     addWallet,
     removeWallet,
     clearError,
+    exchanges,
+    exchangePortfolioEnabled,
+    exchangesCatalogLoaded,
+    exchangesLoading,
+    exchangeMutationPending,
+    exchangeError,
+    loadExchanges,
+    addCoinDcxExchange,
+    patchCoinDcxExchange,
+    removeExchangeConnection,
   } = usePortfolioStore();
+
+  const [segment, setSegment] = useState<SegmentId>('wallet');
 
   const [addressInput, setAddressInput] = useState('');
   const [labelInput, setLabelInput] = useState('');
   const [selectedChains, setSelectedChains] = useState<string[]>([]);
   const [addError, setAddError] = useState<string | null>(null);
+
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiSecretInput, setApiSecretInput] = useState('');
+  const [exchangeLabelInput, setExchangeLabelInput] = useState('');
+  const [exchangeFormError, setExchangeFormError] = useState<string | null>(null);
+  const [editingExchangeId, setEditingExchangeId] = useState<string | null>(null);
+
   const chainsUnavailable = supportedChains.length === 0 || Boolean(supportedChainsError);
   const chainsUnavailableMessage =
     supportedChainsError || t('monitorWallet.errorChainsUnavailable');
@@ -88,6 +135,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
       setIsClosing(false);
       loadSupportedChains();
       loadWallets();
+      void loadExchanges();
       Animated.parallel([
         Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, bounciness: 4 }),
         Animated.timing(backdropAnim, { toValue: 1, duration: 200, useNativeDriver: false }),
@@ -95,6 +143,13 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
     } else {
       slideAnim.setValue(-600);
       backdropAnim.setValue(0);
+      setSegment('wallet');
+      setEditingExchangeId(null);
+      setApiKeyInput('');
+      setApiSecretInput('');
+      setExchangeLabelInput('');
+      setExchangeFormError(null);
+      setAddError(null);
     }
   }, [visible]);
 
@@ -171,8 +226,79 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
     [removeWallet]
   );
 
+  const beginEditExchange = useCallback((ex: ExchangeConnection) => {
+    setEditingExchangeId(ex.id);
+    setExchangeLabelInput(ex.label?.trim() ?? '');
+    setApiKeyInput('');
+    setApiSecretInput('');
+    setExchangeFormError(null);
+    clearError();
+  }, [clearError]);
+
+  const cancelEditExchange = useCallback(() => {
+    setEditingExchangeId(null);
+    setApiKeyInput('');
+    setApiSecretInput('');
+    setExchangeFormError(null);
+  }, []);
+
+  const handleSubmitExchange = useCallback(async () => {
+    const keyTrim = apiKeyInput.trim();
+    const secretTrim = apiSecretInput.trim();
+    setExchangeFormError(null);
+    clearError();
+
+    if (!exchangePortfolioEnabled || !exchangesCatalogLoaded) return;
+
+    if (!keyTrim || !secretTrim) {
+      setExchangeFormError(t('monitorExchange.errorCredentialsRequired'));
+      return;
+    }
+
+    try {
+      const label = exchangeLabelInput.trim() || undefined;
+      if (editingExchangeId) {
+        await patchCoinDcxExchange(editingExchangeId, keyTrim, secretTrim, label);
+        cancelEditExchange();
+      } else {
+        await addCoinDcxExchange(keyTrim, secretTrim, label);
+        setApiKeyInput('');
+        setApiSecretInput('');
+        setExchangeLabelInput('');
+      }
+      void loadHoldings(true, { triggerReason: 'manual_refresh' });
+      void loadEvents(1, 20, { triggerReason: 'manual_refresh' });
+    } catch {
+      // store sets exchangeError
+    }
+  }, [
+    addCoinDcxExchange,
+    apiKeyInput,
+    apiSecretInput,
+    cancelEditExchange,
+    clearError,
+    editingExchangeId,
+    exchangeLabelInput,
+    exchangePortfolioEnabled,
+    exchangesCatalogLoaded,
+    loadEvents,
+    loadHoldings,
+    patchCoinDcxExchange,
+    t,
+  ]);
+
+  const combinedExchangeError = exchangeFormError || exchangeError || null;
+
   const showModal = visible || isClosing;
   if (!showModal) return null;
+
+  const exchangeBlocking =
+    exchangesLoading && !exchangesCatalogLoaded;
+  const primaryExchangeDisabled =
+    exchangeMutationPending ||
+    exchangeBlocking ||
+    !exchangePortfolioEnabled ||
+    !exchangesCatalogLoaded;
 
   return (
     <Modal transparent visible={showModal} animationType="none" onRequestClose={closeSheet}>
@@ -185,9 +311,28 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
           <View style={styles.handleBar} />
         </View>
         <View style={styles.header}>
-          <Text style={styles.title}>{t('monitorWallet.title')}</Text>
+          <Text style={styles.title}>{t('monitorSources.title')}</Text>
           <TouchableOpacity onPress={closeSheet} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <X size={24} color={c.neutral[600]} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.segmentRow}>
+          <TouchableOpacity
+            style={[styles.segmentPill, segment === 'wallet' && styles.segmentPillActive]}
+            onPress={() => setSegment('wallet')}
+          >
+            <Text style={[styles.segmentText, segment === 'wallet' && styles.segmentTextActive]}>
+              {t('monitorSources.tabWallet')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentPill, segment === 'exchange' && styles.segmentPillActive]}
+            onPress={() => setSegment('exchange')}
+          >
+            <Text style={[styles.segmentText, segment === 'exchange' && styles.segmentTextActive]}>
+              {t('monitorSources.tabExchange')}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -196,66 +341,195 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.inputLabel}>{t('monitorWallet.selectChains')}</Text>
-          <ChainPills
-            chains={supportedChains}
-            selectedChains={selectedChains}
-            onToggle={toggleChain}
-            disabled={chainsUnavailable}
-          />
+          {segment === 'wallet' ? (
+            <>
+              <Text style={styles.inputLabel}>{t('monitorWallet.selectChains')}</Text>
+              <ChainPills
+                chains={supportedChains}
+                selectedChains={selectedChains}
+                onToggle={toggleChain}
+                disabled={chainsUnavailable}
+              />
 
-          <TextInput
-            style={styles.input}
-            placeholder={t('monitorWallet.addressPlaceholder')}
-            placeholderTextColor={c.neutral[400]}
-            value={addressInput}
-            onChangeText={setAddressInput}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="default"
-          />
+              <TextInput
+                style={styles.input}
+                placeholder={t('monitorWallet.addressPlaceholder')}
+                placeholderTextColor={c.neutral[400]}
+                value={addressInput}
+                onChangeText={setAddressInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="default"
+              />
 
-          <TextInput
-            style={[styles.input, styles.inputSmall]}
-            placeholder={t('monitorWallet.labelPlaceholder')}
-            placeholderTextColor={c.neutral[400]}
-            value={labelInput}
-            onChangeText={setLabelInput}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+              <TextInput
+                style={[styles.input, styles.inputSmall]}
+                placeholder={t('monitorWallet.labelPlaceholder')}
+                placeholderTextColor={c.neutral[400]}
+                value={labelInput}
+                onChangeText={setLabelInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
 
-          {(addError || supportedChainsError || error) ? (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>{addError || supportedChainsError || error}</Text>
-            </View>
-          ) : null}
+              {(addError || supportedChainsError || error) ? (
+                <View style={styles.errorBanner}>
+                  <Text style={styles.errorBannerText}>{addError || supportedChainsError || error}</Text>
+                </View>
+              ) : null}
 
-          <TouchableOpacity
-            style={[styles.addButton, (isLoading || chainsUnavailable) && styles.addButtonDisabled]}
-            onPress={handleAddWallet}
-            disabled={isLoading || chainsUnavailable}
-          >
-            <Text style={styles.addButtonText}>
-              {isLoading ? t('monitorWallet.adding') : t('monitorWallet.addWallet')}
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.addButton, (isLoading || chainsUnavailable) && styles.addButtonDisabled]}
+                onPress={handleAddWallet}
+                disabled={isLoading || chainsUnavailable}
+              >
+                <Text style={styles.addButtonText}>
+                  {isLoading ? t('monitorWallet.adding') : t('monitorWallet.addWallet')}
+                </Text>
+              </TouchableOpacity>
 
-          {wallets.length > 0 && (
-            <View style={styles.walletsSection}>
-              <Text style={styles.sectionTitle}>{t('monitorWallet.monitoredWallets')}</Text>
-              <View style={styles.walletList}>
-                {wallets.map((w) => (
-                  <WalletListItem
-                    key={w.id}
-                    address={w.address}
-                    label={w.label}
-                    onRemove={() => handleRemoveWallet(w.id)}
-                    sheetStyles={styles}
+              {wallets.length > 0 && (
+                <View style={styles.walletsSection}>
+                  <Text style={styles.sectionTitle}>{t('monitorWallet.monitoredWallets')}</Text>
+                  <View style={styles.walletList}>
+                    {wallets.map((w) => (
+                      <WalletListItem
+                        key={w.id}
+                        address={w.address}
+                        label={w.label}
+                        onRemove={() => handleRemoveWallet(w.id)}
+                        sheetStyles={styles}
+                      />
+                    ))}
+                  </View>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              {exchangeBlocking ? (
+                <View style={styles.exchangeLoadingRow}>
+                  <ActivityIndicator color={c.primary[500]} />
+                  <Text style={styles.exchangeLoadingText}>{t('monitorExchange.loadingExchanges')}</Text>
+                </View>
+              ) : null}
+
+              {!exchangePortfolioEnabled && exchangesCatalogLoaded ? (
+                <View style={styles.errorBanner}>
+                  <Text style={styles.errorBannerText}>{t('monitorExchange.disabledHint')}</Text>
+                </View>
+              ) : null}
+
+              {exchangePortfolioEnabled && exchangesCatalogLoaded ? (
+                <>
+                  <Text style={styles.inputLabel}>{t('monitorExchange.providerCoinDcx')}</Text>
+
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('monitorExchange.apiKeyPlaceholder')}
+                    placeholderTextColor={c.neutral[400]}
+                    value={apiKeyInput}
+                    onChangeText={setApiKeyInput}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!exchangeMutationPending}
                   />
-                ))}
-              </View>
-            </View>
+
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('monitorExchange.apiSecretPlaceholder')}
+                    placeholderTextColor={c.neutral[400]}
+                    value={apiSecretInput}
+                    onChangeText={setApiSecretInput}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry
+                    editable={!exchangeMutationPending}
+                  />
+
+                  <TextInput
+                    style={[styles.input, styles.inputSmall]}
+                    placeholder={t('monitorExchange.labelPlaceholder')}
+                    placeholderTextColor={c.neutral[400]}
+                    value={exchangeLabelInput}
+                    onChangeText={setExchangeLabelInput}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!exchangeMutationPending}
+                  />
+
+                  {editingExchangeId ? (
+                    <TouchableOpacity onPress={cancelEditExchange}>
+                      <Text style={styles.cancelEditLink}>{t('monitorExchange.cancelEdit')}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {combinedExchangeError && exchangePortfolioEnabled ? (
+                    <View style={styles.errorBanner}>
+                      <Text style={styles.errorBannerText}>{combinedExchangeError}</Text>
+                    </View>
+                  ) : null}
+
+                  <TouchableOpacity
+                    style={[styles.addButton, primaryExchangeDisabled && styles.addButtonDisabled]}
+                    onPress={handleSubmitExchange}
+                    disabled={primaryExchangeDisabled}
+                  >
+                    <Text style={styles.addButtonText}>
+                      {exchangeMutationPending
+                        ? editingExchangeId
+                          ? t('monitorExchange.updating')
+                          : t('monitorExchange.adding')
+                        : editingExchangeId
+                          ? t('monitorExchange.updateExchange')
+                          : t('monitorExchange.addExchange')}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : null}
+
+              {exchanges.length > 0 && exchangePortfolioEnabled && exchangesCatalogLoaded ? (
+                <View style={styles.walletsSection}>
+                  <Text style={styles.sectionTitle}>{t('monitorExchange.linkedExchanges')}</Text>
+                  <View style={styles.walletList}>
+                    {exchanges.map((ex) => (
+                      <View key={ex.id} style={styles.exchangeRow}>
+                        <View style={styles.exchangeRowMain}>
+                          <Text style={styles.exchangeRowTitle} numberOfLines={1}>
+                            {providerLabel(ex, t)}
+                          </Text>
+                          <Text style={styles.exchangeRowMeta} numberOfLines={1}>
+                            {t('monitorExchange.keyPrefix', { masked: ex.maskedApiKey })}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.exchangeRowStatus,
+                              (ex.requiresReauth || ex.status !== 'active') && styles.exchangeRowStatusWarn,
+                            ]}
+                          >
+                            {ex.requiresReauth || ex.status !== 'active'
+                              ? `${t(exchangeStatusKey(ex.status))} · ${t('monitorExchange.needsAttention')}`
+                              : t(exchangeStatusKey(ex.status))}
+                          </Text>
+                        </View>
+                        <View style={styles.exchangeRowActions}>
+                          <TouchableOpacity onPress={() => beginEditExchange(ex)} hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}>
+                            <Text style={styles.exchangeEdit}>{t('monitorExchange.editConnection')}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => void removeExchangeConnection(ex.id)}
+                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                            disabled={exchangeMutationPending}
+                          >
+                            <Text style={styles.walletListItemRemove}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+            </>
           )}
         </ScrollView>
       </Animated.View>
@@ -308,6 +582,33 @@ function buildMonitorWalletSheetStyles(tokens: ThemeTokens) {
       fontWeight: typo.fontWeights.bold,
       color: tokens.text,
     },
+    segmentRow: {
+      flexDirection: 'row',
+      gap: s.xs,
+      paddingHorizontal: sem.listMarginH,
+      marginBottom: s.md,
+    },
+    segmentPill: {
+      flex: 1,
+      paddingVertical: s.sm,
+      borderRadius: br.button,
+      borderWidth: 1,
+      borderColor: tokens.borderSubtle,
+      alignItems: 'center',
+      backgroundColor: tokens.inputBg,
+    },
+    segmentPillActive: {
+      borderColor: c.primary[500],
+      backgroundColor: c.primary[50],
+    },
+    segmentText: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.medium,
+      color: tokens.textMuted,
+    },
+    segmentTextActive: {
+      color: c.primary[700],
+    },
     content: {
       paddingHorizontal: sem.listMarginH,
       paddingBottom: s.xxl,
@@ -342,6 +643,22 @@ function buildMonitorWalletSheetStyles(tokens: ThemeTokens) {
     errorBannerText: {
       color: c.error[700],
       fontSize: typo.fontSizes.sm,
+    },
+    cancelEditLink: {
+      marginTop: s.sm,
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+      color: c.primary[600],
+    },
+    exchangeLoadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s.sm,
+      marginBottom: s.md,
+    },
+    exchangeLoadingText: {
+      fontSize: typo.fontSizes.sm,
+      color: tokens.textMuted,
     },
     addButton: {
       marginTop: s.md,
@@ -391,6 +708,50 @@ function buildMonitorWalletSheetStyles(tokens: ThemeTokens) {
       color: c.neutral[400],
       fontWeight: typo.fontWeights.bold,
       marginLeft: s.sm,
+    },
+    exchangeRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      backgroundColor: tokens.inputBg,
+      borderColor: tokens.borderSubtle,
+      borderWidth: 1,
+      borderRadius: sem.cardRadiusSmall,
+      paddingHorizontal: s.md,
+      paddingVertical: s.sm,
+      marginBottom: s.xs,
+    },
+    exchangeRowMain: {
+      flex: 1,
+      paddingRight: s.sm,
+    },
+    exchangeRowTitle: {
+      fontSize: typo.fontSizes.base,
+      fontWeight: typo.fontWeights.semibold,
+      color: c.neutral[800],
+    },
+    exchangeRowMeta: {
+      marginTop: 4,
+      fontSize: typo.fontSizes.sm,
+      color: tokens.textMuted,
+    },
+    exchangeRowStatus: {
+      marginTop: 4,
+      fontSize: typo.fontSizes.sm,
+      color: c.neutral[600],
+    },
+    exchangeRowStatusWarn: {
+      color: c.error[600],
+    },
+    exchangeRowActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s.sm,
+    },
+    exchangeEdit: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+      color: c.primary[600],
     },
   });
 }
