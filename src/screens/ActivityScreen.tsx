@@ -632,7 +632,11 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
       const activityAsset = canonicalizeSymbol(event.activity?.asset);
       const nativeChainMatch = matchesNativeChainAsset(normalizedSymbol, chain, event);
 
-      return summaryMatches || activityAsset === normalizedSymbol || nativeChainMatch;
+      // For exchange trades, check if the trading pair starts with the symbol (e.g., 'ETHWINR' starts with 'ETHW')
+      // This handles cases where activity.asset is a trading pair rather than just the base currency
+      const exchangePairMatch = isExchangePortfolioEvent(event) && activityAsset.startsWith(normalizedSymbol);
+
+      return summaryMatches || activityAsset === normalizedSymbol || nativeChainMatch || exchangePairMatch;
     });
   }, [chain, events, sourceFilter, symbol]);
 
