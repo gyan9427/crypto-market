@@ -79,26 +79,31 @@ function buildStyles(tokens: ThemeTokens, flush: boolean) {
   return StyleSheet.create({
     container: {
       flexDirection: 'row',
-      /** Keep segment index aligned with labels (All | Wallet | Exchange) under RTL layouts */
       direction: 'ltr',
-      backgroundColor: tokens.isDark ? tokens.colors.neutral[200] : tokens.colors.neutral[100],
+      backgroundColor: tokens.isDark
+        ? tokens.colors.neutral[200]
+        : tokens.colors.neutral[100],
       borderRadius: tokens.borderRadius.button,
-      padding: 4,
+      borderWidth: 1,
+      borderColor: tokens.borderSubtle,
+      padding: 3,
       position: 'relative',
       marginHorizontal: flush ? 0 : 16,
       marginBottom: flush ? 0 : 16,
     },
     indicator: {
       position: 'absolute',
-      left: 4,
-      top: 4,
-      bottom: 4,
+      left: 3,
+      top: 3,
+      bottom: 3,
       backgroundColor: tokens.bgElevated,
       borderRadius: tokens.borderRadius.button - 2,
-      shadowColor: '#000',
+      borderWidth: 1,
+      borderColor: tokens.border,
+      shadowColor: tokens.isDark ? '#000' : 'rgba(88,28,135,0.15)',
       shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: tokens.isDark ? 0.35 : 0.1,
-      shadowRadius: 2,
+      shadowOpacity: tokens.isDark ? 0.35 : 0.12,
+      shadowRadius: 3,
       elevation: 2,
     },
     segment: {
@@ -110,14 +115,16 @@ function buildStyles(tokens: ThemeTokens, flush: boolean) {
       minHeight: 44,
     },
     segmentText: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: tokens.textMuted,
+      fontSize: tokens.typography.fontSizes.base,
+      fontWeight: tokens.typography.fontWeights.medium,
       fontFamily: tokens.typography.fontFamilies.sansMedium,
+      color: tokens.textMuted,
+      letterSpacing: tokens.typography.letterSpacing.button,
     },
     segmentTextActive: {
-      color: tokens.text,
-      fontWeight: '600',
+      color: tokens.colors.primary[tokens.isDark ? 400 : 600],
+      fontWeight: tokens.typography.fontWeights.semibold,
+      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
     },
   });
 }

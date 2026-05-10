@@ -13,17 +13,15 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
-import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { FilterPills } from '../components/FilterPills';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
-import { MarketAnalysisCard } from '../components/MarketAnalysisCard';
 import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import { useAppStore } from '../state/useAppStore';
-import { fetchActiveCoinsPage, fetchMarketAnalysis } from '../services/api';
-import { ExploreCategory, MarketAnalysisCoin, TrendingCoin } from '../types';
+import { fetchActiveCoinsPage } from '../services/api';
+import { ExploreCategory, TrendingCoin } from '../types';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { usePollingEffect } from '../hooks/usePollingEffect';
@@ -48,29 +46,7 @@ const ExploreCoinRow = React.memo(function ExploreCoinRow({
 
 ExploreCoinRow.displayName = 'ExploreCoinRow';
 
-const MarketAnalysisCoinRow = React.memo(function MarketAnalysisCoinRow({
-  coin,
-  rank,
-  isFocused,
-  onPress,
-}: {
-  coin: MarketAnalysisCoin;
-  rank: number;
-  isFocused: boolean;
-  onPress: (coinId: string) => void;
-}) {
-  const { quotes } = useMarketPriceStream([coin.symbol], { enabled: isFocused });
-  const liveQuote: LivePriceQuote | undefined = quotes[coin.symbol.toUpperCase()];
-
-  return (
-    <MarketAnalysisCard coin={coin} rank={rank} liveQuote={liveQuote} onPress={onPress} />
-  );
-});
-
-MarketAnalysisCoinRow.displayName = 'MarketAnalysisCoinRow';
-
 export const ExploreScreen: React.FC = () => {
-  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildExploreScreenStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -85,7 +61,6 @@ export const ExploreScreen: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState<TrendingCoin[]>([]);
-  const [analysisCoins, setAnalysisCoins] = useState<MarketAnalysisCoin[]>([]);
   const [nextCursor, setNextCursor] = useState<number | null | undefined>(undefined);
   const [marketGraphExpanded, setMarketGraphExpanded] = useState(true);
   const [measuredGraphHeight, setMeasuredGraphHeight] = useState(0);
@@ -103,32 +78,23 @@ export const ExploreScreen: React.FC = () => {
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
 
-  const categories: ExploreCategory[] = ['analysis', 'trending', 'top'];
-  const isAnalysis = exploreCategory === 'analysis';
+  const categories: ExploreCategory[] = ['trending', 'top'];
 
   const loadInitialPage = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       setCoins([]);
-      setAnalysisCoins([]);
       setNextCursor(undefined);
-
-      if (exploreCategory === 'analysis') {
-        const { coins: ac } = await fetchMarketAnalysis();
-        setAnalysisCoins(ac);
-      } else {
-        const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
-          undefined,
-          20,
-          exploreCategory
-        );
-        setCoins(pageCoins);
-        setNextCursor(cursor);
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load data';
-      setError(msg);
+      const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
+        undefined,
+        20,
+        exploreCategory
+      );
+      setCoins(pageCoins);
+      setNextCursor(cursor);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load data');
       console.error('Error loading explore data:', err);
     } finally {
       setLoading(false);
@@ -136,7 +102,6 @@ export const ExploreScreen: React.FC = () => {
   }, [exploreCategory]);
 
   const loadMore = useCallback(async () => {
-    if (exploreCategory === 'analysis') return;
     if (loadingMore || nextCursor === null || nextCursor === undefined) return;
     try {
       setLoadingMore(true);
@@ -147,7 +112,7 @@ export const ExploreScreen: React.FC = () => {
       );
       setCoins((prev) => [...prev, ...pageCoins]);
       setNextCursor(cursor);
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Error loading more:', err);
     } finally {
       setLoadingMore(false);
@@ -159,17 +124,6 @@ export const ExploreScreen: React.FC = () => {
     [loadInitialPage, isFocused],
     { enabled: isFocused, intervalMs: 20000, immediate: true }
   );
-
-  useEffect(() => {
-    if (exploreCategory === 'analysis') {
-      setMarketGraphExpanded(true);
-    } else {
-      graphMeasureReadyRef.current = false;
-      recordedGraphFullHeightRef.current = 0;
-      lastSyncedGraphHeightRef.current = 0;
-      setMeasuredGraphHeight(0);
-    }
-  }, [exploreCategory]);
 
   const handleCoinPress = (coinId: string) => {
     router.push(`/coin/${coinId}` as never);
@@ -184,7 +138,7 @@ export const ExploreScreen: React.FC = () => {
   };
 
   useLayoutEffect(() => {
-    if (!isAnalysis || measuredGraphHeight <= 0) return;
+    if (measuredGraphHeight <= 0) return;
 
     if (!graphMeasureReadyRef.current) {
       graphMeasureReadyRef.current = true;
@@ -204,10 +158,10 @@ export const ExploreScreen: React.FC = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- graphHeightAnim is stable Animated.Value
-  }, [measuredGraphHeight, marketGraphExpanded, expandedGraphTargetHeight, isAnalysis]);
+  }, [measuredGraphHeight, marketGraphExpanded, expandedGraphTargetHeight]);
 
   useEffect(() => {
-    if (!isAnalysis || measuredGraphHeight <= 0 || !graphMeasureReadyRef.current) return;
+    if (measuredGraphHeight <= 0 || !graphMeasureReadyRef.current) return;
     if (skipToggleEffectOnceRef.current) {
       skipToggleEffectOnceRef.current = false;
       return;
@@ -219,7 +173,7 @@ export const ExploreScreen: React.FC = () => {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [marketGraphExpanded, measuredGraphHeight, graphHeightAnim, expandedGraphTargetHeight, isAnalysis]);
+  }, [marketGraphExpanded, measuredGraphHeight, graphHeightAnim, expandedGraphTargetHeight]);
 
   const toggleGraph = () => {
     setMarketGraphExpanded((v) => !v);
@@ -230,51 +184,43 @@ export const ExploreScreen: React.FC = () => {
       ? { height: graphHeightAnim, overflow: 'hidden' as const }
       : { alignSelf: 'stretch' as const };
 
-  const listEmpty =
-    exploreCategory === 'analysis' ? analysisCoins.length === 0 : coins.length === 0;
-
   const renderHeader = () => (
     <View style={styles.headerSection}>
-      {isAnalysis ? (
-        <>
-          <View style={styles.graphChrome}>
-            <TouchableOpacity
-              style={styles.graphToggleRow}
-              onPress={toggleGraph}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={marketGraphExpanded ? 'Hide market chart' : 'Show market chart'}
-            >
-              <Text style={styles.graphToggleLabel}>{t('explore.marketOverview')}</Text>
-              {marketGraphExpanded ? (
-                <ChevronUp size={22} color={c.neutral[700]} accessibilityLabel="" />
-              ) : (
-                <ChevronDown size={22} color={c.neutral[700]} accessibilityLabel="" />
-              )}
-            </TouchableOpacity>
-            <Animated.View style={[styles.graphClip, graphClipStyle]}>
-              <View onLayout={onMarketGraphLayout} collapsable={false}>
-                <MarketCapPlaceholder liveUpdatesEnabled={isFocused && marketGraphExpanded} />
-              </View>
-            </Animated.View>
+      <View style={styles.graphChrome}>
+        <TouchableOpacity
+          style={styles.graphToggleRow}
+          onPress={toggleGraph}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={marketGraphExpanded ? 'Hide market chart' : 'Show market chart'}
+        >
+          <Text style={styles.graphToggleLabel}>Market overview</Text>
+          {marketGraphExpanded ? (
+            <ChevronUp size={20} color={tokens.textMuted} accessibilityLabel="" />
+          ) : (
+            <ChevronDown size={20} color={tokens.textMuted} accessibilityLabel="" />
+          )}
+        </TouchableOpacity>
+        <Animated.View style={[styles.graphClip, graphClipStyle]}>
+          <View onLayout={onMarketGraphLayout} collapsable={false}>
+            <MarketCapPlaceholder liveUpdatesEnabled={isFocused && marketGraphExpanded} />
           </View>
-          <Text style={styles.analysisSubtitle}>{t('explore.analysisSubtitle')}</Text>
-        </>
-      ) : null}
+        </Animated.View>
+      </View>
       <FilterPills
         categories={categories}
         selectedCategory={exploreCategory}
         onSelect={setExploreCategory}
       />
-      {error ? (
+      {error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>{error}</Text>
         </View>
-      ) : null}
+      )}
     </View>
   );
 
-  if (error && listEmpty && !loading) {
+  if (error && coins.length === 0) {
     return (
       <View style={styles.container}>
         <ServiceUnavailableState onRetry={loadInitialPage} />
@@ -282,55 +228,22 @@ export const ExploreScreen: React.FC = () => {
     );
   }
 
-  const listData =
-    loading && listEmpty
-      ? Array(5).fill(null)
-      : isAnalysis
-        ? analysisCoins
-        : coins;
-
   return (
     <View style={styles.container}>
       {renderHeader()}
       <FlatList
-        data={listData}
-        keyExtractor={(item, index) =>
-          isAnalysis
-            ? (item as MarketAnalysisCoin)?.coinId || `skeleton-${index}`
-            : (item as TrendingCoin)?.id || `skeleton-${index}`
-        }
+        data={loading && coins.length === 0 ? Array(5).fill(null) : coins}
+        keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
         renderItem={({ item, index }) => {
-          if (loading && listEmpty) {
+          if (loading && coins.length === 0) {
             return <TrendingCoinCardSkeleton key={`skeleton-${index}`} />;
           }
-          if (isAnalysis) {
-            const coin = item as MarketAnalysisCoin;
-            return (
-              <MarketAnalysisCoinRow
-                coin={coin}
-                rank={index + 1}
-                isFocused={isFocused}
-                onPress={handleCoinPress}
-              />
-            );
-          }
-          return (
-            <ExploreCoinRow
-              coin={item as TrendingCoin}
-              isFocused={isFocused}
-              onPress={handleCoinPress}
-            />
-          );
+          return <ExploreCoinRow coin={item} isFocused={isFocused} onPress={handleCoinPress} />;
         }}
-        onEndReached={isAnalysis ? undefined : loadMore}
+        onEndReached={loadMore}
         onEndReachedThreshold={0.5}
-        ListEmptyComponent={
-          !loading && isAnalysis && analysisCoins.length === 0 ? (
-            <Text style={styles.emptyAnalysis}>{t('explore.analysisEmpty')}</Text>
-          ) : null
-        }
         ListFooterComponent={
-          !isAnalysis && loadingMore ? (
+          loadingMore ? (
             <View style={styles.footerLoader}>
               <ActivityIndicator size="small" color={c.primary[500]} />
             </View>
@@ -367,51 +280,40 @@ function buildExploreScreenStyles(tokens: ThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: s.lg,
-      paddingTop: s.xs,
+      paddingTop: s.sm,
       paddingBottom: s.sm,
     },
     graphToggleLabel: {
-      fontSize: typo.fontSizes.sm,
+      fontSize: typo.fontSizes.md,
       fontWeight: typo.fontWeights.semibold,
-      color: tokens.text,
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      color: tokens.heading,
+      letterSpacing: typo.letterSpacing.subheading,
     },
     graphClip: {
       marginBottom: 0,
     },
-    analysisSubtitle: {
-      fontSize: typo.fontSizes.sm,
-      color: tokens.textMuted,
-      paddingHorizontal: s.lg,
-      paddingBottom: s.sm,
-      lineHeight: 18,
-    },
     errorBanner: {
-      backgroundColor: c.error[50],
+      backgroundColor: tokens.isDark ? 'rgba(239,68,68,0.12)' : c.error[50],
       padding: s.md,
-      marginHorizontal: 24,
+      marginHorizontal: s.lg,
       marginTop: s.xs,
-      borderRadius: 16,
+      borderRadius: tokens.borderRadius.lg,
+      borderWidth: 1,
+      borderColor: tokens.isDark ? 'rgba(239,68,68,0.25)' : c.error[100],
     },
     errorBannerText: {
-      color: c.error[700],
-      fontSize: 14,
+      color: tokens.isDark ? c.danger[500] : c.error[700],
+      fontSize: typo.fontSizes.sm,
+      fontFamily: typo.fontFamilies.sans,
     },
     listContent: {
       paddingTop: s.xs,
       paddingBottom: 96,
-      paddingHorizontal: s.lg,
-      flexGrow: 1,
     },
     footerLoader: {
       paddingVertical: s.md,
       alignItems: 'center',
-    },
-    emptyAnalysis: {
-      textAlign: 'center',
-      marginTop: s.lg,
-      paddingHorizontal: s.lg,
-      fontSize: typo.fontSizes.sm,
-      color: tokens.textMuted,
     },
   });
 }

@@ -1,5 +1,11 @@
-import React, { memo, useMemo } from 'react';
-import { Pressable, Text, StyleSheet, ViewStyle } from 'react-native';
+import React, { memo } from 'react';
+import { Platform, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 
@@ -9,44 +15,75 @@ export interface NextButtonProps {
   style?: ViewStyle;
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const btnGlow =
+  Platform.OS === 'web'
+    ? { boxShadow: '0 4px 20px rgba(168,85,247,0.30)' }
+    : Platform.OS === 'ios'
+      ? {
+          shadowColor: '#a855f7',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.30,
+          shadowRadius: 14,
+        }
+      : { elevation: 6 };
+
 function NextButtonInner({ label, onPress, style }: NextButtonProps) {
   const { tokens } = useAppTheme();
-  const styles = useMemo(() => buildNextButtonStyles(tokens), [tokens]);
+  const styles = buildNextButtonStyles(tokens);
+  const pressed = useSharedValue(1);
+
+  const anim = useAnimatedStyle(() => ({
+    transform: [{ scale: pressed.value }],
+  }));
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
-      style={({ pressed }) => [styles.btn, pressed && styles.pressed, style]}
+      onPressIn={() => {
+        pressed.value = withTiming(0.98, { duration: 90 });
+      }}
+      onPressOut={() => {
+        pressed.value = withTiming(1, { duration: 160 });
+      }}
+      style={[styles.btnWrapper, btnGlow, anim, style]}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <Text style={styles.label}>{label}</Text>
-    </Pressable>
+      <LinearGradient
+        colors={['#a855f7', '#d946ef']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradient}
+      >
+        <Text style={styles.label}>{label}</Text>
+      </LinearGradient>
+    </AnimatedPressable>
   );
 }
 
 function buildNextButtonStyles(tokens: ThemeTokens) {
-  const c = tokens.colors;
-  const s = tokens.spacing;
-  const br = tokens.borderRadius;
   const typo = tokens.typography;
   return StyleSheet.create({
-    btn: {
-      backgroundColor: c.primary[600],
-      paddingVertical: s.md,
-      paddingHorizontal: s.xl,
-      borderRadius: br.button,
-      alignItems: 'center',
-      justifyContent: 'center',
+    btnWrapper: {
+      borderRadius: 8,
+      overflow: 'hidden',
       minWidth: 200,
     },
-    pressed: {
-      opacity: 0.92,
+    gradient: {
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 48,
     },
     label: {
-      color: c.surface,
-      fontSize: typo.fontSizes.md,
-      fontWeight: typo.fontWeights.semibold,
+      color: '#ffffff',
+      fontSize: typo.fontSizes.base,
+      fontWeight: '600',
+      letterSpacing: 0.02,
+      fontFamily: typo.fontFamilies.sansSemiBold,
     },
   });
 }

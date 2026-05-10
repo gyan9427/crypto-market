@@ -59,33 +59,38 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
 function buildFilterPillsStyles(tokens: ThemeTokens) {
   const c = tokens.colors;
   const s = tokens.spacing;
+  const typo = tokens.typography;
   return StyleSheet.create({
     container: {
-      paddingHorizontal: 24,
-      paddingVertical: s.xs,
+      paddingHorizontal: s.lg,
+      paddingVertical: s.sm,
       flexDirection: 'row',
+      gap: s.sm,
     },
     pill: {
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-      borderRadius: 9999,
-      backgroundColor: tokens.surface,
-      marginRight: s.xs,
-      minHeight: 32,
+      paddingHorizontal: 16,
+      paddingVertical: 7,
+      borderRadius: tokens.borderRadius.pill,
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: tokens.border,
+      minHeight: 34,
       justifyContent: 'center',
       alignItems: 'center',
-      ...tokens.shadows.sm,
     },
     pillActive: {
       backgroundColor: c.primary[500],
+      borderColor: c.primary[500],
     },
     pillText: {
-      fontSize: 14,
-      fontWeight: '600',
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+      fontFamily: typo.fontFamilies.sansSemiBold,
       color: tokens.textMuted,
+      letterSpacing: typo.letterSpacing.button,
     },
     pillTextActive: {
-      color: c.white,
+      color: '#ffffff',
     },
   });
 }

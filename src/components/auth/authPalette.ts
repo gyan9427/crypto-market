@@ -1,13 +1,15 @@
-/** Auth-only palette (premium fintech) — complements global ThemeTokens + primary violet */
+/** Auth-only palette — NAYFT design system with purple-first brand identity */
 
 export type AuthPalette = {
   bg: string;
+  /** Primary action color (purple) — replaces legacy primaryGreen */
+  primary: string;
+  /** @deprecated alias kept for backwards compatibility; use `primary` */
   primaryGreen: string;
   inputBg: string;
   textPrimary: string;
   textSecondary: string;
   border: string;
-  /** Quiet focus ring — not accent green on fields */
   inputBorderFocused: string;
   googleSurface: string;
   googleBorder: string;
@@ -18,31 +20,32 @@ export type AuthPalette = {
 export function getAuthPalette(isDark: boolean): AuthPalette {
   if (isDark) {
     return {
-      bg: '#0B0F14',
-      primaryGreen: '#22C55E',
-      inputBg: '#161B22',
-      textPrimary: '#F9FAFB',
-      textSecondary: '#9CA3AF',
-      border: '#222938',
-      inputBorderFocused: '#475569',
-      googleSurface: '#161B22',
-      googleBorder: '#222938',
-      errorBg: 'rgba(239, 68, 68, 0.12)',
-      errorText: '#FCA5A5',
+      bg: '#0a0a0a',
+      primary: '#a855f7',
+      primaryGreen: '#a855f7',
+      inputBg: '#171717',
+      textPrimary: '#f5f5f5',
+      textSecondary: '#a3a3a3',
+      border: 'rgba(255,255,255,0.08)',
+      inputBorderFocused: '#a855f7',
+      googleSurface: '#171717',
+      googleBorder: 'rgba(255,255,255,0.08)',
+      errorBg: 'rgba(239,68,68,0.12)',
+      errorText: '#fca5a5',
     };
   }
-  /** Light: clean white canvas with high-contrast text and subtle violet accents */
   return {
-    bg: '#FFFFFF',
-    primaryGreen: '#22C55E',
-    inputBg: '#F8FAFC',
-    textPrimary: '#0F172A',
-    textSecondary: '#475569',
-    border: '#E2E8F0',
-    inputBorderFocused: '#8B5CF6',
-    googleSurface: '#FFFFFF',
-    googleBorder: '#E2E8F0',
-    errorBg: 'rgba(254, 226, 226, 0.95)',
-    errorText: '#DC2626',
+    bg: '#f4f4f5',
+    primary: '#a855f7',
+    primaryGreen: '#a855f7',
+    inputBg: '#fafafa',
+    textPrimary: '#1a0a2e',
+    textSecondary: '#525252',
+    border: '#e5e5e5',
+    inputBorderFocused: '#a855f7',
+    googleSurface: '#ffffff',
+    googleBorder: '#e5e5e5',
+    errorBg: 'rgba(239,68,68,0.10)',
+    errorText: '#dc2626',
   };
 }

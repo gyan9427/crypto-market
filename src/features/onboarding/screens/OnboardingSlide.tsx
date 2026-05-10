@@ -35,19 +35,22 @@ function buildOnboardingSlideStyles(tokens: ThemeTokens) {
     },
     title: {
       fontSize: typo.fontSizes.xxxl,
-      fontWeight: typo.fontWeights.bold,
+      fontWeight: '400',
       textAlign: 'center',
       marginBottom: s.md,
-      lineHeight: typo.fontSizes.xxxl * typo.lineHeights.tight,
-      color: tokens.text,
+      lineHeight: typo.fontSizes.xxxl * 1.12,
+      letterSpacing: -0.64,
+      color: tokens.textStrong,
+      fontFamily: typo.fontFamilies.sans,
     },
     desc: {
       fontSize: typo.fontSizes.md,
-      fontWeight: typo.fontWeights.medium,
+      fontWeight: typo.fontWeights.regular,
       textAlign: 'center',
-      lineHeight: typo.fontSizes.md * typo.lineHeights.relaxed,
-      maxWidth: 340,
+      lineHeight: typo.fontSizes.md * 1.6,
+      maxWidth: 320,
       color: tokens.textMuted,
+      fontFamily: typo.fontFamilies.sans,
     },
   });
 }

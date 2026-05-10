@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   Platform,
   StyleSheet,
@@ -49,7 +49,17 @@ export function AuthInput({
 }: Props) {
   const isPassword = Boolean(secure);
   const [internalReveal, setInternalReveal] = React.useState(false);
+  const [focused, setFocused] = React.useState(false);
   const showSecret = isPassword ? !internalReveal : false;
+
+  const handleFocus = useCallback(() => setFocused(true), []);
+  const handleBlur = useCallback(() => setFocused(false), []);
+
+  const borderColor = focused ? palette.inputBorderFocused : palette.border;
+  const focusShadow =
+    focused && Platform.OS === 'web'
+      ? ({ boxShadow: '0 0 0 3px rgba(168,85,247,0.15)' } as unknown as TextStyle)
+      : {};
 
   return (
     <View style={styles.fieldOuter}>
@@ -59,15 +69,18 @@ export function AuthInput({
       <View
         style={[
           styles.shell,
+          focusShadow,
           {
             backgroundColor: palette.inputBg,
-            borderColor: palette.border,
+            borderColor,
           },
         ]}
       >
         <TextInput
           value={value}
           onChangeText={onChangeText}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           placeholder={placeholder}
           placeholderTextColor={palette.textSecondary}
           editable={editable}
@@ -80,9 +93,7 @@ export function AuthInput({
           accessibilityLabel={label || placeholder || 'Input'}
           underlineColorAndroid="transparent"
           textAlignVertical="center"
-          selectionColor={
-            Platform.OS === 'android' ? palette.primaryGreen : undefined
-          }
+          selectionColor={palette.inputBorderFocused}
         />
         {isPassword ? (
           <TouchableOpacity
@@ -93,9 +104,9 @@ export function AuthInput({
             accessibilityLabel={internalReveal ? 'Hide password' : 'Show password'}
           >
             {internalReveal ? (
-              <EyeOff size={20} color={palette.textSecondary} strokeWidth={2} />
+              <EyeOff size={18} color={palette.textSecondary} strokeWidth={1.5} />
             ) : (
-              <Eye size={20} color={palette.textSecondary} strokeWidth={2} />
+              <Eye size={18} color={palette.textSecondary} strokeWidth={1.5} />
             )}
           </TouchableOpacity>
         ) : null}
@@ -106,31 +117,31 @@ export function AuthInput({
 
 const styles = StyleSheet.create({
   fieldOuter: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 8,
-    marginLeft: 2,
-    letterSpacing: 0.08,
+    marginBottom: 6,
+    marginLeft: 1,
+    letterSpacing: 0,
   },
   shell: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 54,
-    borderRadius: 27,
+    minHeight: 48,
+    borderRadius: 8,
     borderWidth: 1,
     overflow: 'hidden',
-    paddingHorizontal: 18,
-    paddingVertical: Platform.OS === 'android' ? 4 : Platform.OS === 'web' ? 2 : 0,
+    paddingHorizontal: 16,
+    paddingVertical: Platform.OS === 'android' ? 2 : 0,
   },
   input: {
     flex: 1,
-    paddingVertical: Platform.OS === 'web' ? 14 : 12,
-    fontSize: 16,
-    letterSpacing: 0.03,
-    minHeight: 48,
+    paddingVertical: Platform.OS === 'web' ? 12 : 10,
+    fontSize: 14,
+    letterSpacing: 0,
+    minHeight: 44,
     fontWeight: '400',
     borderWidth: 0,
     backgroundColor: 'transparent',

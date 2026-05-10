@@ -48,7 +48,6 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, liveQ
     ? livePercentChange24h
     : coin.change24h;
   const isPositive = liveChange24h >= 0;
-  /** Phase 3: snapshot-backed closes only; no per-card /charts/klines. Fallback: flat line from price. */
   const sparklineData = useMemo(() => {
     const s = coin.sparklineData;
     if (s && s.length >= 2) return s;
@@ -65,47 +64,51 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, liveQ
 
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={styles.row}
       onPress={() => onPress?.(coin.id)}
       accessibilityRole="button"
       accessibilityLabel={`${coin.name} ${formatPrice(livePrice)}`}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
     >
-      <View style={styles.leftSection}>
-        <View style={styles.coinIconContainer}>
-          {showCoinLogo ? (
-            <Image
-              source={{ uri: coin.logo }}
-              style={styles.coinIcon}
-              resizeMode="cover"
-              onError={() => setImageLoadFailed(true)}
-            />
-          ) : (
-            <Text style={styles.coinIconFallbackText}>{coin.symbol}</Text>
-          )}
-        </View>
-        <View style={styles.coinDetails}>
-          <Text style={styles.coinName} numberOfLines={1}>{coin.name}</Text>
-        </View>
-      </View>
-      <View style={styles.rightSection}>
-        <View style={styles.priceRow}>
-          <SparklineChart
-            data={sparklineData}
-            color={sparklineColor}
-            width={56}
-            height={28}
+      {/* Left: rank + icon + name/symbol */}
+      {coin.rank > 0 && (
+        <Text style={styles.rank}>{coin.rank}</Text>
+      )}
+
+      <View style={styles.coinIconWrap}>
+        {showCoinLogo ? (
+          <Image
+            source={{ uri: coin.logo }}
+            style={styles.coinIcon}
+            resizeMode="cover"
+            onError={() => setImageLoadFailed(true)}
           />
-          <View style={styles.priceBlock}>
-            <Text style={[styles.change, isPositive ? styles.changePositive : styles.changeNegative]}>
-              {formatPercentage(liveChange24h)}
-            </Text>
-            <Text style={styles.price}>{formatPrice(livePrice)}</Text>
-          </View>
-        </View>
-        {coin.rank > 0 && (
-          <Text style={styles.rank}>#{coin.rank}</Text>
+        ) : (
+          <Text style={styles.coinIconFallback}>{coin.symbol.slice(0, 3)}</Text>
         )}
+      </View>
+
+      <View style={styles.identity}>
+        <Text style={styles.coinName} numberOfLines={1}>{coin.name}</Text>
+        <Text style={styles.coinSymbol} numberOfLines={1}>{coin.symbol}</Text>
+      </View>
+
+      {/* Middle: sparkline */}
+      <View style={styles.sparklineWrap}>
+        <SparklineChart
+          data={sparklineData}
+          color={sparklineColor}
+          width={60}
+          height={28}
+        />
+      </View>
+
+      {/* Right: price + change */}
+      <View style={styles.priceBlock}>
+        <Text style={styles.price}>{formatPrice(livePrice)}</Text>
+        <Text style={[styles.change, isPositive ? styles.positive : styles.negative]}>
+          {isPositive ? '▲' : '▼'} {formatPercentage(liveChange24h).replace(/^[+-]/, '')}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -116,36 +119,36 @@ TrendingCoinCard.displayName = 'TrendingCoinCard';
 function buildTrendingCoinCardStyles(tokens: ThemeTokens) {
   const c = tokens.colors;
   const s = tokens.spacing;
-  const sem = tokens.semantic;
   const typo = tokens.typography;
-  const br = tokens.borderRadius;
   return StyleSheet.create({
-    container: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginHorizontal: sem.listMarginH,
-      marginBottom: sem.listGap,
-      backgroundColor: sem.surface,
-      borderRadius: br.md,
-      padding: s.md,
-      borderWidth: 1,
-      borderColor: c.neutral[100],
-      ...sem.cardShadow,
-    },
-    leftSection: {
+    row: {
       flexDirection: 'row',
       alignItems: 'center',
-      flex: 1,
-      marginRight: s.sm,
+      paddingHorizontal: s.md,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: tokens.borderSubtle,
+      backgroundColor: tokens.surface,
+      minHeight: 48,
     },
-    coinIconContainer: {
-      width: 28,
-      height: 28,
-      backgroundColor: c.primary[100],
-      borderRadius: 14,
+    rank: {
+      width: 20,
+      fontSize: typo.fontSizes.xs,
+      fontWeight: typo.fontWeights.semibold,
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      color: tokens.textMuted,
+      marginRight: s.xs,
+      textAlign: 'center',
+      letterSpacing: typo.letterSpacing.caption,
+      fontVariant: ['tabular-nums'],
+    },
+    coinIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: tokens.isDark ? 'rgba(168,85,247,0.12)' : c.primary[100],
       borderWidth: 1,
-      borderColor: c.neutral[100],
+      borderColor: tokens.border,
       marginRight: s.sm,
       alignItems: 'center',
       justifyContent: 'center',
@@ -155,50 +158,57 @@ function buildTrendingCoinCardStyles(tokens: ThemeTokens) {
       width: '100%',
       height: '100%',
     },
-    coinIconFallbackText: {
-      fontSize: typo.fontSizes.badge,
+    coinIconFallback: {
+      fontSize: 9,
       fontWeight: typo.fontWeights.bold,
-      color: c.primary[700],
+      fontFamily: typo.fontFamilies.sansBold,
+      color: c.primary[600],
     },
-    coinDetails: {
+    identity: {
       flex: 1,
+      marginRight: s.sm,
+      minWidth: 0,
     },
     coinName: {
-      fontSize: typo.fontSizes.base,
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      color: tokens.text,
+      letterSpacing: typo.letterSpacing.caption,
+    },
+    coinSymbol: {
+      fontSize: typo.fontSizes.badge,
+      color: tokens.textMuted,
+      marginTop: 2,
       fontWeight: typo.fontWeights.medium,
-      color: c.neutral[800],
+      fontFamily: typo.fontFamilies.sansMedium,
+      textTransform: 'uppercase',
+      letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
-    rightSection: {
-      alignItems: 'flex-end',
-    },
-    priceRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s.sm,
+    sparklineWrap: {
+      marginRight: s.md,
     },
     priceBlock: {
       alignItems: 'flex-end',
+      minWidth: 76,
     },
     change: {
+      fontSize: typo.fontSizes.badge,
+      fontWeight: typo.fontWeights.semibold,
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      marginTop: 3,
+      fontVariant: ['tabular-nums'],
+      letterSpacing: typo.letterSpacing.caption,
+    },
+    positive: { color: c.success[500] },
+    negative: { color: c.danger[500] },
+    price: {
       fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.semibold,
-    },
-    changePositive: {
-      color: c.success[500],
-    },
-    changeNegative: {
-      color: c.danger[500],
-    },
-    price: {
-      fontSize: typo.fontSizes.base,
-      fontWeight: typo.fontWeights.semibold,
-      color: c.neutral[800],
-      marginTop: 2,
-    },
-    rank: {
-      fontSize: typo.fontSizes.xs,
-      color: c.neutral[400],
-      marginTop: 2,
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      color: tokens.text,
+      fontVariant: ['tabular-nums'],
+      letterSpacing: typo.letterSpacing.caption,
     },
   });
 }
