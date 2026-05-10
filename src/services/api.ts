@@ -906,6 +906,27 @@ export const signup = async (
 };
 
 /**
+ * Sign in / sign up via Google OAuth id_token (issued to your mobile OAuth client IDs).
+ */
+export const loginWithGoogle = async (
+  idToken: string
+): Promise<{ user: User; token: string }> => {
+  try {
+    const response = await apiRequest<{ user: BackendUser; token: string }>('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ idToken }),
+    });
+
+    const user = transformBackendUser(response.user);
+    await useAuthStore.getState().login(response.token, user);
+
+    return { user, token: response.token };
+  } catch (error: any) {
+    throw new Error(`Google sign-in failed: ${error.message}`);
+  }
+};
+
+/**
  * Fetch all news articles saved in a specific news board
  */
 export const getBoardNews = async (boardId: string): Promise<NewsItem[]> => {
