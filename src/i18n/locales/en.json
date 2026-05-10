@@ -198,7 +198,17 @@
     "headerAccount": "Account",
     "accountWithAddress": "Account {{address}}",
     "holdings": "Holdings",
-    "addWalletHint": "Add a wallet to see holdings"
+    "addWalletHint": "Add a wallet to see holdings",
+    "addSourceHint": "Add a wallet or link an exchange to see holdings",
+    "sourceAll": "All",
+    "sourceWallet": "Wallet",
+    "sourceExchange": "Exchange",
+    "walletTotal": "Wallet total",
+    "exchangeTotal": "Exchange total",
+    "emptyWalletPositions": "No wallet positions in this view",
+    "emptyExchangePositions": "No exchange positions yet",
+    "connectExchangeHint": "Link an exchange under Portfolio sources",
+    "exchangeBalancesPending": "Balances will appear after sync completes. Try pull to refresh."
   },
   "monitorSources": {
     "title": "Portfolio sources",
@@ -304,7 +314,18 @@
     "contract": "Contract",
     "directionSent": "Sent",
     "directionReceived": "Received",
-    "directionInvolved": "Involved"
+    "directionInvolved": "Involved",
+    "eventTypeExchangeTrade": "Exchange trade",
+    "directionBuy": "Buy",
+    "directionSell": "Sell",
+    "tradeId": "Trade ID",
+    "venue": "Exchange",
+    "sourceAll": "All",
+    "sourceWallet": "Wallet",
+    "sourceExchange": "Exchange",
+    "emptyExchangeActivity": "No exchange trades yet",
+    "change24hUnavailable": "24h change applies to combined portfolio",
+    "tradePrice": "Price"
   },
   "accessibility": {
     "searchInput": "Search input",

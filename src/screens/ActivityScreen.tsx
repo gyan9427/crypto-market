@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,6 +12,7 @@ import {
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { SegmentToggle } from '../components/SegmentToggle';
 import { WalletEvent } from '../types';
+import { isExchangePortfolioEvent } from '@/src/utils/portfolioSource';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 
@@ -21,6 +22,7 @@ function eventTypeLabel(t: TFunction, type: string): string {
     native_transfer: 'activity.eventTypeNativeTransfer',
     contract_interaction: 'activity.eventTypeContractInteraction',
     multi_chain_activity: 'activity.eventTypeMultiChain',
+    exchange_trade: 'activity.eventTypeExchangeTrade',
   };
   const k = keys[type];
   return k ? t(k) : type;
@@ -119,6 +121,7 @@ const CHAIN_ID_ALIASES: Record<string, string> = {
   '42161': 'arb',
   sol: 'sol',
   solana: 'sol',
+  coindcx: 'coindcx',
 };
 
 function canonicalizeChain(chain: string | undefined): string {
@@ -132,6 +135,40 @@ function matchesNativeChainAsset(symbol: string, chain: string | undefined, even
   const normalizedSymbol = canonicalizeSymbol(symbol);
   if (!aliases.map(canonicalizeSymbol).includes(normalizedSymbol)) return false;
   return event.chain.toLowerCase() === chain.toLowerCase();
+}
+
+function venueDisplayLabelActivity(venue: string | undefined): string {
+  const v = (venue ?? '').toLowerCase();
+  if (v === 'coindcx') return 'CoinDCX';
+  return venue ? venue.toUpperCase() : '';
+}
+
+function tradeSideFromEvent(event: WalletEvent): 'buy' | 'sell' | undefined {
+  const summariesText = (event.eventSummaries ?? []).join(' ').toLowerCase();
+  if (/\bbuy\b/.test(summariesText)) return 'buy';
+  if (/\bsell\b/.test(summariesText)) return 'sell';
+
+  const ed = event.enrichedData as Record<string, unknown> | undefined;
+  const row = ed?.row as Record<string, unknown> | undefined;
+  const rawSide = row?.side ?? row?.order_side ?? '';
+  const s = String(rawSide).toLowerCase();
+  if (s.includes('buy')) return 'buy';
+  if (s.includes('sell')) return 'sell';
+  return undefined;
+}
+
+function tradePriceHint(event: WalletEvent): string | null {
+  const ed = event.enrichedData as Record<string, unknown> | undefined;
+  const row = ed?.row as Record<string, unknown> | undefined;
+  const raw =
+    row?.price ??
+    row?.trade_price ??
+    row?.execution_price ??
+    row?.average_price;
+  if (raw == null || raw === '') return null;
+  const n = typeof raw === 'number' ? raw : parseFloat(String(raw));
+  if (!Number.isFinite(n)) return null;
+  return n.toLocaleString(undefined, { maximumFractionDigits: 8 });
 }
 
 type ActivityStyles = ReturnType<typeof buildActivityScreenStyles>;
@@ -375,6 +412,145 @@ const TransactionEventRow: React.FC<EventRowProps> = ({ event, styles }) => {
   );
 };
 
+// ── Exchange trade rows ─────────────────────────────────────────────────────
+
+interface ExchangeTradeRowProps extends EventRowProps {
+  viewMode: ActivityViewMode;
+}
+
+const ExchangeTradeRow: React.FC<ExchangeTradeRowProps> = ({ event, styles, viewMode }) => {
+  const { t } = useTranslation();
+  const activity = event.activity;
+  const txStatus = activity?.txStatus;
+  const venue = venueDisplayLabelActivity(event.venue);
+  const side = tradeSideFromEvent(event);
+  const amount = formatActivityAmount(activity?.value, activity?.asset);
+  const tradeIdRaw = activity?.tradeId ?? event.providerTradeId ?? '';
+  const tradeIdDisplay = tradeIdRaw ? truncateHash(tradeIdRaw) : '';
+  const priceHint = tradePriceHint(event);
+
+  const sideLabel =
+    side === 'buy'
+      ? t('activity.directionBuy')
+      : side === 'sell'
+        ? t('activity.directionSell')
+        : '';
+
+  const summaries = event.eventSummaries ?? [];
+
+  if (viewMode === 'batch') {
+    return (
+      <View style={styles.eventRow}>
+        <View style={styles.eventLeft}>
+          <View style={styles.venueBadge}>
+            <Text style={styles.venueBadgeText}>{venue || t('activity.venue')}</Text>
+          </View>
+          <View style={styles.eventDetails}>
+            <Text style={styles.eventType} numberOfLines={1}>
+              {eventTypeLabel(t, event.type)}
+            </Text>
+            <Text style={styles.eventAddress} numberOfLines={1}>
+              {tradeIdDisplay || truncateAddress(event.address)}
+            </Text>
+            {sideLabel ? (
+              <View style={styles.directionBadge}>
+                <Text style={styles.directionBadgeText}>{sideLabel}</Text>
+              </View>
+            ) : null}
+            {txStatus ? (
+              <View style={[
+                styles.statusBadge,
+                txStatus === 'success' && styles.statusSuccess,
+                txStatus === 'failed' && styles.statusFailed,
+                txStatus === 'pending' && styles.statusPending,
+              ]}>
+                <Text style={styles.statusBadgeText}>
+                  {txStatusLabel(t, txStatus)}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+        <View style={styles.eventRight}>
+          <Text style={styles.eventTime}>{formatTime(event.aggregatedAt)}</Text>
+          {amount ? <Text style={styles.exchangeBatchAmount}>{amount}</Text> : null}
+          {summaries.length > 0 ? (
+            <View style={styles.transactionDetails}>
+              {summaries.slice(0, MAX_SUMMARIES_VISIBLE).map((s, i) => (
+                <Text key={i} style={styles.eventSummaryItem} numberOfLines={2}>
+                  • {mapAssetDisplay(s)}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.transactionRow}>
+      <View style={styles.transactionHeader}>
+        <View style={styles.transactionTitleBlock}>
+          <View style={styles.transactionMetaRow}>
+            <View style={styles.venueBadge}>
+              <Text style={styles.venueBadgeText}>{venue || t('activity.venue')}</Text>
+            </View>
+            {sideLabel ? (
+              <View style={styles.directionBadge}>
+                <Text style={styles.directionBadgeText}>{sideLabel}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.eventType} numberOfLines={1}>
+            {eventTypeLabel(t, event.type)}
+          </Text>
+        </View>
+        <Text style={styles.eventTime}>{formatTime(event.aggregatedAt)}</Text>
+      </View>
+
+      {amount ? (
+        <Text style={styles.transactionAmount} numberOfLines={1}>
+          {amount}
+        </Text>
+      ) : null}
+
+      {txStatus ? (
+        <View style={styles.transactionBadges}>
+          <View style={[
+            styles.statusBadge,
+            styles.transactionStatusBadge,
+            txStatus === 'success' && styles.statusSuccess,
+            txStatus === 'failed' && styles.statusFailed,
+            txStatus === 'pending' && styles.statusPending,
+          ]}>
+            <Text style={styles.statusBadgeText}>
+              {txStatusLabel(t, txStatus)}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      <View style={styles.transactionDetailsBlock}>
+        <TransactionDetail
+          label={t('activity.tradeId')}
+          value={tradeIdDisplay || tradeIdRaw}
+          styles={styles}
+          mono
+        />
+        <TransactionDetail
+          label={t('activity.venue')}
+          value={venue}
+          styles={styles}
+        />
+        {priceHint ? (
+          <TransactionDetail label={t('activity.tradePrice')} value={priceHint} styles={styles} />
+        ) : null}
+      </View>
+    </View>
+  );
+};
+
 // ── Main screen ──────────────────────────────────────────────────────────────
 
 interface ActivityScreenProps {
@@ -383,27 +559,68 @@ interface ActivityScreenProps {
   onClose: () => void;
 }
 
+type ActivitySourceFilter = 'all' | 'wallet' | 'exchange';
+
 export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, onClose }) => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildActivityScreenStyles(tokens), [tokens]);
-  const { events, isLoading, statusRefreshWarning } = usePortfolioStore();
+  const events = usePortfolioStore((state) => state.events);
+  const isLoading = usePortfolioStore((state) => state.isLoading);
+  const statusRefreshWarning = usePortfolioStore((state) => state.statusRefreshWarning);
+  const exchanges = usePortfolioStore((state) => state.exchanges);
+  const exchangePortfolioEnabled = usePortfolioStore((state) => state.exchangePortfolioEnabled);
+
+  const hasExchangeLinked =
+    exchangePortfolioEnabled && exchanges.length > 0;
+
   const [viewMode, setViewMode] = useState<ActivityViewMode>('batch');
+  const [sourceFilter, setSourceFilter] = useState<ActivitySourceFilter>('all');
+
+  useEffect(() => {
+    if (sourceFilter === 'exchange' && !hasExchangeLinked) {
+      setSourceFilter('all');
+    }
+  }, [hasExchangeLinked, sourceFilter]);
+
   const viewOptions = useMemo(
     () => [t('activity.batchView'), t('activity.listView')],
     [t]
   );
   const selectedViewIndex = viewMode === 'batch' ? 0 : 1;
 
-  // Filter events by symbol if provided
+  const sourceTabOptions = hasExchangeLinked
+    ? [t('activity.sourceAll'), t('activity.sourceWallet'), t('activity.sourceExchange')]
+    : [t('activity.sourceAll'), t('activity.sourceWallet')];
+
+  const sourceTabIndex =
+    sourceFilter === 'all' ? 0 : sourceFilter === 'wallet' ? 1 : hasExchangeLinked ? 2 : 1;
+
+  const onSourceTabSelect = (index: number) => {
+    if (hasExchangeLinked) {
+      setSourceFilter(index === 0 ? 'all' : index === 1 ? 'wallet' : 'exchange');
+    } else {
+      setSourceFilter(index === 0 ? 'all' : 'wallet');
+    }
+  };
+
+  // Filter by source, then symbol/chain if provided
   const filteredEvents = useMemo(() => {
-    if (!symbol) return events;
+    let list = events;
+
+    if (sourceFilter === 'exchange') {
+      list = list.filter(isExchangePortfolioEvent);
+    } else if (sourceFilter === 'wallet') {
+      list = list.filter((e) => !isExchangePortfolioEvent(e));
+    }
+
+    if (!symbol) return list;
 
     const normalizedSymbol = canonicalizeSymbol(symbol);
     const selectedChain = canonicalizeChain(chain);
     const symbolPattern = new RegExp(`\\b${escapeRegExp(normalizedSymbol)}\\b`, 'i');
 
-    return events.filter(event => {
+    return list.filter(event => {
       if (selectedChain) {
         const eventChain = canonicalizeChain(event.chain);
         if (eventChain !== selectedChain) return false;
@@ -417,14 +634,20 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
 
       return summaryMatches || activityAsset === normalizedSymbol || nativeChainMatch;
     });
-  }, [chain, events, symbol]);
+  }, [chain, events, sourceFilter, symbol]);
 
   const renderItem = ({ item }: { item: WalletEvent }) => {
+    if (isExchangePortfolioEvent(item)) {
+      return <ExchangeTradeRow event={item} styles={styles} viewMode={viewMode} />;
+    }
     if (viewMode === 'list') {
       return <TransactionEventRow event={item} styles={styles} />;
     }
     return <EventRow event={item} styles={styles} />;
   };
+
+  const emptySecondary =
+    sourceFilter === 'exchange' ? t('activity.emptyExchangeActivity') : undefined;
 
   return (
     <View style={styles.container}>
@@ -445,6 +668,16 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
           <Text style={styles.closeButtonText}>✕</Text>
         </TouchableOpacity>
       </View>
+
+      <View style={styles.sourceToggleContainer}>
+        <SegmentToggle
+          options={sourceTabOptions}
+          selectedIndex={Math.min(sourceTabIndex, sourceTabOptions.length - 1)}
+          onSelect={onSourceTabSelect}
+          flush
+        />
+      </View>
+
       <View style={styles.viewToggleContainer}>
         <SegmentToggle
           options={viewOptions}
@@ -462,7 +695,7 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
         data={filteredEvents}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        extraData={viewMode}
+        extraData={`${viewMode}-${sourceFilter}`}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             {isLoading ? (
@@ -474,7 +707,9 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
               <>
                 <Text style={styles.emptyTitle}>{t('activity.noActivityFound')}</Text>
                 <Text style={styles.emptySubtitle}>
-                  {symbol ? t('activity.emptyForSymbol', { symbol }) : t('activity.empty')}
+                  {symbol
+                    ? t('activity.emptyForSymbol', { symbol })
+                    : emptySecondary ?? t('activity.empty')}
                 </Text>
               </>
             )}
@@ -540,6 +775,11 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
     },
     viewToggleContainer: {
       paddingHorizontal: sem.listMarginH,
+      paddingTop: s.sm,
+      paddingBottom: s.xs,
+    },
+    sourceToggleContainer: {
+      paddingHorizontal: sem.listMarginH,
       paddingTop: s.md,
       paddingBottom: s.xs,
     },
@@ -594,6 +834,26 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.bold,
       color: c.primary[700],
+    },
+    venueBadge: {
+      backgroundColor: c.neutral[200],
+      borderRadius: sem.cardRadiusSmall,
+      paddingHorizontal: s.sm,
+      paddingVertical: s.xs,
+      marginRight: s.sm,
+      alignSelf: 'flex-start',
+    },
+    venueBadgeText: {
+      fontSize: typo.fontSizes.badge,
+      fontWeight: typo.fontWeights.bold,
+      color: c.neutral[700],
+    },
+    exchangeBatchAmount: {
+      marginTop: s.xs,
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+      color: tokens.textStrong,
+      textAlign: 'right',
     },
     eventDetails: {
       flex: 1,

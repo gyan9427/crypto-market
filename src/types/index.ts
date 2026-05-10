@@ -202,11 +202,15 @@ export interface ExchangeConnection {
   updatedAt: string;
 }
 
+/** Wallet vs exchange holdings / activity source — aligns with backend `HoldingPositionFields.source`. */
+export type HoldingSourceType = 'wallet' | 'exchange';
+
 export type WalletEventType =
   | 'token_transfer'
   | 'native_transfer'
   | 'contract_interaction'
-  | 'multi_chain_activity';
+  | 'multi_chain_activity'
+  | 'exchange_trade';
 
 export type TxStatus = 'success' | 'failed' | 'pending';
 
@@ -221,6 +225,8 @@ export interface WalletEventActivity {
   toAddress?:   string;
   tokenContract?: string;
   tokenDecimals?: string;
+  /** Exchange-native trade id when distinct from txHash */
+  tradeId?:      string;
 }
 
 export interface WalletEvent {
@@ -234,6 +240,10 @@ export interface WalletEvent {
   enrichedData?:     Record<string, unknown>;
   aggregatedAt:      string;
   activity?:         WalletEventActivity;
+  sourceType?:       HoldingSourceType;
+  sourceId?:         string;
+  venue?:            string;
+  providerTradeId?:  string;
 }
 
 export interface HoldingPosition {
@@ -242,6 +252,9 @@ export interface HoldingPosition {
   quantity: number;
   value:    number;
   chain:    string;
+  source?:  HoldingSourceType;
+  venue?:   string;
+  sourceConnectionId?: string;
 }
 
 export interface Holdings {

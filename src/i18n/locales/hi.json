@@ -144,5 +144,30 @@
       "title": "ओह!",
       "message": "यह स्क्रीन मौजूद नहीं है।",
       "goHome": "होम स्क्रीन पर जाएं"
+    },
+    "portfolio": {
+      "sourceAll": "सभी",
+      "sourceWallet": "वॉलेट",
+      "sourceExchange": "एक्सचेंज",
+      "walletTotal": "वॉलेट कुल",
+      "exchangeTotal": "एक्सचेंज कुल",
+      "emptyWalletPositions": "इस दृश्य में कोई वॉलेट पोज़िशन नहीं",
+      "emptyExchangePositions": "अभी कोई एक्सचेंज पोज़िशन नहीं",
+      "connectExchangeHint": "पोर्टफोलियो स्रोतों से एक्सचेंज लिंक करें",
+      "exchangeBalancesPending": "सिंक के बाद बैलेंस दिखेंगे। रीफ़्रेश करें या थोड़ी देर प्रतीक्षा करें।",
+      "addSourceHint": "होल्डिंग देखने के लिए वॉलेट जोड़ें या एक्सचेंज लिंक करें"
+    },
+    "activity": {
+      "eventTypeExchangeTrade": "एक्सचेंज ट्रेड",
+      "directionBuy": "खरीद",
+      "directionSell": "बिक्री",
+      "tradeId": "ट्रेड ID",
+      "venue": "एक्सचेंज",
+      "sourceAll": "सभी",
+      "sourceWallet": "वॉलेट",
+      "sourceExchange": "एक्सचेंज",
+      "emptyExchangeActivity": "अभी कोई एक्सचेंज ट्रेड नहीं",
+      "change24hUnavailable": "24 घंटे का बदलाव संयुक्त पोर्टफोलियो पर लागू होता है",
+      "tradePrice": "मूल्य"
     }
   }

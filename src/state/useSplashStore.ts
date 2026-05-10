@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 interface SplashState {
-  /** True after the branded splash animation has finished for this cold start/session. Not persisted. */
+  /** True after the branded splash animation has finished this JS session. Not persisted across reloads. */
   done: boolean;
   markDone: () => void;
 }

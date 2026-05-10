@@ -115,7 +115,12 @@ export default function RootLayout() {
 
     const firstSegment = segments[0] as string | undefined;
 
-    if (!splashDone) {
+    // Animated splash is session-only (Zustand resets on each JS reload). After refresh,
+    // `splashDone` is false again — but restoring auth from AsyncStorage means the user is
+    // already logged in; do not send them through splash again (fixes web reload).
+    const shouldGateWithSplash = !splashDone && !isAuthenticated;
+
+    if (shouldGateWithSplash) {
       if (firstSegment !== 'splash') router.replace('/splash' as Href);
       return;
     }
