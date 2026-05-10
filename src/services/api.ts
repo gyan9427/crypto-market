@@ -1,4 +1,4 @@
-import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts } from '../types';
+import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts, MarketAnalysisCoin } from '../types';
 import type { MarketSnapshotV2, SnapshotRow } from '../types/marketSnapshot';
 import type { SupportedLanguage } from '@/src/constants/languages';
 import { isSupportedLanguage } from '@/src/constants/languages';
@@ -405,6 +405,18 @@ export function mapSnapshotRowToTrendingCoin(
  */
 export const fetchMarketSnapshot = async (): Promise<MarketSnapshotV2> => {
   return apiRequest<MarketSnapshotV2>('/market/snapshot');
+};
+
+export interface MarketAnalysisResponse {
+  coins: MarketAnalysisCoin[];
+  generatedAt: string;
+}
+
+/**
+ * GET /api/market/analysis — coins with heuristic signals (momentum / breakout / volatile) + latest headline.
+ */
+export const fetchMarketAnalysis = async (): Promise<MarketAnalysisResponse> => {
+  return apiRequest<MarketAnalysisResponse>('/market/analysis');
 };
 
 /**
@@ -906,6 +918,27 @@ export const signup = async (
 };
 
 /**
+ * Sign in / sign up via Google OAuth id_token (issued to your mobile OAuth client IDs).
+ */
+export const loginWithGoogle = async (
+  idToken: string
+): Promise<{ user: User; token: string }> => {
+  try {
+    const response = await apiRequest<{ user: BackendUser; token: string }>('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ idToken }),
+    });
+
+    const user = transformBackendUser(response.user);
+    await useAuthStore.getState().login(response.token, user);
+
+    return { user, token: response.token };
+  } catch (error: any) {
+    throw new Error(`Google sign-in failed: ${error.message}`);
+  }
+};
+
+/**
  * Fetch all news articles saved in a specific news board
  */
 export const getBoardNews = async (boardId: string): Promise<NewsItem[]> => {
@@ -1199,7 +1232,13 @@ export function toSparklineData(klines: KlineRecord[]): number[] {
 
 // ── Portfolio / wallet monitoring ────────────────────────────────────────────
 
-import { SupportedChain, WalletAddress, WalletEvent, Holdings } from '../types';
+import {
+  SupportedChain,
+  WalletAddress,
+  WalletEvent,
+  Holdings,
+  ExchangeConnection,
+} from '../types';
 
 export type PortfolioSessionMode = 'bootstrap' | 'live' | 'degraded' | 'recovery';
 export type PortfolioTriggerReason =
@@ -1374,5 +1413,112 @@ export const refreshEventStatuses = async (
     return response;
   } catch (error: any) {
     throw new Error(`Failed to refresh event statuses: ${error.message}`);
+  }
+};
+
+/** Thrown/read from `error.message` when GET/POST `/portfolio/exchanges*` returns 404 (feature flag off). */
+export const EXCHANGE_PORTFOLIO_DISABLED = 'EXCHANGE_PORTFOLIO_DISABLED';
+
+/** True when backend returns 404 because exchange portfolio is disabled. */
+export function isExchangePortfolioDisabledError(message: string): boolean {
+  const m = message.trim().toLowerCase();
+  return m === 'not found' || m.includes('http error! status: 404');
+}
+
+/**
+ * Lists linked exchange connections (CoinDCX). Throws unless `isExchangePortfolioDisabledError`.
+ */
+export const getExchanges = async (): Promise<ExchangeConnection[]> => {
+  try {
+    const response = await apiRequest<{ exchanges: ExchangeConnection[] }>('/portfolio/exchanges');
+    return response.exchanges ?? [];
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      isExchangePortfolioDisabledError(msg)
+        ? EXCHANGE_PORTFOLIO_DISABLED
+        : `Failed to fetch exchanges: ${msg}`
+    );
+  }
+};
+
+export const validateCoinDcxCredentials = async (
+  apiKey: string,
+  apiSecret: string
+): Promise<void> => {
+  try {
+    await apiRequest<{ ok: boolean }>('/portfolio/exchanges/coindcx/validate', {
+      method: 'POST',
+      body: JSON.stringify({ apiKey, apiSecret }),
+    });
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      isExchangePortfolioDisabledError(msg)
+        ? EXCHANGE_PORTFOLIO_DISABLED
+        : `Validation failed: ${msg}`
+    );
+  }
+};
+
+export const addCoinDcxExchange = async (
+  apiKey: string,
+  apiSecret: string,
+  label?: string
+): Promise<ExchangeConnection> => {
+  try {
+    const response = await apiRequest<{ exchange: ExchangeConnection }>('/portfolio/exchanges/coindcx', {
+      method: 'POST',
+      body: JSON.stringify({ apiKey, apiSecret, label: label?.trim() || undefined }),
+    });
+    return response.exchange;
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      isExchangePortfolioDisabledError(msg)
+        ? EXCHANGE_PORTFOLIO_DISABLED
+        : `Failed to link exchange: ${msg}`
+    );
+  }
+};
+
+export const patchCoinDcxExchange = async (
+  id: string,
+  apiKey: string,
+  apiSecret: string,
+  label?: string
+): Promise<ExchangeConnection> => {
+  try {
+    const response = await apiRequest<{ exchange: ExchangeConnection }>(
+      `/portfolio/exchanges/coindcx/${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ apiKey, apiSecret, label: label?.trim() || undefined }),
+      }
+    );
+    return response.exchange;
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      isExchangePortfolioDisabledError(msg)
+        ? EXCHANGE_PORTFOLIO_DISABLED
+        : `Failed to update exchange: ${msg}`
+    );
+  }
+};
+
+export const removeExchangeConnection = async (id: string): Promise<{ eventsRemoved: number }> => {
+  try {
+    return await apiRequest<{ eventsRemoved: number }>(
+      `/portfolio/exchanges/${encodeURIComponent(id)}`,
+      { method: 'DELETE' }
+    );
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      isExchangePortfolioDisabledError(msg)
+        ? EXCHANGE_PORTFOLIO_DISABLED
+        : `Failed to remove exchange: ${msg}`
+    );
   }
 };

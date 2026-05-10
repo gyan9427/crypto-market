@@ -147,7 +147,30 @@ export interface TrendingCoin extends Coin {
 }
 
 export type FeedFilter = 'following' | 'explore';
-export type ExploreCategory = 'trending' | 'top';
+export type ExploreCategory = 'analysis' | 'trending' | 'top';
+
+export type SignalType = 'momentum' | 'breakout' | 'volatile';
+
+export type SignalSeverity = 'positive' | 'warning';
+
+export interface CoinSignal {
+  type: SignalType;
+  label: string;
+  severity: SignalSeverity;
+}
+
+export interface MarketAnalysisCoin {
+  coinId: string;
+  internalCoinId?: string;
+  symbol: string;
+  name: string;
+  image?: string;
+  price: number;
+  percentChange24h: number;
+  rank?: number;
+  signals: CoinSignal[];
+  whyMoving?: string;
+}
 
 // ── Portfolio / wallet monitoring ────────────────────────────────────────────
 
@@ -167,11 +190,50 @@ export interface WalletAddress {
   createdAt: string;
 }
 
+/** CoinDCX (and future) portfolio exchange link — aligns with backend `exchangeToDto`. */
+export type ExchangeProviderId = 'coindcx';
+
+export type ExchangeConnectionStatus =
+  | 'active'
+  | 'invalid_credentials'
+  | 'rate_limited'
+  | 'error'
+  | 'requires_reauth';
+
+export interface ExchangeConnection {
+  id: string;
+  provider: ExchangeProviderId;
+  label?: string;
+  maskedApiKey: string;
+  status: ExchangeConnectionStatus;
+  syncPhase: string;
+  balancesFreshness: string;
+  tradesFreshness: string;
+  balancesStaleReason?: string;
+  tradesStaleReason?: string;
+  lastBalancesSyncAt?: string;
+  lastTradesSyncAt?: string;
+  balancesLastError?: string;
+  tradesLastError?: string;
+  requiresReauth: boolean;
+  nextPollAt?: string;
+  pollingIntervalMs: number;
+  lastSuccessAt?: string;
+  lastErrorAt?: string;
+  lastErrorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Wallet vs exchange holdings / activity source — aligns with backend `HoldingPositionFields.source`. */
+export type HoldingSourceType = 'wallet' | 'exchange';
+
 export type WalletEventType =
   | 'token_transfer'
   | 'native_transfer'
   | 'contract_interaction'
-  | 'multi_chain_activity';
+  | 'multi_chain_activity'
+  | 'exchange_trade';
 
 export type TxStatus = 'success' | 'failed' | 'pending';
 
@@ -186,6 +248,8 @@ export interface WalletEventActivity {
   toAddress?:   string;
   tokenContract?: string;
   tokenDecimals?: string;
+  /** Exchange-native trade id when distinct from txHash */
+  tradeId?:      string;
 }
 
 export interface WalletEvent {
@@ -199,6 +263,10 @@ export interface WalletEvent {
   enrichedData?:     Record<string, unknown>;
   aggregatedAt:      string;
   activity?:         WalletEventActivity;
+  sourceType?:       HoldingSourceType;
+  sourceId?:         string;
+  venue?:            string;
+  providerTradeId?:  string;
 }
 
 export interface HoldingPosition {
@@ -207,6 +275,9 @@ export interface HoldingPosition {
   quantity: number;
   value:    number;
   chain:    string;
+  source?:  HoldingSourceType;
+  venue?:   string;
+  sourceConnectionId?: string;
 }
 
 export interface Holdings {

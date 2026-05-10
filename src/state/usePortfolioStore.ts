@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SupportedChain, WalletAddress, WalletEvent, Holdings, TxStatus } from '../types';
+import { SupportedChain, WalletAddress, WalletEvent, Holdings, TxStatus, ExchangeConnection } from '../types';
 import type {
   PortfolioRequestContext,
   PortfolioSessionMode,
@@ -37,6 +37,14 @@ interface PortfolioState {
   lastManualRefreshAt: number;
   lastRecoveryAt: number;
 
+  exchanges: ExchangeConnection[];
+  /** After first `loadExchanges`, false means server returned 404 (feature off). */
+  exchangePortfolioEnabled: boolean;
+  exchangesCatalogLoaded: boolean;
+  exchangesLoading: boolean;
+  exchangeMutationPending: boolean;
+  exchangeError: string | null;
+
   setSessionMode(mode: PortfolioSessionMode): void;
   setStreamHealthy(healthy: boolean): void;
   markStreamHeartbeat(): void;
@@ -48,6 +56,11 @@ interface PortfolioState {
   removeWallet(id: string): Promise<void>;
   loadEvents(page?: number, limit?: number, options?: PortfolioApiOptions): Promise<void>;
   runRecoverySync(limit?: number): Promise<void>;
+
+  loadExchanges(): Promise<void>;
+  addCoinDcxExchange(apiKey: string, apiSecret: string, label?: string): Promise<void>;
+  patchCoinDcxExchange(id: string, apiKey: string, apiSecret: string, label?: string): Promise<void>;
+  removeExchangeConnection(id: string): Promise<void>;
 
   appendEvent(event: WalletEvent): void;
   applyStatusUpdate(update: PortfolioStatusUpdatePayload): void;
@@ -96,6 +109,13 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   lastManualRefreshAt: 0,
   lastRecoveryAt: 0,
 
+  exchanges: [],
+  exchangePortfolioEnabled: true,
+  exchangesCatalogLoaded: false,
+  exchangesLoading: false,
+  exchangeMutationPending: false,
+  exchangeError: null,
+
   setSessionMode: (mode) => {
     set({ sessionMode: mode });
   },
@@ -112,7 +132,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
     set({ streamHealthy: true, lastHeartbeatAt: Date.now() });
   },
 
-  clearError: () => set({ error: null, statusRefreshWarning: null }),
+  clearError: () => set({ error: null, statusRefreshWarning: null, exchangeError: null }),
   openMonitorSheet: () => set({ monitorSheetOpen: true }),
   closeMonitorSheet: () => set({ monitorSheetOpen: false }),
 
@@ -182,6 +202,85 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to remove wallet';
       set({ isLoading: false, error: message });
+    }
+  },
+
+  loadExchanges: async () => {
+    set({ exchangesLoading: true, exchangeError: null });
+    const { getExchanges, EXCHANGE_PORTFOLIO_DISABLED } = await import('../services/api');
+    try {
+      const list = await getExchanges();
+      set({
+        exchanges: list,
+        exchangePortfolioEnabled: true,
+        exchangesCatalogLoaded: true,
+        exchangesLoading: false,
+        exchangeError: null,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message === EXCHANGE_PORTFOLIO_DISABLED) {
+        set({
+          exchanges: [],
+          exchangePortfolioEnabled: false,
+          exchangesCatalogLoaded: true,
+          exchangesLoading: false,
+          exchangeError: null,
+        });
+        return;
+      }
+      set({
+        exchangesLoading: false,
+        exchangeError: message,
+        exchangesCatalogLoaded: true,
+      });
+    }
+  },
+
+  addCoinDcxExchange: async (apiKey, apiSecret, label) => {
+    set({ exchangeMutationPending: true, exchangeError: null });
+    try {
+      const { addCoinDcxExchange } = await import('../services/api');
+      const ex = await addCoinDcxExchange(apiKey, apiSecret, label);
+      set((state) => ({
+        exchanges: [ex, ...state.exchanges.filter((e) => e.id !== ex.id)],
+        exchangeMutationPending: false,
+      }));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to link exchange';
+      set({ exchangeMutationPending: false, exchangeError: message });
+      throw err;
+    }
+  },
+
+  patchCoinDcxExchange: async (id, apiKey, apiSecret, label) => {
+    set({ exchangeMutationPending: true, exchangeError: null });
+    try {
+      const { patchCoinDcxExchange } = await import('../services/api');
+      const ex = await patchCoinDcxExchange(id, apiKey, apiSecret, label);
+      set((state) => ({
+        exchanges: state.exchanges.map((e) => (e.id === ex.id ? ex : e)),
+        exchangeMutationPending: false,
+      }));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update exchange';
+      set({ exchangeMutationPending: false, exchangeError: message });
+      throw err;
+    }
+  },
+
+  removeExchangeConnection: async (id) => {
+    set({ exchangeMutationPending: true, exchangeError: null });
+    try {
+      const { removeExchangeConnection } = await import('../services/api');
+      await removeExchangeConnection(id);
+      set((state) => ({
+        exchanges: state.exchanges.filter((e) => e.id !== id),
+        exchangeMutationPending: false,
+      }));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to remove exchange';
+      set({ exchangeMutationPending: false, exchangeError: message });
     }
   },
 
@@ -257,6 +356,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
 
     await Promise.all([
       get().loadWallets(),
+      get().loadExchanges(),
       get().loadEvents(1, limit, { modeOverride: 'recovery', triggerReason: 'reconnect_recovery' }),
       get().loadHoldings(true, { modeOverride: 'recovery', triggerReason: 'reconnect_recovery' }),
     ]);

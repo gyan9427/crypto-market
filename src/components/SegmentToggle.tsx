@@ -79,6 +79,8 @@ function buildStyles(tokens: ThemeTokens, flush: boolean) {
   return StyleSheet.create({
     container: {
       flexDirection: 'row',
+      /** Keep segment index aligned with labels (All | Wallet | Exchange) under RTL layouts */
+      direction: 'ltr',
       backgroundColor: tokens.isDark ? tokens.colors.neutral[200] : tokens.colors.neutral[100],
       borderRadius: tokens.borderRadius.button,
       padding: 4,

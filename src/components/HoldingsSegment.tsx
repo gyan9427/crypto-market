@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { Skeleton } from './Skeleton';
+import { SegmentToggle } from './SegmentToggle';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { isExchangeHolding } from '@/src/utils/portfolioSource';
 
 /** Map MATIC to POL for display (Polygon rebrand) */
 function mapAssetDisplay(text: string | undefined | null): string {
@@ -32,6 +34,14 @@ function formatQuantity(n: number | undefined | null): string {
   return n >= 1 ? n.toFixed(2) : n.toFixed(6);
 }
 
+function venueDisplayLabel(venue: string | undefined): string {
+  const v = (venue ?? '').toLowerCase();
+  if (v === 'coindcx') return 'CoinDCX';
+  return venue ? venue.toUpperCase() : '';
+}
+
+type HoldingsSourceFilter = 'all' | 'wallet' | 'exchange';
+
 interface HoldingsSegmentProps {
   onHoldingPress?: (holding: { symbol: string; chain: string }) => void;
 }
@@ -42,15 +52,53 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
   const styles = useMemo(() => buildHoldingsSegmentStyles(tokens), [tokens]);
 
   const wallets = usePortfolioStore((state) => state.wallets);
+  const exchanges = usePortfolioStore((state) => state.exchanges);
+  const exchangePortfolioEnabled = usePortfolioStore((state) => state.exchangePortfolioEnabled);
   const holdings = usePortfolioStore((state) => state.holdings);
   const holdingsLoading = usePortfolioStore((state) => state.holdingsLoading);
 
-  if (wallets.length === 0) {
+  const hasExchangeLinked =
+    exchangePortfolioEnabled && exchanges.length > 0;
+
+  const hasAnyPortfolioSource =
+    wallets.length > 0 || hasExchangeLinked;
+
+  const [sourceFilter, setSourceFilter] = useState<HoldingsSourceFilter>('all');
+
+  useEffect(() => {
+    if (sourceFilter === 'exchange' && !hasExchangeLinked) {
+      setSourceFilter('all');
+    }
+  }, [hasExchangeLinked, sourceFilter]);
+
+  const positions = holdings?.positions ?? [];
+
+  const { filteredPositions, walletTotal, exchangeTotal } = useMemo(() => {
+    const walletPositions = positions.filter((p) => !isExchangeHolding(p));
+    const exchangePositions = positions.filter((p) => isExchangeHolding(p));
+
+    const wSum = walletPositions.reduce((sum, p) => sum + (p.value ?? 0), 0);
+    const exSum = exchangePositions.reduce((sum, p) => sum + (p.value ?? 0), 0);
+
+    let filtered = positions;
+    if (sourceFilter === 'wallet') filtered = walletPositions;
+    if (sourceFilter === 'exchange') filtered = exchangePositions;
+
+    return {
+      filteredPositions: filtered,
+      walletTotal: wSum,
+      exchangeTotal: exSum,
+    };
+  }, [positions, sourceFilter]);
+
+  if (!hasAnyPortfolioSource) {
     return (
       <View style={styles.container}>
         <Text style={styles.sectionTitle}>{t('portfolio.holdings')}</Text>
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>{t('portfolio.addWalletHint')}</Text>
+          <Text style={styles.emptyText}>
+            {exchangePortfolioEnabled ? t('portfolio.addSourceHint') : t('portfolio.addWalletHint')}
+          </Text>
         </View>
       </View>
     );
@@ -77,44 +125,118 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
     return null;
   }
 
-  const { totalValue, relativeChange24h, positions } = holdings;
+  const { totalValue, relativeChange24h } = holdings;
+
+  const displayTotal =
+    sourceFilter === 'all'
+      ? totalValue
+      : sourceFilter === 'wallet'
+        ? walletTotal
+        : exchangeTotal;
+
   const changePositive = relativeChange24h >= 0;
+  const showCombined24h = sourceFilter === 'all';
+
+  const sourceTabOptions = hasExchangeLinked
+    ? [t('portfolio.sourceAll'), t('portfolio.sourceWallet'), t('portfolio.sourceExchange')]
+    : [t('portfolio.sourceAll'), t('portfolio.sourceWallet')];
+
+  const sourceTabIndex =
+    sourceFilter === 'all' ? 0 : sourceFilter === 'wallet' ? 1 : hasExchangeLinked ? 2 : 1;
+
+  const onSourceTabSelect = (index: number) => {
+    if (hasExchangeLinked) {
+      setSourceFilter(index === 0 ? 'all' : index === 1 ? 'wallet' : 'exchange');
+    } else {
+      setSourceFilter(index === 0 ? 'all' : 'wallet');
+    }
+  };
+
+  const visiblePositions = filteredPositions.slice(0, 10);
+
+  const emptyFiltered =
+    filteredPositions.length === 0 &&
+    positions.length > 0;
 
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>{t('portfolio.holdings')}</Text>
+
+      <View style={styles.sourceFilterRow}>
+        <SegmentToggle
+          options={sourceTabOptions}
+          selectedIndex={Math.min(sourceTabIndex, sourceTabOptions.length - 1)}
+          onSelect={onSourceTabSelect}
+          flush
+        />
+      </View>
+
       <View style={styles.summaryCard}>
         <View style={styles.summaryRow}>
-          <Text style={styles.totalValue}>{formatUsd(totalValue)}</Text>
+          <Text style={styles.totalValue}>{formatUsd(displayTotal)}</Text>
         </View>
-        <Text
-          style={[
-            styles.change24h,
-            changePositive ? styles.changePositive : styles.changeNegative,
-          ]}
-        >
-          {changePositive ? '+' : ''}
-          {relativeChange24h.toFixed(2)}% (24h)
-        </Text>
+        {showCombined24h ? (
+          <Text
+            style={[
+              styles.change24h,
+              changePositive ? styles.changePositive : styles.changeNegative,
+            ]}
+          >
+            {changePositive ? '+' : ''}
+            {relativeChange24h.toFixed(2)}% (24h)
+          </Text>
+        ) : (
+          <Text style={styles.change24hMuted}>{t('activity.change24hUnavailable')}</Text>
+        )}
+        {!showCombined24h && sourceFilter === 'wallet' ? (
+          <Text style={styles.subtotalHint}>{t('portfolio.walletTotal')}</Text>
+        ) : null}
+        {!showCombined24h && sourceFilter === 'exchange' ? (
+          <Text style={styles.subtotalHint}>{t('portfolio.exchangeTotal')}</Text>
+        ) : null}
       </View>
-      {positions.length > 0 && (
+
+      {emptyFiltered ? (
         <View style={styles.positionsContainer}>
-          {positions.slice(0, 10).map((p, i) => (
+          <Text style={styles.emptyPositionsText}>
+            {sourceFilter === 'exchange'
+              ? t('portfolio.emptyExchangePositions')
+              : t('portfolio.emptyWalletPositions')}
+          </Text>
+          {sourceFilter === 'exchange' ? (
+            <Text style={styles.emptyPositionsSub}>
+              {hasExchangeLinked
+                ? t('portfolio.exchangeBalancesPending')
+                : t('portfolio.connectExchangeHint')}
+            </Text>
+          ) : null}
+        </View>
+      ) : visiblePositions.length > 0 ? (
+        <View style={styles.positionsContainer}>
+          {visiblePositions.map((p, i) => (
             <TouchableOpacity
-              key={`${p.symbol ?? 'sym'}-${p.chain ?? 'ch'}-${i}`}
+              key={`${p.symbol ?? 'sym'}-${p.chain ?? 'ch'}-${p.source ?? 'wallet'}-${p.sourceConnectionId ?? ''}-${i}`}
               style={[
                 styles.positionRow,
-                i < Math.min(positions.length, 10) - 1 && styles.positionRowBorder,
+                i < visiblePositions.length - 1 && styles.positionRowBorder,
               ]}
               onPress={() => onHoldingPress?.({ symbol: p.symbol, chain: p.chain })}
               activeOpacity={0.7}
             >
               <View style={styles.positionLeft}>
-                <View style={styles.chainBadge}>
-                  <Text style={styles.chainBadgeText}>
-                    {mapAssetDisplay(p.chain ?? '').toUpperCase()}
-                  </Text>
-                </View>
+                {isExchangeHolding(p) ? (
+                  <View style={styles.venueBadge}>
+                    <Text style={styles.venueBadgeText} numberOfLines={1}>
+                      {venueDisplayLabel(p.venue) || t('portfolio.sourceExchange')}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.chainBadge}>
+                    <Text style={styles.chainBadgeText}>
+                      {mapAssetDisplay(p.chain ?? '').toUpperCase()}
+                    </Text>
+                  </View>
+                )}
                 <View>
                   <Text style={styles.positionSymbol}>
                     {mapAssetDisplay(p.symbol)}
@@ -128,7 +250,7 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
             </TouchableOpacity>
           ))}
         </View>
-      )}
+      ) : null}
     </View>
   );
 };
@@ -147,6 +269,9 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.md,
       fontWeight: typo.fontWeights.semibold,
       color: c.neutral[800],
+      marginBottom: s.sm,
+    },
+    sourceFilterRow: {
       marginBottom: s.sm,
     },
     emptyCard: {
@@ -181,6 +306,17 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
       fontWeight: typo.fontWeights.medium,
       marginTop: s.xs,
     },
+    change24hMuted: {
+      fontSize: typo.fontSizes.xs,
+      color: tokens.textMuted,
+      marginTop: s.xs,
+      fontStyle: 'italic',
+    },
+    subtotalHint: {
+      fontSize: typo.fontSizes.xs,
+      color: tokens.textMuted,
+      marginTop: 2,
+    },
     changePositive: {
       color: c.success[500],
     },
@@ -199,6 +335,18 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
       marginBottom: s.sm,
       ...sem.cardShadow,
     },
+    emptyPositionsText: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.medium,
+      color: tokens.textMuted,
+      textAlign: 'center',
+    },
+    emptyPositionsSub: {
+      fontSize: typo.fontSizes.xs,
+      color: c.neutral[400],
+      textAlign: 'center',
+      marginTop: s.xs,
+    },
     positionRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -212,6 +360,8 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
     positionLeft: {
       flexDirection: 'row',
       alignItems: 'center',
+      flex: 1,
+      minWidth: 0,
     },
     chainBadge: {
       backgroundColor: c.primary[100],
@@ -224,6 +374,19 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.bold,
       color: c.primary[700],
+    },
+    venueBadge: {
+      backgroundColor: c.accent[100],
+      borderRadius: sem.cardRadiusSmall,
+      paddingHorizontal: s.sm,
+      paddingVertical: s.xs,
+      marginRight: s.sm,
+      maxWidth: 96,
+    },
+    venueBadgeText: {
+      fontSize: typo.fontSizes.badge,
+      fontWeight: typo.fontWeights.bold,
+      color: c.accent[800],
     },
     positionSymbol: {
       fontSize: typo.fontSizes.base,

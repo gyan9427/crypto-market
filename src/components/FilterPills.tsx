@@ -22,6 +22,7 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
 
   const categoryLabels: Record<ExploreCategory, string> = useMemo(
     () => ({
+      analysis: t('explore.analysis'),
       trending: t('explore.trending'),
       top: t('explore.top'),
     }),

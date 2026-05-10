@@ -1,171 +1,171 @@
-import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  ScrollView,
-  ImageBackground,
-  useWindowDimensions,
-  Animated,
-  Keyboard,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { useTranslation } from 'react-i18next';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { ThemeTokens } from '@/src/theme/theme';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { AuthContainer } from '@/src/components/auth/AuthContainer';
+import { AuthHeader } from '@/src/components/auth/AuthHeader';
+import { AuthInput } from '@/src/components/auth/AuthInput';
+import { PrimaryButton } from '@/src/components/auth/PrimaryButton';
+import { GoogleButton } from '@/src/components/auth/GoogleButton';
+import { getAuthPalette } from '@/src/components/auth/authPalette';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
-import { login } from '@/src/services/api';
+import { login, loginWithGoogle } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { trackEvent } from '@/src/utils/trackEvent';
-import {
-  FloatingFieldFocusLayer,
-  FLOATING_FIELD_FOCUS_OPEN_DELAY_MS,
-  type FloatingFieldFocusLayerRef,
-} from '@/src/components/auth/FloatingFieldFocusLayer';
 
-const OPENING_BG = require('../assets/images/nayft_opening.png');
+void WebBrowser.maybeCompleteAuthSession();
 
-/** Bottom sheet height as fraction of screen — keeps hero art + overlays visible */
-const LOGIN_CARD_HEIGHT_RATIO = 0.44;
+const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID;
+const IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS;
+const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB;
 
-/** Ignore focus-open briefly after keyboardDidHide to reduce IME/focus races */
-const KEYBOARD_SETTLE_MS = 80;
+const PASSWORD_RESET_URL =
+  process.env.EXPO_PUBLIC_PASSWORD_RESET_URL ?? 'https://nayft.com';
 
-const PLACEHOLDER_MUTED = 'rgba(0,0,0,0.5)';
+const ANDROID_ID = ANDROID_CLIENT_ID?.trim() ?? '';
+const IOS_ID = IOS_CLIENT_ID?.trim() ?? '';
+const WEB_ID = WEB_CLIENT_ID?.trim() ?? '';
 
-type ActiveField = 'email' | 'password' | null;
+/**
+ * `expo-auth-session/providers/google` enforces platform-specific IDs (web requires webClientId).
+ * Never call `Google.useAuthRequest` unless the current platform's client ID is configured.
+ */
+function isGoogleOAuthHookSupportedOnThisPlatform(): boolean {
+  switch (Platform.OS) {
+    case 'web':
+      return WEB_ID.length > 0;
+    case 'android':
+      return ANDROID_ID.length > 0;
+    case 'ios':
+      return IOS_ID.length > 0;
+    default:
+      return WEB_ID.length > 0 || ANDROID_ID.length > 0 || IOS_ID.length > 0;
+  }
+}
+
+/** Mount only when Expo's Google invariants are satisfied — avoids crashing web without webClientId. */
+function LoginGoogleOAuthSection(props: {
+  palette: ReturnType<typeof getAuthPalette>;
+  passwordLoading: boolean;
+  googleLoading: boolean;
+  setGoogleLoading: (value: boolean) => void;
+  setError: (value: string | null) => void;
+  router: ReturnType<typeof useRouter>;
+  t: (key: string) => string;
+}) {
+  const { palette, passwordLoading, googleLoading, setGoogleLoading, setError, router, t } = props;
+
+  const googleAuthConfig =
+    Platform.OS === 'web'
+      ? { webClientId: WEB_ID, scopes: ['openid', 'profile', 'email'] as const }
+      : Platform.OS === 'android'
+        ? { androidClientId: ANDROID_ID, scopes: ['openid', 'profile', 'email'] as const }
+        : { iosClientId: IOS_ID, scopes: ['openid', 'profile', 'email'] as const };
+
+  const [, googleResponse, promptGoogle] = Google.useAuthRequest({
+    androidClientId:
+      'androidClientId' in googleAuthConfig ? googleAuthConfig.androidClientId : undefined,
+    iosClientId: 'iosClientId' in googleAuthConfig ? googleAuthConfig.iosClientId : undefined,
+    webClientId: 'webClientId' in googleAuthConfig ? googleAuthConfig.webClientId : undefined,
+    scopes: [...googleAuthConfig.scopes],
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function consumeGoogle(): Promise<void> {
+      const r = googleResponse;
+      if (!r || r.type !== 'success') return;
+
+      const params = r.params as Record<string, string | undefined>;
+      const idToken =
+        r.authentication?.idToken ??
+        (typeof params.id_token === 'string' ? params.id_token : undefined);
+
+      if (!idToken) {
+        const msg =
+          'Google sign-in succeeded but did not return an ID token. Add webClientId / platform client IDs in env.';
+        if (!cancelled) setError(msg);
+        return;
+      }
+
+      try {
+        if (!cancelled) {
+          setGoogleLoading(true);
+          setError(null);
+        }
+        trackEvent({ featureKey: 'auth', eventType: 'google_login_attempt', metadata: {} });
+        await loginWithGoogle(idToken);
+        if (!cancelled) router.replace('/(tabs)' as never);
+      } catch (err: unknown) {
+        const m = err instanceof Error ? err.message : t('auth.errorLoginFailed');
+        if (!cancelled) setError(m);
+      } finally {
+        if (!cancelled) setGoogleLoading(false);
+      }
+    }
+    void consumeGoogle();
+    return () => {
+      cancelled = true;
+    };
+  }, [googleResponse, router, setError, setGoogleLoading, t]);
+
+  const onGooglePress = async () => {
+    if (googleLoading || passwordLoading) return;
+    setError(null);
+    try {
+      await promptGoogle({ showInRecents: true });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t('auth.errorGoogleUnavailable'));
+    }
+  };
+
+  return (
+    <GoogleButton
+      palette={palette}
+      label={t('auth.continueWithGoogle')}
+      onPress={onGooglePress}
+      loading={googleLoading}
+      disabled={passwordLoading || googleLoading}
+    />
+  );
+}
 
 export default function LoginScreen() {
+  const googleConfigured = useMemo(() => isGoogleOAuthHookSupportedOnThisPlatform(), []);
+
   const { t } = useTranslation();
-  const { tokens } = useAppTheme();
-  const styles = useMemo(() => buildLoginStyles(tokens), [tokens]);
+  const { effectiveScheme } = useAppTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isDark = effectiveScheme === 'dark';
+  const palette = useMemo(() => getAuthPalette(isDark), [isDark]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [activeField, setActiveField] = useState<ActiveField>(null);
-  const [sourceCenter, setSourceCenter] = useState<{ cx: number; cy: number } | null>(null);
-
-  const emailMeasureRef = useRef<View>(null);
-  const passwordMeasureRef = useRef<View>(null);
-  const floatingEmailRef = useRef<TextInput>(null);
-  const floatingPasswordRef = useRef<TextInput>(null);
-  const floatingLayerRef = useRef<FloatingFieldFocusLayerRef>(null);
-  /** Shared with FloatingFieldFocusLayer — 0 = base form full strength, 1 = focus overlay active */
-  const focusProgress = useRef(new Animated.Value(0)).current;
-
-  const focusOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Soft keyboard visibility from system events */
-  const keyboardVisibleRef = useRef(false);
-  /** Used to skip opening the overlay immediately after IME dismiss (focus churn) */
-  const lastKeyboardHideAtRef = useRef(0);
-
-  const cardMaxHeight = Math.round(windowHeight * LOGIN_CARD_HEIGHT_RATIO);
-
-  const baseFormAnimatedStyle = useMemo(
-    () => ({
-      opacity: focusProgress.interpolate({
-        inputRange: [0, 1],
-        outputRange: [1, 0.16],
-      }),
-      transform: [
-        {
-          scale: focusProgress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [1, 0.98],
-          }),
-        },
-      ],
-    }),
-    [focusProgress]
-  );
-
-  const handleDismissComplete = useCallback(() => {
-    setActiveField(null);
-    setSourceCenter(null);
-  }, []);
-
-  const openFieldFromMeasure = useCallback((field: 'email' | 'password') => {
-    if (floatingLayerRef.current?.isAnimating?.()) return;
-    const measureRef = field === 'email' ? emailMeasureRef : passwordMeasureRef;
-    measureRef.current?.measureInWindow((x, y, w, h) => {
-      setSourceCenter({ cx: x + w / 2, cy: y + h / 2 });
-      setActiveField(field);
-    });
-  }, []);
-
-  const scheduleOpenField = useCallback(
-    (field: 'email' | 'password') => {
-      if (focusOpenTimerRef.current) {
-        clearTimeout(focusOpenTimerRef.current);
-        focusOpenTimerRef.current = null;
-      }
-      focusOpenTimerRef.current = setTimeout(() => {
-        focusOpenTimerRef.current = null;
-        if (floatingLayerRef.current?.isAnimating?.()) return;
-        if (Date.now() - lastKeyboardHideAtRef.current < KEYBOARD_SETTLE_MS) return;
-        openFieldFromMeasure(field);
-      }, FLOATING_FIELD_FOCUS_OPEN_DELAY_MS);
-    },
-    [openFieldFromMeasure]
-  );
-
-  const onBottomEmailFocus = useCallback(() => {
-    scheduleOpenField('email');
-  }, [scheduleOpenField]);
-
-  const onBottomPasswordFocus = useCallback(() => {
-    scheduleOpenField('password');
-  }, [scheduleOpenField]);
-
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => {
-      keyboardVisibleRef.current = true;
-      lastKeyboardHideAtRef.current = 0;
-    });
-    const hide = Keyboard.addListener('keyboardDidHide', () => {
-      keyboardVisibleRef.current = false;
-      lastKeyboardHideAtRef.current = Date.now();
-    });
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (focusOpenTimerRef.current) {
-        clearTimeout(focusOpenTimerRef.current);
-      }
-    };
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!activeField) return;
-    if (activeField === 'email') {
-      floatingEmailRef.current?.focus();
-    } else {
-      floatingPasswordRef.current?.focus();
-    }
-  }, [activeField]);
+  const devGoogleWarnedRef = useRef(false);
 
   useEffect(() => {
     if (isAuthenticated) {
       router.replace('/(tabs)' as never);
     }
   }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    if (!__DEV__ || googleConfigured || devGoogleWarnedRef.current) return;
+    devGoogleWarnedRef.current = true;
+    console.warn(
+      Platform.OS === 'web'
+        ? '[auth] Set EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB for Continue with Google on web.'
+        : '[auth] Set EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID / EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS for native Google login.'
+    );
+  }, [googleConfigured]);
 
   const handleLogin = useCallback(async () => {
     if (!email || !password) {
@@ -180,8 +180,8 @@ export default function LoginScreen() {
       setError(null);
       await login(email.trim(), password);
       router.replace('/(tabs)' as never);
-    } catch (err: any) {
-      setError(err.message || t('auth.errorLoginFailed'));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('auth.errorLoginFailed'));
     } finally {
       setLoading(false);
     }
@@ -192,305 +192,173 @@ export default function LoginScreen() {
     router.push('/register' as never);
   };
 
-  const floatingEmailHidden = activeField === 'email';
-  const floatingPasswordHidden = activeField === 'password';
-
-  const inputProps = {
-    placeholderTextColor: PLACEHOLDER_MUTED,
-    underlineColorAndroid: 'transparent' as const,
+  const openForgotPassword = async () => {
+    try {
+      const url = PASSWORD_RESET_URL.trim();
+      const open =
+        /^https?:\/\//i.test(url) ? url : `https://${url.replace(/^\/+/, '')}`;
+      await Linking.openURL(open);
+    } catch {
+      setError(t('auth.errorForgotPasswordOpen'));
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      <View style={styles.layerRoot}>
-        <ImageBackground
-          source={OPENING_BG}
-          style={styles.bgImage}
-          resizeMode="cover"
-          imageStyle={styles.bgImageInner}
+    <View style={[styles.root, { backgroundColor: palette.bg }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+
+      <AuthContainer backgroundColor={palette.bg}>
+        <AuthHeader
+          palette={palette}
+          isDark={isDark}
+          title={t('auth.welcomeBack')}
+          subtitle={t('auth.loginTagline')}
         />
 
-        <LinearGradient
-          pointerEvents="none"
-          colors={['transparent', 'rgba(255,255,255,0.42)']}
-          start={{ x: 0.5, y: 0.42 }}
-          end={{ x: 0.5, y: 1 }}
-          style={styles.fadeOverlay}
-        />
-
-        <Animated.View style={[styles.formColumn, baseFormAnimatedStyle]}>
-          <ScrollView
-            style={[styles.scrollView, { maxHeight: cardMaxHeight }]}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={[
-              styles.scrollContent,
-              {
-                paddingBottom:
-                  Math.max(insets.bottom, tokens.spacing.sm) + tokens.spacing.sm,
-              },
-            ]}
-            showsVerticalScrollIndicator={false}
-            bounces={false}
+        {error ? (
+          <Animated.View
+            entering={FadeInDown.delay(40).springify()}
+            style={[styles.errBox, { backgroundColor: palette.errorBg }]}
           >
-            <View style={styles.loginCard}>
-              {error && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              )}
+            <Text style={[styles.errText, { color: palette.errorText }]}>{error}</Text>
+          </Animated.View>
+        ) : null}
 
-              <View ref={emailMeasureRef} style={styles.field} collapsable={false}>
-                <Text style={styles.label}>{t('auth.email')}</Text>
-                <TextInput
-                  style={[styles.input, floatingEmailHidden && styles.inputHidden]}
-                  value={email}
-                  onChangeText={setEmail}
-                  onFocus={onBottomEmailFocus}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  placeholder={t('auth.placeholderEmail')}
-                  editable={!floatingEmailHidden}
-                  {...inputProps}
-                />
-              </View>
+        <Animated.View
+          entering={FadeInDown.delay(80).springify().damping(24)}
+          style={styles.section}
+        >
+          <AuthInput
+            palette={palette}
+            label={t('auth.phoneOrEmail')}
+            value={email}
+            onChangeText={(text) => {
+              setEmail(text);
+              setError(null);
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            placeholder={t('auth.placeholderPhoneOrEmail')}
+            editable={!loading && !googleLoading}
+          />
 
-              <View ref={passwordMeasureRef} style={styles.field} collapsable={false}>
-                <Text style={styles.label}>{t('auth.password')}</Text>
-                <TextInput
-                  style={[styles.input, floatingPasswordHidden && styles.inputHidden]}
-                  value={password}
-                  onChangeText={setPassword}
-                  onFocus={onBottomPasswordFocus}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  placeholder={t('auth.placeholderPassword')}
-                  editable={!floatingPasswordHidden}
-                  {...inputProps}
-                />
-              </View>
+          <AuthInput
+            palette={palette}
+            label={t('auth.password')}
+            value={password}
+            onChangeText={(text) => {
+              setPassword(text);
+              setError(null);
+            }}
+            secure
+            autoComplete="password"
+            placeholder={t('auth.placeholderPassword')}
+            editable={!loading && !googleLoading}
+          />
 
-              <TouchableOpacity
-                style={[styles.buttonTouchable, loading && styles.buttonDisabled]}
-                onPress={handleLogin}
-                disabled={loading}
-                activeOpacity={0.88}
-                accessibilityRole="button"
-                accessibilityLabel={t('auth.logInAccessibility')}
-              >
-                <LinearGradient
-                  colors={[tokens.colors.primary[700], tokens.colors.primary[500]]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.buttonGradient}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.buttonText}>{t('auth.logIn')}</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+          <PrimaryButton
+            palette={palette}
+            title={t('auth.logIn')}
+            onPress={handleLogin}
+            loading={loading}
+            disabled={googleLoading}
+            accessibilityLabel={t('auth.logInAccessibility')}
+          />
 
-              <TouchableOpacity onPress={goToRegister} style={styles.footerLink}>
-                <Text style={styles.footerText}>
-                  {t('auth.footerNoAccount')}
-                  <Text style={styles.footerTextHighlight}>{t('auth.footerSignUp')}</Text>
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+          {googleConfigured ? (
+            <LoginGoogleOAuthSection
+              palette={palette}
+              passwordLoading={loading}
+              googleLoading={googleLoading}
+              setGoogleLoading={setGoogleLoading}
+              setError={setError}
+              router={router}
+              t={t}
+            />
+          ) : (
+            <GoogleButton
+              palette={palette}
+              label={t('auth.continueWithGoogle')}
+              onPress={() => undefined}
+              disabled
+              loading={false}
+            />
+          )}
+
+          {!googleConfigured && !__DEV__ ? (
+            <Text style={[styles.subtleFoot, { color: palette.textSecondary }]}>
+              {Platform.OS === 'web' ? t('auth.googleUnavailableWeb') : t('auth.googleUnavailable')}
+            </Text>
+          ) : null}
         </Animated.View>
 
-        {activeField && sourceCenter && (
-          <FloatingFieldFocusLayer
-            ref={floatingLayerRef}
-            activeField={activeField}
-            sourceCenter={sourceCenter}
-            onDismissComplete={handleDismissComplete}
-            progress={focusProgress}
-          >
-            {activeField === 'email' ? (
-              <>
-                <Text style={styles.floatingLabel}>{t('auth.email')}</Text>
-                <TextInput
-                  ref={floatingEmailRef}
-                  style={styles.floatingInput}
-                  value={email}
-                  onChangeText={setEmail}
-                  onBlur={() => floatingLayerRef.current?.dismiss()}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  placeholder={t('auth.placeholderEmail')}
-                  {...inputProps}
-                />
-              </>
-            ) : (
-              <>
-                <Text style={styles.floatingLabel}>{t('auth.password')}</Text>
-                <TextInput
-                  ref={floatingPasswordRef}
-                  style={styles.floatingInput}
-                  value={password}
-                  onChangeText={setPassword}
-                  onBlur={() => floatingLayerRef.current?.dismiss()}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  placeholder={t('auth.placeholderPassword')}
-                  {...inputProps}
-                />
-              </>
-            )}
-          </FloatingFieldFocusLayer>
-        )}
-      </View>
+        <Animated.View
+          entering={FadeInDown.delay(160).springify()}
+          style={styles.footerCol}
+        >
+          <TouchableOpacity onPress={openForgotPassword} hitSlop={10} accessibilityRole="link">
+            <Text style={[styles.link, { color: palette.primaryGreen }]}>
+              {t('auth.forgotPassword')}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(240).springify()} style={styles.signupRow}>
+          <TouchableOpacity onPress={goToRegister} accessibilityRole="button">
+            <Text style={[styles.muted, { color: palette.textSecondary }]}>
+              {t('auth.footerNoAccount')}
+              <Text style={[styles.boldLink, { color: palette.primaryGreen }]}>
+                {t('auth.footerSignUp')}
+              </Text>
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </AuthContainer>
     </View>
   );
 }
 
-function buildLoginStyles(tokens: ThemeTokens) {
-  const c = tokens.colors;
-  const { spacing: s, borderRadius: br, typography: ty } = tokens;
-  return StyleSheet.create({
-  container: {
+const styles = StyleSheet.create({
+  root: {
     flex: 1,
-    backgroundColor: c.neutral[900],
   },
-  layerRoot: {
-    flex: 1,
-    position: 'relative',
-  },
-  bgImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-  },
-  bgImageInner: {
-    width: '100%',
-    height: '100%',
-  },
-  fadeOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  formColumn: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    zIndex: 0,
-  },
-  scrollView: {
-    flexGrow: 0,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'flex-end',
-    paddingHorizontal: s.lg,
-  },
-  loginCard: {
-    width: '100%',
-    alignSelf: 'flex-end',
-    alignItems: 'stretch',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderRadius: 22,
-    backgroundColor: tokens.isDark ? 'rgba(18,18,18,0.72)' : 'rgba(255,255,255,0.45)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.38)',
-  },
-  field: {
-    marginBottom: 28,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: ty.fontWeights.medium,
-    color: tokens.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)',
-    marginBottom: s.xs,
-    fontFamily: tokens.typography.fontFamilies.sansMedium,
-  },
-  input: {
-    paddingHorizontal: 0,
-    paddingVertical: 6,
-    minHeight: 36,
-    fontSize: ty.fontSizes.base,
-    color: tokens.isDark ? tokens.text : c.neutral[900],
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)',
-    fontFamily: tokens.typography.fontFamilies.sans,
-  },
-  inputHidden: {
-    opacity: 0,
-  },
-  floatingLabel: {
-    fontSize: 13,
-    fontWeight: ty.fontWeights.medium,
-    color: tokens.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)',
-    marginBottom: s.xs,
-    fontFamily: tokens.typography.fontFamilies.sansMedium,
-  },
-  floatingInput: {
-    paddingHorizontal: 0,
-    paddingVertical: 8,
-    minHeight: 40,
-    fontSize: ty.fontSizes.base,
-    color: tokens.isDark ? tokens.text : c.neutral[900],
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)',
-    fontFamily: tokens.typography.fontFamilies.sans,
-  },
-  buttonTouchable: {
-    marginTop: s.sm,
-    borderRadius: br.md,
-    overflow: 'hidden',
-    alignSelf: 'stretch',
-    ...tokens.shadows.sm,
-  },
-  buttonGradient: {
-    paddingVertical: 11,
-    paddingHorizontal: s.lg,
+  section: {},
+  footerCol: {
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 40,
+    marginTop: 8,
+    marginBottom: 20,
   },
-  buttonDisabled: {
-    opacity: 0.7,
+  signupRow: {
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: ty.fontSizes.md,
-    fontWeight: ty.fontWeights.semibold,
-    fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+  errBox: {
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 16,
   },
-  footerLink: {
-    marginTop: s.lg,
-    alignItems: 'flex-start',
+  errText: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
   },
-  footerText: {
-    fontSize: ty.fontSizes.sm,
-    color: tokens.isDark ? tokens.textMuted : c.neutral[600],
-    fontFamily: tokens.typography.fontFamilies.sans,
+  link: {
+    fontSize: 15,
+    fontWeight: '600',
   },
-  footerTextHighlight: {
-    color: c.primary[600],
-    fontWeight: ty.fontWeights.semibold,
-    fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+  muted: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
   },
-  errorBox: {
-    backgroundColor: 'rgba(254, 226, 226, 0.75)',
-    borderRadius: br.xs,
-    padding: s.sm,
-    marginBottom: s.lg,
+  boldLink: {
+    fontWeight: '700',
   },
-  errorText: {
-    color: c.error[700],
-    fontSize: ty.fontSizes.sm,
-    fontFamily: tokens.typography.fontFamilies.sans,
+  subtleFoot: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 4,
   },
 });
-}

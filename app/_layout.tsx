@@ -10,6 +10,7 @@ import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
 import { useOnboardingStore } from '@/src/state/useOnboardingStore';
+import { useSplashStore } from '@/src/state/useSplashStore';
 import { useFeaturesStore, isOnboardingFeatureEnabled } from '@/src/utils/features';
 
 const RootView = Platform.OS === 'android'
@@ -25,6 +26,7 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="splash" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
@@ -48,6 +50,7 @@ export default function RootLayout() {
   const hasSeenOnboarding = useOnboardingStore((state) => state.hasSeenOnboarding);
   const onboardingHydrated = useOnboardingStore((state) => state.hydrated);
   const featuresLoaded = useFeaturesStore((state) => state.loaded);
+  const splashDone = useSplashStore((state) => state.done);
   const [isReady, setIsReady] = useState(false);
   const authSyncInFlightRef = useRef<Promise<void> | null>(null);
 
@@ -112,11 +115,30 @@ export default function RootLayout() {
 
     const firstSegment = segments[0] as string | undefined;
 
+    // Animated splash is session-only (Zustand resets on each JS reload). After refresh,
+    // `splashDone` is false again — but restoring auth from AsyncStorage means the user is
+    // already logged in; do not send them through splash again (fixes web reload).
+    const shouldGateWithSplash = !splashDone && !isAuthenticated;
+
+    if (shouldGateWithSplash) {
+      if (firstSegment !== 'splash') router.replace('/splash' as Href);
+      return;
+    }
+
+    if (firstSegment === 'splash') {
+      if (isAuthenticated) router.replace('/(tabs)');
+      else if (!hasSeenOnboarding && isOnboardingFeatureEnabled())
+        router.replace('/onboarding' as Href);
+      else router.replace('/login');
+      return;
+    }
+
     if (isAuthenticated) {
       if (
         firstSegment === 'login' ||
         firstSegment === 'register' ||
-        firstSegment === 'onboarding'
+        firstSegment === 'onboarding' ||
+        firstSegment === 'splash'
       ) {
         router.replace('/(tabs)');
       }
@@ -144,6 +166,7 @@ export default function RootLayout() {
     isReady,
     onboardingHydrated,
     featuresLoaded,
+    splashDone,
     isAuthenticated,
     hasSeenOnboarding,
     segments,
