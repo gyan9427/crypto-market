@@ -274,6 +274,7 @@ function buildExploreScreenStyles(tokens: ThemeTokens) {
     },
     graphChrome: {
       marginBottom: 0,
+      marginHorizontal: 0,
     },
     graphToggleRow: {
       flexDirection: 'row',

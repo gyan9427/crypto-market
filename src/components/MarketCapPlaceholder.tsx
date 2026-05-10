@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import Svg, { Line, Path, Circle } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Stop, Rect, Line, Path, Circle } from 'react-native-svg';
 import { Maximize2, MoreHorizontal, TrendingUp } from 'lucide-react-native';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
@@ -30,10 +30,14 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
 }) => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
+  const isDark = tokens.isDark;
   const styles = useMemo(() => buildMarketCapPlaceholderStyles(tokens), [tokens]);
   const c = tokens.colors;
-  const gridMuted = c.neutral[500];
-  const crosshair = c.neutral[400];
+  const crosshair = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.20)';
+  const lineColor = '#3b82f6';
+  const gradientId = useRef(`mcpGrad_${Math.random().toString(36).slice(2, 8)}`).current;
+  const { height: screenHeight } = useWindowDimensions();
+  const chartAreaHeight = Math.round(screenHeight * 0.26);
 
   const { data, hasFetched } = useLiveMarketOverview({ enabled: liveUpdatesEnabled });
   const klines = data.klines;
@@ -85,10 +89,26 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     });
 
     const linePath = points.reduce(
-      (acc, p, i) => `${acc}${i === 0 ? `M${p.x},${p.y}` : ` L${p.x},${p.y}`}`,
+      (acc, p, i) => `${acc}${i === 0 ? `M${p.x.toFixed(1)},${p.y.toFixed(1)}` : ` L${p.x.toFixed(1)},${p.y.toFixed(1)}`}`,
       ''
     );
-    const marker = points[points.length - 1];
+
+    const areaPath = [
+      linePath,
+      `L${points[points.length - 1].x.toFixed(1)},${CHART_HEIGHT}`,
+      `L${points[0].x.toFixed(1)},${CHART_HEIGHT}`,
+      'Z',
+    ].join(' ');
+
+    const peakIndex = closes.indexOf(max);
+    const peakPoint = points[peakIndex];
+
+    const span = Math.max(2, Math.floor(closes.length * 0.28));
+    const colStart = Math.max(0, peakIndex - Math.floor(span / 2));
+    const colEnd = Math.min(closes.length - 1, colStart + span);
+    const colX = points[colStart].x;
+    const colW = Math.max(0, points[colEnd].x - colX);
+
     const idxA = 0;
     const idxB = Math.floor((klines.length - 1) * 0.33);
     const idxC = Math.floor((klines.length - 1) * 0.66);
@@ -100,7 +120,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       formatTimeLabel(klines[idxD].openTime),
     ];
 
-    return { linePath, markerX: marker.x, markerY: marker.y, labels, points };
+    return { linePath, areaPath, peakPoint, colX, colW, labels, points };
   }, [klines]);
 
   const activePoint = chartView && hoverIndex !== null ? chartView.points[hoverIndex] : null;
@@ -150,53 +170,65 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
           <Text style={styles.periodLabel}>{t('marketCap.today')}</Text>
         </View>
         
-        {/* Exact Stitch Graph Region */}
+        {/* Chart region */}
         <View
-          style={styles.chartWrapper}
+          style={[styles.chartWrapper, { height: chartAreaHeight }]}
           onLayout={(e) => {
             const width = e.nativeEvent.layout.width;
             if (width > 0) setChartPixelWidth(width);
           }}
         >
           {isLoading ? (
-            <View style={styles.chartSkeleton} />
+            <View style={[styles.chartSkeleton, { height: chartAreaHeight }]} />
           ) : chartView ? (
             <>
               <Svg style={styles.svgChart} preserveAspectRatio="none" viewBox="0 0 400 120">
-                {/* Dotted Reference Line */}
-                <Line stroke={gridMuted} strokeDasharray="4" strokeWidth="1" x1="0" x2="400" y1="60" y2="60" />
-                {/* Main Path (Blue Line Style) */}
-                <Path 
-                  d={chartView.linePath}
-                  fill="none" 
-                  stroke="#3b82f6" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth="2.5" 
+                <Defs>
+                  <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={lineColor} stopOpacity={isDark ? 0.45 : 0.25} />
+                    <Stop offset="0.65" stopColor={lineColor} stopOpacity={isDark ? 0.15 : 0.08} />
+                    <Stop offset="1" stopColor={lineColor} stopOpacity="0" />
+                  </LinearGradient>
+                </Defs>
+
+                {/* Highlight column around peak */}
+                <Rect
+                  x={chartView.colX}
+                  y={0}
+                  width={chartView.colW}
+                  height={CHART_HEIGHT}
+                  fill={lineColor}
+                  fillOpacity={isDark ? 0.18 : 0.10}
+                  rx={5}
                 />
-                {/* Marker */}
-                <Circle cx={chartView.markerX} cy={chartView.markerY} fill="#3b82f6" r="4" stroke="white" strokeWidth="2" />
+
+                {/* Gradient area fill */}
+                <Path d={chartView.areaPath} fill={`url(#${gradientId})`} />
+
+                {/* Main line */}
+                <Path
+                  d={chartView.linePath}
+                  fill="none"
+                  stroke={lineColor}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2.5"
+                />
+
+                {/* Dots: first, peak, last */}
+                {[chartView.points[0], chartView.peakPoint, chartView.points[chartView.points.length - 1]].map((pt, i) => (
+                  <Circle key={i} cx={pt.x} cy={pt.y} r={4} fill={lineColor} stroke="white" strokeWidth="2" />
+                ))}
+
+                {/* Crosshair on hover */}
                 {activePoint ? (
                   <>
                     <Line
-                      x1={activePoint.x}
-                      x2={activePoint.x}
-                      y1={0}
-                      y2={CHART_HEIGHT}
-                      stroke={crosshair}
-                      strokeWidth="1"
-                      strokeDasharray="3"
+                      x1={activePoint.x} x2={activePoint.x}
+                      y1={0} y2={CHART_HEIGHT}
+                      stroke={crosshair} strokeWidth="1" strokeDasharray="3"
                     />
-                    <Line
-                      x1={0}
-                      x2={CHART_WIDTH}
-                      y1={activePoint.y}
-                      y2={activePoint.y}
-                      stroke={crosshair}
-                      strokeWidth="1"
-                      strokeDasharray="3"
-                    />
-                    <Circle cx={activePoint.x} cy={activePoint.y} fill="#3b82f6" r="4" stroke="white" strokeWidth="2" />
+                    <Circle cx={activePoint.x} cy={activePoint.y} r={5} fill={lineColor} stroke="white" strokeWidth="2" />
                   </>
                 ) : null}
               </Svg>
@@ -267,15 +299,17 @@ function buildMarketCapPlaceholderStyles(tokens: ThemeTokens) {
   const typo = tokens.typography;
   return StyleSheet.create({
   container: {
-    paddingHorizontal: s.lg,
-    marginBottom: s.lg,
+    marginBottom: 0,
   },
   card: {
-    backgroundColor: '#0f0520',
-    borderRadius: 28,
-    padding: s.lg,
+    backgroundColor: tokens.isDark ? '#0f0520' : '#1a0a3c',
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingTop: s.lg,
+    paddingHorizontal: s.lg,
+    paddingBottom: s.md,
     borderWidth: 1,
-    borderColor: 'rgba(168,85,247,0.20)',
+    borderColor: tokens.isDark ? 'rgba(168,85,247,0.20)' : 'rgba(168,85,247,0.35)',
     ...tokens.shadows.lg,
     overflow: 'hidden',
   },
@@ -336,7 +370,6 @@ function buildMarketCapPlaceholderStyles(tokens: ThemeTokens) {
     marginTop: 4,
   },
   chartWrapper: {
-    height: 128,
     width: '100%',
     marginTop: s.md,
     position: 'relative',
@@ -347,7 +380,6 @@ function buildMarketCapPlaceholderStyles(tokens: ThemeTokens) {
   },
   chartSkeleton: {
     width: '100%',
-    height: CHART_HEIGHT,
     borderRadius: br.md,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
