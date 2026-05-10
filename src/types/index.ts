@@ -147,7 +147,30 @@ export interface TrendingCoin extends Coin {
 }
 
 export type FeedFilter = 'following' | 'explore';
-export type ExploreCategory = 'trending' | 'top';
+export type ExploreCategory = 'analysis' | 'trending' | 'top';
+
+export type SignalType = 'momentum' | 'breakout' | 'volatile';
+
+export type SignalSeverity = 'positive' | 'warning';
+
+export interface CoinSignal {
+  type: SignalType;
+  label: string;
+  severity: SignalSeverity;
+}
+
+export interface MarketAnalysisCoin {
+  coinId: string;
+  internalCoinId?: string;
+  symbol: string;
+  name: string;
+  image?: string;
+  price: number;
+  percentChange24h: number;
+  rank?: number;
+  signals: CoinSignal[];
+  whyMoving?: string;
+}
 
 // ── Portfolio / wallet monitoring ────────────────────────────────────────────
 

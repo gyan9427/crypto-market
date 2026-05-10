@@ -38,7 +38,7 @@ export const useAppStore = create<AppState>((set, get) => {
   return {
     /** Default explore: `/news/following` requires login; anonymous users must not hit it on first load. */
     feedFilter: 'explore',
-    exploreCategory: 'trending',
+    exploreCategory: 'analysis',
     themePreference: 'system' as ThemePreference,
     language: 'en' as SupportedLanguage,
     likedNews: [],

@@ -157,8 +157,16 @@
   },
   "explore": {
     "marketOverview": "Market overview",
+    "analysis": "Market Analysis",
+    "analysisSubtitle": "AI signals based on momentum, volume & activity.",
     "trending": "Trending",
-    "top": "Top"
+    "top": "Top",
+    "whyMoving": "Why it's moving?",
+    "youHold": "You hold this",
+    "youDontHold": "You don't hold",
+    "add": "+ Add",
+    "following": "Following",
+    "analysisEmpty": "No signal opportunities right now. Check back shortly."
   },
   "featured": {
     "title": "Featured",

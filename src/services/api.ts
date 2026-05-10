@@ -1,4 +1,4 @@
-import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts } from '../types';
+import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts, MarketAnalysisCoin } from '../types';
 import type { MarketSnapshotV2, SnapshotRow } from '../types/marketSnapshot';
 import type { SupportedLanguage } from '@/src/constants/languages';
 import { isSupportedLanguage } from '@/src/constants/languages';
@@ -405,6 +405,18 @@ export function mapSnapshotRowToTrendingCoin(
  */
 export const fetchMarketSnapshot = async (): Promise<MarketSnapshotV2> => {
   return apiRequest<MarketSnapshotV2>('/market/snapshot');
+};
+
+export interface MarketAnalysisResponse {
+  coins: MarketAnalysisCoin[];
+  generatedAt: string;
+}
+
+/**
+ * GET /api/market/analysis — coins with heuristic signals (momentum / breakout / volatile) + latest headline.
+ */
+export const fetchMarketAnalysis = async (): Promise<MarketAnalysisResponse> => {
+  return apiRequest<MarketAnalysisResponse>('/market/analysis');
 };
 
 /**

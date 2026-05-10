@@ -145,6 +145,19 @@
       "message": "यह स्क्रीन मौजूद नहीं है।",
       "goHome": "होम स्क्रीन पर जाएं"
     },
+    "explore": {
+      "marketOverview": "मार्केट ओवरव्यू",
+      "analysis": "मार्केट एनालिसिस",
+      "analysisSubtitle": "मोमेंटम, वॉल्यूम और गतिविधि पर आधारित एआई सिग्नल।",
+      "trending": "ट्रेंडिंग",
+      "top": "टॉप",
+      "whyMoving": "क्यों हिल रहा है?",
+      "youHold": "आपके पास है",
+      "youDontHold": "आपके पास नहीं है",
+      "add": "+ जोड़ें",
+      "following": "फॉलो कर रहे हैं",
+      "analysisEmpty": "अभी कोई सिग्नल वाली अवसर सूची नहीं है।"
+    },
     "portfolio": {
       "sourceAll": "सभी",
       "sourceWallet": "वॉलेट",
