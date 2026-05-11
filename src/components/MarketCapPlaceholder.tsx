@@ -21,11 +21,13 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useLiveMarketOverview } from '../hooks/useLiveMarketOverview';
 
 // ─── SVG coordinate space ────────────────────────────────────────────────────
-const SVG_W   = 400;
-const SVG_H   = 120;
-const PAD     = 6;
-const INNER_W = SVG_W - PAD * 2;
-const INNER_H = SVG_H - PAD * 2;
+const SVG_W      = 400;
+const SVG_H      = 120;
+const PAD        = 6;
+const INNER_W    = SVG_W - PAD * 2;
+const INNER_H    = SVG_H - PAD * 2;
+const Y_AXIS_W   = 52;   // pixel width of the y-axis label column
+const Y_TICK_COUNT = 5;  // number of y-axis price levels
 
 // ─── Colours ─────────────────────────────────────────────────────────────────
 const LINE_COLOR = '#6383ff';
@@ -71,6 +73,7 @@ interface ChartSvgProps {
   activePoint: { x: number; y: number } | null;
   crosshairStroke: string;
   markerStroke: string;
+  gridStroke: string;
 }
 
 const ChartSvg = memo<ChartSvgProps>(({
@@ -80,6 +83,7 @@ const ChartSvg = memo<ChartSvgProps>(({
   activePoint,
   crosshairStroke,
   markerStroke,
+  gridStroke,
 }) => (
   <Svg
     style={svgStyle}
@@ -93,6 +97,18 @@ const ChartSvg = memo<ChartSvgProps>(({
         <Stop offset="1"   stopColor={LINE_COLOR} stopOpacity="0" />
       </LinearGradient>
     </Defs>
+
+    {/* Horizontal grid lines at each y-tick */}
+    {view.yPriceLevels.map(({ svgY }, i) => (
+      <Line
+        key={i}
+        x1={0} x2={SVG_W}
+        y1={svgY} y2={svgY}
+        stroke={gridStroke}
+        strokeWidth="0.5"
+        strokeDasharray="3 4"
+      />
+    ))}
 
     {/* Area gradient fill */}
     <Path d={view.areaPath} fill={`url(#${gradientId})`} />
@@ -156,7 +172,8 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const isDark = tokens.isDark;
   const styles = useMemo(() => buildStyles(tokens), [tokens]);
   const chartCrosshairStroke = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
-  const chartMarkerStroke = isDark ? '#ffffff' : tokens.surface;
+  const chartMarkerStroke    = isDark ? '#ffffff' : tokens.surface;
+  const chartGridStroke      = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
 
   const gradientId = useRef(`mcpGrad_${Math.random().toString(36).slice(2, 8)}`).current;
 
@@ -224,10 +241,10 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       klines.length - 1,
     ].map((i) => formatTimeLabel(klines[i].openTime));
 
-    const yPriceLevels = [
-      { price: max, svgY: PAD + 2 },
-      { price: min, svgY: SVG_H - PAD - 2 },
-    ];
+    const yPriceLevels = Array.from({ length: Y_TICK_COUNT }, (_, i) => {
+      const t = i / (Y_TICK_COUNT - 1);
+      return { price: max - t * range, svgY: PAD + t * INNER_H };
+    });
 
     return { linePath, areaPath, points, xLabels, yPriceLevels, lastPoint: points[points.length - 1] };
   }, [klines]);
@@ -325,93 +342,109 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
         </ScrollView>
 
         {/* Chart */}
-        <View
-          style={[styles.chartWrapper, { height: chartAreaHeight }]}
-          onLayout={(e) => {
-            const w = e.nativeEvent.layout.width;
-            if (w > 0) setChartPixelWidth(w);
-          }}
-        >
-          {isLoading && !chartView ? (
-            <View style={[styles.chartSkeleton, { height: chartAreaHeight }]} />
-          ) : chartView ? (
-            <>
-              {/* Isolated SVG — re-renders only when chart data or hover changes */}
-              <ChartSvg
-                view={chartView}
-                gradientId={gradientId}
-                isDark={isDark}
-                activePoint={activePoint}
-                crosshairStroke={chartCrosshairStroke}
-                markerStroke={chartMarkerStroke}
-              />
+        <View style={styles.chartRow}>
+          {/* Y-axis label column — outside the SVG */}
+          <View style={[styles.yAxisColumn, { height: chartAreaHeight }]}>
+            {yLabelPositions.map(({ price, top }, i) => (
+              <Text key={i} style={[styles.yAxisLabel, { top }]}>
+                {fmtMarketShort(price)}
+              </Text>
+            ))}
+          </View>
 
-              {/* Y-axis price labels */}
-              <View style={[styles.yAxisOverlay, { height: chartAreaHeight }]}>
-                {yLabelPositions.map(({ price, top }, i) => (
-                  <Text key={i} style={[styles.yAxisLabel, { top }]}>
-                    {fmtMarketShort(price)}
-                  </Text>
-                ))}
-              </View>
+          {/* SVG + interaction area */}
+          <View
+            style={[styles.chartWrapper, { height: chartAreaHeight }]}
+            onLayout={(e) => {
+              const w = e.nativeEvent.layout.width;
+              if (w > 0) setChartPixelWidth(w);
+            }}
+          >
+            {isLoading && !chartView ? (
+              <View style={[styles.chartSkeleton, { height: chartAreaHeight }]} />
+            ) : chartView ? (
+              <>
+                {/* Isolated SVG — re-renders only when chart data or hover changes */}
+                <ChartSvg
+                  view={chartView}
+                  gradientId={gradientId}
+                  isDark={isDark}
+                  activePoint={activePoint}
+                  crosshairStroke={chartCrosshairStroke}
+                  markerStroke={chartMarkerStroke}
+                  gridStroke={chartGridStroke}
+                />
 
-              {/* Hover price label */}
-              {activeKline && hoverLabelPos ? (
-                <View style={[styles.hoverLabel, {
-                  left: hoverLabelPos.left,
-                  top: hoverLabelPos.top,
-                  width: hoverLabelPos.width,
-                }]}>
-                  <Text style={styles.hoverLabelTime}>
-                    {formatTimeLabel(activeKline.openTime)}
-                  </Text>
-                  <Text style={styles.hoverLabelPrice}>
-                    {fmtMarketShort(activeKline.close)}
-                  </Text>
+                {/* Hover price label */}
+                {activeKline && hoverLabelPos ? (
+                  <View style={[styles.hoverLabel, {
+                    left: hoverLabelPos.left,
+                    top: hoverLabelPos.top,
+                    width: hoverLabelPos.width,
+                  }]}>
+                    <Text style={styles.hoverLabelTime}>
+                      {formatTimeLabel(activeKline.openTime)}
+                    </Text>
+                    <Text style={styles.hoverLabelPrice}>
+                      {fmtMarketShort(activeKline.close)}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* Touch / hover interaction layer */}
+                <View
+                  style={[styles.interactionLayer, { height: chartAreaHeight }]}
+                  onStartShouldSetResponder={() => true}
+                  onResponderGrant={(e: any) => handlePointer(e.nativeEvent.locationX)}
+                  onResponderMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
+                  onResponderRelease={() => setHoverIndex(null)}
+                  onResponderTerminate={() => setHoverIndex(null)}
+                  {...({
+                    onMouseMove: (e: any) => handlePointer(e.nativeEvent.locationX),
+                    onMouseLeave: () => setHoverIndex(null),
+                  } as object)}
+                />
+
+                {/* X-axis time labels */}
+                <View style={styles.xAxisLabels}>
+                  {chartView.xLabels.map((label, i) => (
+                    <Text key={i} style={styles.xLabel}>{label}</Text>
+                  ))}
                 </View>
-              ) : null}
-
-              {/* Touch / hover interaction layer */}
-              <View
-                style={[styles.interactionLayer, { height: chartAreaHeight }]}
-                onStartShouldSetResponder={() => true}
-                onResponderGrant={(e: any) => handlePointer(e.nativeEvent.locationX)}
-                onResponderMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
-                onResponderRelease={() => setHoverIndex(null)}
-                onResponderTerminate={() => setHoverIndex(null)}
-                {...({
-                  onMouseMove: (e: any) => handlePointer(e.nativeEvent.locationX),
-                  onMouseLeave: () => setHoverIndex(null),
-                } as object)}
-              />
-
-              {/* X-axis time labels */}
-              <View style={styles.xAxisLabels}>
-                {chartView.xLabels.map((label, i) => (
-                  <Text key={i} style={styles.xLabel}>{label}</Text>
-                ))}
+              </>
+            ) : (
+              <View style={[styles.chartSkeleton, { height: chartAreaHeight }]}>
+                <Text style={styles.noDataText}>{t('marketCap.noActiveTrend')}</Text>
               </View>
-            </>
-          ) : (
-            <View style={[styles.chartSkeleton, { height: chartAreaHeight }]}>
-              <Text style={styles.noDataText}>{t('marketCap.noActiveTrend')}</Text>
-            </View>
-          )}
+            )}
+          </View>
         </View>
 
         {/* Stats grid (2×2) */}
         <View style={styles.statsGrid}>
-          {[
-            { label: '24h High', value: fmtMarketShort(data.high24h), color: GREEN },
-            { label: '24h Low',  value: fmtMarketShort(data.low24h),  color: RED   },
-            { label: 'Change',   value: displayAbsChange,             color: isPositive ? GREEN : RED },
-            { label: 'Mkt Cap',  value: displayCap,                   color: null  },
-          ].map(({ label, value, color }, i) => (
-            <View key={i} style={styles.statCell}>
-              <Text style={styles.statLabel}>{label}</Text>
-              <Text style={[styles.statValue, color ? { color } : null]}>{value}</Text>
+          <View style={styles.statsGridRow}>
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>24h High</Text>
+              <Text style={[styles.statValue, { color: GREEN }]}>{fmtMarketShort(data.high24h)}</Text>
             </View>
-          ))}
+            <View style={styles.statDividerV} />
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>24h Low</Text>
+              <Text style={[styles.statValue, { color: RED }]}>{fmtMarketShort(data.low24h)}</Text>
+            </View>
+          </View>
+          <View style={styles.statDividerH} />
+          <View style={styles.statsGridRow}>
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>Change</Text>
+              <Text style={[styles.statValue, { color: isPositive ? GREEN : RED }]}>{displayAbsChange}</Text>
+            </View>
+            <View style={styles.statDividerV} />
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>Mkt Cap</Text>
+              <Text style={styles.statValue}>{displayCap}</Text>
+            </View>
+          </View>
         </View>
 
       </View>
@@ -501,19 +534,25 @@ function buildStyles(tokens: ThemeTokens) {
     rangeTabTextActive: { color: LINE_COLOR },
 
     // Chart
-    chartWrapper:  { width: '100%', marginTop: s.xs, position: 'relative' },
-    chartSkeleton: {
-      width: '100%',
-      borderRadius: br.md,
-      backgroundColor: chartSkeletonFill,
+    chartRow: { flexDirection: 'row', marginTop: s.xs, alignItems: 'flex-start' },
+    yAxisColumn: {
+      width: Y_AXIS_W,
+      position: 'relative',
+      flexShrink: 0,
     },
-    yAxisOverlay: { position: 'absolute', left: 0, top: 0, width: 68 },
     yAxisLabel: {
       position: 'absolute',
+      right: 6,
       fontSize: typo.fontSizes.badge,
       color: tokens.textMuted,
       fontFamily: typo.fontFamilies.sansMedium,
       fontVariant: ['tabular-nums'],
+    },
+    chartWrapper:  { flex: 1, position: 'relative' },
+    chartSkeleton: {
+      width: '100%',
+      borderRadius: br.md,
+      backgroundColor: chartSkeletonFill,
     },
     hoverLabel: {
       position: 'absolute',
@@ -564,18 +603,25 @@ function buildStyles(tokens: ThemeTokens) {
 
     // Stats grid
     statsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
       marginTop: s.md,
       borderRadius: br.md,
       overflow: 'hidden',
       borderWidth: 0.5,
       borderColor: tokens.borderSubtle,
+    },
+    statsGridRow: {
+      flexDirection: 'row',
+    },
+    statDividerV: {
+      width: 0.5,
       backgroundColor: tokens.borderSubtle,
-      gap: 0.5,
+    },
+    statDividerH: {
+      height: 0.5,
+      backgroundColor: tokens.borderSubtle,
     },
     statCell: {
-      width: '50%',
+      flex: 1,
       backgroundColor: tokens.surfaceMuted,
       paddingHorizontal: 12,
       paddingVertical: 10,
