@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchMarketTrend } from '../services/api';
-import type { KlineRecord } from '@/src/types/kline';
+import type { KlineInterval, KlineRecord } from '@/src/types/kline';
 import { usePollingEffect } from './usePollingEffect';
 
 export interface MarketOverviewData {
@@ -15,6 +15,8 @@ export interface MarketOverviewData {
 interface LiveMarketOverviewOptions {
   enabled?: boolean;
   intervalMs?: number;
+  interval?: KlineInterval;
+  limit?: number;
 }
 
 const EMPTY_DATA: MarketOverviewData = {
@@ -36,18 +38,30 @@ const INITIAL_STATE: State = { data: EMPTY_DATA, hasFetched: false };
 export function useLiveMarketOverview(
   options: LiveMarketOverviewOptions = {}
 ): { data: MarketOverviewData; hasFetched: boolean } {
-  const { enabled = true, intervalMs = 12_000 } = options;
+  const { enabled = true, intervalMs = 12_000, interval = '1m', limit = 240 } = options;
 
   const [state, setState] = useState<State>(INITIAL_STATE);
 
-  // Stable ref to previous klines so we can reuse the same array reference
-  // when data hasn't meaningfully changed (avoids SVG repaint flicker).
   const prevKlinesRef = useRef<KlineRecord[]>([]);
   const prevLatestRef = useRef<number>(0);
 
+  // Keep mutable refs so the poll callback always reads the latest values
+  // without needing to be recreated when they change.
+  const intervalRef = useRef(interval);
+  const limitRef    = useRef(limit);
+  intervalRef.current = interval;
+  limitRef.current    = limit;
+
+  // Reset to loading state whenever the user picks a different range.
+  useEffect(() => {
+    setState(INITIAL_STATE);
+    prevKlinesRef.current = [];
+    prevLatestRef.current = 0;
+  }, [interval, limit]);
+
   const poll = useCallback(async () => {
     try {
-      const trend = await fetchMarketTrend('1m', 240, { cacheTtlMs: 10_000 });
+      const trend = await fetchMarketTrend(intervalRef.current, limitRef.current, { cacheTtlMs: 10_000 });
 
       // Treat any response with no points or a non-positive market cap as a
       // transient/degraded payload (the backend or its upstream occasionally
@@ -104,7 +118,9 @@ export function useLiveMarketOverview(
     }
   }, []);
 
-  usePollingEffect(poll, [enabled], { enabled, intervalMs, immediate: true });
+  // Include interval and limit in deps so polling restarts immediately when
+  // the user switches ranges rather than waiting for the next tick.
+  usePollingEffect(poll, [enabled, interval, limit], { enabled, intervalMs, immediate: true });
 
   return state;
 }

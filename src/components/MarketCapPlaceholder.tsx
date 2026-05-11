@@ -38,14 +38,47 @@ const RED        = '#f05252';
 const RANGE_TABS = ['1H', '1D', '1W', '1M', '3M', '1Y'] as const;
 type RangeTab = (typeof RANGE_TABS)[number];
 
+import type { KlineInterval } from '@/src/types/kline';
+
+interface RangeConfig {
+  interval: KlineInterval;
+  limit: number;
+  periodLabel: string;
+  statPrefix: string;
+}
+
+const RANGE_CONFIG: Record<RangeTab, RangeConfig> = {
+  '1H': { interval: '1m',  limit: 60,  periodLabel: 'PAST 1H', statPrefix: '1H'  },
+  '1D': { interval: '5m',  limit: 288, periodLabel: 'TODAY',   statPrefix: '1D'  },
+  '1W': { interval: '1h',  limit: 168, periodLabel: 'PAST 1W', statPrefix: '1W'  },
+  '1M': { interval: '4h',  limit: 180, periodLabel: 'PAST 1M', statPrefix: '1M'  },
+  '3M': { interval: '1d',  limit: 90,  periodLabel: 'PAST 3M', statPrefix: '3M'  },
+  '1Y': { interval: '1w',  limit: 52,  periodLabel: 'PAST 1Y', statPrefix: '1Y'  },
+};
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function formatTimeLabel(openTime: string | number | Date): string {
+function formatXLabel(openTime: string | number | Date, range: RangeTab): string {
   const date = openTime instanceof Date ? openTime : new Date(openTime);
-  if (Number.isNaN(date.getTime())) return '--:--';
+  if (Number.isNaN(date.getTime())) return '--';
   const h  = date.getHours();
-  const m  = date.getMinutes();
   const hr = h % 12 === 0 ? 12 : h % 12;
-  return `${hr}:${`${m}`.padStart(2, '0')}${h >= 12 ? 'PM' : 'AM'}`;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const m  = date.getMinutes();
+
+  if (range === '1H' || range === '1D') {
+    return `${hr}:${`${m}`.padStart(2, '0')}${ampm}`;
+  }
+  if (range === '1W') {
+    return `${DAYS[date.getDay()]} ${hr}${ampm}`;
+  }
+  if (range === '1M' || range === '3M') {
+    return `${MONTHS[date.getMonth()]} ${date.getDate()}`;
+  }
+  // 1Y
+  return MONTHS[date.getMonth()];
 }
 
 function fmtMarketShort(value: number): string {
@@ -180,14 +213,19 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const { height: screenHeight } = useWindowDimensions();
   const chartAreaHeight = Math.round(screenHeight * 0.26);
 
-  const { data, hasFetched } = useLiveMarketOverview({ enabled: liveUpdatesEnabled });
-  const klines     = data.klines;
-  const isLoading  = !hasFetched;
-  const isPositive = data.absoluteChange24h >= 0;
-
   const [activeRange, setActiveRange]         = useState<RangeTab>('1D');
   const [hoverIndex, setHoverIndex]           = useState<number | null>(null);
   const [chartPixelWidth, setChartPixelWidth] = useState(SVG_W);
+
+  const rangeConfig = RANGE_CONFIG[activeRange];
+  const { data, hasFetched } = useLiveMarketOverview({
+    enabled: liveUpdatesEnabled,
+    interval: rangeConfig.interval,
+    limit:    rangeConfig.limit,
+  });
+  const klines     = data.klines;
+  const isLoading  = !hasFetched;
+  const isPositive = data.absoluteChange24h >= 0;
 
   // ── Display strings ─────────────────────────────────────────────────────────
   const displayCap = useMemo(() => {
@@ -239,7 +277,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       Math.floor((klines.length - 1) * 0.33),
       Math.floor((klines.length - 1) * 0.66),
       klines.length - 1,
-    ].map((i) => formatTimeLabel(klines[i].openTime));
+    ].map((i) => formatXLabel(klines[i].openTime, activeRange));
 
     const yPriceLevels = Array.from({ length: Y_TICK_COUNT }, (_, i) => {
       const t = i / (Y_TICK_COUNT - 1);
@@ -247,7 +285,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     });
 
     return { linePath, areaPath, points, xLabels, yPriceLevels, lastPoint: points[points.length - 1] };
-  }, [klines]);
+  }, [klines, activeRange]);
 
   // Keep the last valid chartView so the chart never flashes blank during updates.
   const lastChartViewRef = useRef<ChartView | null>(null);
@@ -317,7 +355,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
               </>
             )}
           </View>
-          <Text style={styles.periodLabel}>{t('marketCap.today')}</Text>
+          <Text style={styles.periodLabel}>{rangeConfig.periodLabel}</Text>
         </View>
 
         {/* Range tabs */}
@@ -383,7 +421,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                     width: hoverLabelPos.width,
                   }]}>
                     <Text style={styles.hoverLabelTime}>
-                      {formatTimeLabel(activeKline.openTime)}
+                      {formatXLabel(activeKline.openTime, activeRange)}
                     </Text>
                     <Text style={styles.hoverLabelPrice}>
                       {fmtMarketShort(activeKline.close)}
@@ -424,19 +462,19 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
         <View style={styles.statsGrid}>
           <View style={styles.statsGridRow}>
             <View style={styles.statCell}>
-              <Text style={styles.statLabel}>24h High</Text>
+              <Text style={styles.statLabel}>{rangeConfig.statPrefix} High</Text>
               <Text style={[styles.statValue, { color: GREEN }]}>{fmtMarketShort(data.high24h)}</Text>
             </View>
             <View style={styles.statDividerV} />
             <View style={styles.statCell}>
-              <Text style={styles.statLabel}>24h Low</Text>
+              <Text style={styles.statLabel}>{rangeConfig.statPrefix} Low</Text>
               <Text style={[styles.statValue, { color: RED }]}>{fmtMarketShort(data.low24h)}</Text>
             </View>
           </View>
           <View style={styles.statDividerH} />
           <View style={styles.statsGridRow}>
             <View style={styles.statCell}>
-              <Text style={styles.statLabel}>Change</Text>
+              <Text style={styles.statLabel}>{rangeConfig.statPrefix} Change</Text>
               <Text style={[styles.statValue, { color: isPositive ? GREEN : RED }]}>{displayAbsChange}</Text>
             </View>
             <View style={styles.statDividerV} />
