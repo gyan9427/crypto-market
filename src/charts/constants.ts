@@ -21,6 +21,9 @@ export const MAX_CANDLE_WIDTH = 40;
 /** Body width relative to slot width (0.75 = 75%) */
 export const CANDLE_BODY_RATIO = 0.75;
 
+/** Horizontal inset (px) on each side of the candle draw area to prevent edge clipping */
+export const CHART_H_PAD = 8;
+
 /** Interval duration in milliseconds for candle boundary detection */
 export const INTERVAL_MS: Record<KlineInterval, number> = {
   '1m': 60_000,

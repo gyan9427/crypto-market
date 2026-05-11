@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Group, Path, Skia, Text, matchFont } from '@shopify/react-native-skia';
-import { priceToY } from '../services/chartLayout';
+import { priceToY, PAD_RATIO } from '../services/chartLayout';
 import { formatPrice } from '../services/chartFormat';
 import { useChartUi } from '../ChartUiContext';
 
@@ -32,8 +32,8 @@ export function PriceAxisLayer(props: PriceAxisLayerProps) {
 
   const ticks = useMemo(() => {
     const range = priceMax - priceMin || 1;
-    const paddedMin = priceMin - range * 0.05;
-    const paddedMax = priceMax + range * 0.05;
+    const paddedMin = priceMin - range * PAD_RATIO;
+    const paddedMax = priceMax + range * PAD_RATIO;
     const result: { price: number; y: number }[] = [];
     for (let i = 0; i <= tickCount; i++) {
       const price = paddedMin + ((paddedMax - paddedMin) * i) / tickCount;

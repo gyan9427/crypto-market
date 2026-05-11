@@ -12,7 +12,10 @@
         "gradleCommand": ":app:assembleDebug"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://api.nayft.com/api"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.nayft.com/api",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID": "391223823953-qbl69dgcipff6c3c9tqvfhnmbdq3nevu.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB": "391223823953-n7vk5r99allve5jmb3e7ab3214gidn6b.apps.googleusercontent.com",
+        "EXPO_PUBLIC_PASSWORD_RESET_URL": "https://nayft.com"
       }
     },
     "preview": {
@@ -21,16 +24,22 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://api.nayft.com/api"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.nayft.com/api",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID": "391223823953-qbl69dgcipff6c3c9tqvfhnmbdq3nevu.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB": "391223823953-n7vk5r99allve5jmb3e7ab3214gidn6b.apps.googleusercontent.com",
+        "EXPO_PUBLIC_PASSWORD_RESET_URL": "https://nayft.com"
       }
     },
     "production": {
-      "distribution": "internal",
+      "distribution": "store",
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://api.nayft.com/api"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.nayft.com/api",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID": "391223823953-qbl69dgcipff6c3c9tqvfhnmbdq3nevu.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB": "391223823953-n7vk5r99allve5jmb3e7ab3214gidn6b.apps.googleusercontent.com",
+        "EXPO_PUBLIC_PASSWORD_RESET_URL": "https://nayft.com"
       }
     }
   }

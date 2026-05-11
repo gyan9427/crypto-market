@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Path, Skia } from '@shopify/react-native-skia';
 import type { KlineRecord } from '../types';
 import { priceToY, idxToX } from '../services/chartLayout';
-import { CANDLE_BODY_RATIO } from '../constants';
+import { CANDLE_BODY_RATIO, CHART_H_PAD } from '../constants';
 import { useChartUi } from '../ChartUiContext';
 
 export interface CandlestickLayerProps {
@@ -45,13 +45,28 @@ function buildCandlePaths(props: CandlestickLayerProps) {
   const halfBody = bodyWidth / 2;
 
   const drawCandle = (c: KlineRecord, idx: number) => {
-    const x = idxToX(idx, totalCandles, candleWidthPx, offsetPx, areaWidth);
+    // Issue 3: offset x by CHART_H_PAD so candles never flush against the left edge
+    const x = idxToX(idx, totalCandles, candleWidthPx, offsetPx, areaWidth) + CHART_H_PAD;
     const wickTop = priceToY(c.high, priceMin, priceMax, priceAreaHeight, topPad);
     const wickBottom = priceToY(c.low, priceMin, priceMax, priceAreaHeight, topPad);
+    const isBull = c.close >= c.open;
+
+    // Issue 11: render a doji (open ≈ close within 0.05% of price) as horizontal line + wick
+    const isDoji = c.open > 0 && Math.abs(c.open - c.close) / c.open < 0.0005;
+    if (isDoji) {
+      const dojiY = priceToY((c.open + c.close) / 2, priceMin, priceMax, priceAreaHeight, topPad);
+      const wickPath = isBull ? bullWickPath : bearWickPath;
+      const bodyPath = isBull ? bullPath : bearPath;
+      wickPath.moveTo(x, wickTop);
+      wickPath.lineTo(x, wickBottom);
+      // 1px-tall rect spanning the full body width acts as the doji horizontal line
+      bodyPath.addRect(Skia.XYWHRect(x - halfBody, dojiY - 0.5, bodyWidth, 1));
+      return;
+    }
+
     const bodyTop = priceToY(Math.max(c.open, c.close), priceMin, priceMax, priceAreaHeight, topPad);
     const bodyBottom = priceToY(Math.min(c.open, c.close), priceMin, priceMax, priceAreaHeight, topPad);
     const bodyH = Math.max(1, Math.abs(bodyBottom - bodyTop));
-    const isBull = c.close >= c.open;
 
     if (isBull) {
       bullWickPath.moveTo(x, wickTop);

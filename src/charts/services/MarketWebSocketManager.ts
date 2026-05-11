@@ -3,9 +3,9 @@ import { resolveWsUrl } from './chartApi';
 
 type TradeHandler = (trade: TradeRecord) => void;
 
-interface SubscriptionKey {
-  symbol: string;
-  interval: KlineInterval;
+export interface SubscribeOptions {
+  /** Called on reconnect with the timestamp of the last trade received before disconnect */
+  onReconnect?: (gapStartMs: number) => void;
 }
 
 function keyFor(symbol: string, interval: KlineInterval): string {
@@ -15,10 +15,13 @@ function keyFor(symbol: string, interval: KlineInterval): string {
 interface Connection {
   ws: WebSocket;
   handlers: Set<TradeHandler>;
+  reconnectCallbacks: Set<(gapStartMs: number) => void>;
   refCount: number;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   attempt: number;
   dead: boolean;
+  /** Timestamp (ms) of the most recently received trade message */
+  lastTradeTimestamp: number;
 }
 
 const connections = new Map<string, Connection>();
@@ -28,10 +31,12 @@ function openConnection(symbol: string, interval: KlineInterval): Connection {
   const conn: Connection = {
     ws: null as unknown as WebSocket,
     handlers: new Set(),
+    reconnectCallbacks: new Set(),
     refCount: 0,
     reconnectTimer: null,
     attempt: 0,
     dead: false,
+    lastTradeTimestamp: 0,
   };
 
   function dial() {
@@ -41,6 +46,13 @@ function openConnection(symbol: string, interval: KlineInterval): Connection {
       conn.ws = ws;
 
       ws.onopen = () => {
+        // Issue 13: on reconnect, notify subscribers so they can fetch the gap
+        if (conn.attempt > 0 && conn.lastTradeTimestamp > 0) {
+          const gapStart = conn.lastTradeTimestamp;
+          conn.reconnectCallbacks.forEach((cb) => {
+            try { cb(gapStart); } catch { /* isolate callback errors */ }
+          });
+        }
         conn.attempt = 0;
         ws.send(JSON.stringify({ action: 'subscribe', symbol, interval }));
       };
@@ -52,6 +64,10 @@ function openConnection(symbol: string, interval: KlineInterval): Connection {
             data?: TradeRecord | TradeRecord[];
           };
           const trades = msg.data ? (Array.isArray(msg.data) ? msg.data : [msg.data]) : [];
+          if (trades.length > 0) {
+            // Track the last time we successfully received a trade
+            conn.lastTradeTimestamp = Date.now();
+          }
           for (const trade of trades) {
             conn.handlers.forEach((h) => {
               try { h(trade); } catch { /* isolate handler errors */ }
@@ -82,7 +98,12 @@ function openConnection(symbol: string, interval: KlineInterval): Connection {
 }
 
 export const MarketWebSocketManager = {
-  subscribe(symbol: string, interval: KlineInterval, handler: TradeHandler): () => void {
+  subscribe(
+    symbol: string,
+    interval: KlineInterval,
+    handler: TradeHandler,
+    options?: SubscribeOptions
+  ): () => void {
     const key = keyFor(symbol, interval);
     let conn = connections.get(key);
     if (!conn) {
@@ -91,15 +112,26 @@ export const MarketWebSocketManager = {
     }
     conn.handlers.add(handler);
     conn.refCount += 1;
+    if (options?.onReconnect) {
+      conn.reconnectCallbacks.add(options.onReconnect);
+    }
 
-    return () => MarketWebSocketManager.unsubscribe(symbol, interval, handler);
+    return () => MarketWebSocketManager.unsubscribe(symbol, interval, handler, options);
   },
 
-  unsubscribe(symbol: string, interval: KlineInterval, handler: TradeHandler): void {
+  unsubscribe(
+    symbol: string,
+    interval: KlineInterval,
+    handler: TradeHandler,
+    options?: SubscribeOptions
+  ): void {
     const key = keyFor(symbol, interval);
     const conn = connections.get(key);
     if (!conn) return;
     conn.handlers.delete(handler);
+    if (options?.onReconnect) {
+      conn.reconnectCallbacks.delete(options.onReconnect);
+    }
     conn.refCount -= 1;
     if (conn.refCount <= 0) {
       conn.dead = true;

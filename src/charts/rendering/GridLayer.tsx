@@ -1,6 +1,6 @@
 import React from 'react';
 import { Path, Skia } from '@shopify/react-native-skia';
-import { priceToY } from '../services/chartLayout';
+import { priceToY, PAD_RATIO } from '../services/chartLayout';
 import type { KlineRecord } from '../types';
 import { useChartUi } from '../ChartUiContext';
 
@@ -37,8 +37,8 @@ function buildGridPaths(props: GridLayerProps) {
   } = props;
 
   const range = priceMax - priceMin || 1;
-  const paddedMin = priceMin - range * 0.05;
-  const paddedMax = priceMax + range * 0.05;
+  const paddedMin = priceMin - range * PAD_RATIO;
+  const paddedMax = priceMax + range * PAD_RATIO;
   const paddedRange = paddedMax - paddedMin || 1;
 
   // D13c: match PriceAxisLayer dynamic tick count

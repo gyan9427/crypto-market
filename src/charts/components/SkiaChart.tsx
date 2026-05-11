@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { useSharedValue, useAnimatedReaction, runOnJS, withTiming } from 'react-native-reanimated';
+import { useSharedValue, useAnimatedReaction, runOnJS, withTiming, withDecay } from 'react-native-reanimated';
 import type { KlineRecord, KlineInterval } from '../types';
 import { useKlinesInfinite, dedupeAndSort } from '../hooks/useKlinesInfinite';
 import { useRealtimeCandle } from '../hooks/useRealtimeCandle';
@@ -56,11 +56,20 @@ export function SkiaChart(props: SkiaChartProps) {
     [setCandles]
   );
 
+  // Issue 13: merge gap-fill candles fetched after a WebSocket reconnect
+  const handleGapFill = useCallback(
+    (gapCandles: KlineRecord[]) => {
+      setCandles((prev) => dedupeAndSort([...prev, ...gapCandles]));
+    },
+    [setCandles]
+  );
+
   const { liveCandle } = useRealtimeCandle({
     symbol,
     interval,
     lastCandle,
     onNewCandle: handleNewCandle,
+    onGapFill: handleGapFill,
   });
 
   const areaWidth = Math.max(0, size.width - PRICE_AXIS_WIDTH);
@@ -144,9 +153,15 @@ export function SkiaChart(props: SkiaChartProps) {
       const offset = viewport.offsetPx.value - e.changeX;
       viewport.offsetPx.value = Math.max(0, Math.min(maxOffset, offset));
     })
-    // P0-10: trigger loadMore only on gesture end (low-frequency), not every frame
-    .onEnd(() => {
+    // Issue 10: apply momentum decay so the chart coasts to a stop after finger lift
+    .onEnd((e) => {
       'worklet';
+      const totalW = totalCandlesSv.value * viewport.candleWidthPx.value;
+      const maxOffset = Math.max(0, totalW - viewport.areaWidth.value);
+      viewport.offsetPx.value = withDecay({
+        velocity: -e.velocityX,   // negate: leftward swipe → increasing offset
+        clamp: [0, maxOffset],
+      });
       if (viewport.visibleStartIdx.value < SCROLL_LOAD_THRESHOLD) {
         runOnJS(loadMore)();
       }
@@ -174,17 +189,33 @@ export function SkiaChart(props: SkiaChartProps) {
       runOnJS(crosshair.hide)();
     });
 
-  const singleTapGesture = Gesture.Tap()
-    .numberOfTaps(1)
-    .onEnd((e) => {
+  // Issue 9: long-press shows crosshair; onTouchesMove tracks finger; onFinalize always hides
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(300)
+    .onStart((e) => {
       'worklet';
       runOnJS(crosshair.show)(e.x, e.y);
+    })
+    .onTouchesMove((e) => {
+      'worklet';
+      if (e.changedTouches.length > 0) {
+        const t = e.changedTouches[0];
+        runOnJS(crosshair.show)(t.x, t.y);
+      }
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(crosshair.hide)();
+    })
+    .onFinalize(() => {
+      'worklet';
+      runOnJS(crosshair.hide)();
     });
 
   const composed = Gesture.Simultaneous(
     panGesture,
     pinchGesture,
-    Gesture.Exclusive(doubleTapGesture, singleTapGesture)
+    Gesture.Exclusive(doubleTapGesture, longPressGesture)
   );
 
   if (loading) {

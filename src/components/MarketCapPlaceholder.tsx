@@ -15,6 +15,7 @@ import Svg, {
   Line,
   Path,
   Circle,
+  Rect,
 } from 'react-native-svg';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
@@ -38,7 +39,7 @@ const RED        = '#f05252';
 const RANGE_TABS = ['1H', '1D', '1W', '1M', '3M', '1Y'] as const;
 type RangeTab = (typeof RANGE_TABS)[number];
 
-import type { KlineInterval } from '@/src/types/kline';
+import type { KlineInterval, KlineRecord } from '@/src/types/kline';
 
 interface RangeConfig {
   interval: KlineInterval;
@@ -55,6 +56,19 @@ const RANGE_CONFIG: Record<RangeTab, RangeConfig> = {
   '3M': { interval: '1d',  limit: 90,  periodLabel: 'PAST 3M', statPrefix: '3M'  },
   '1Y': { interval: '1w',  limit: 52,  periodLabel: 'PAST 1Y', statPrefix: '1Y'  },
 };
+
+// Coarser intervals for candle mode — keeps candle count readable
+const CANDLE_RANGE_CONFIG: Record<RangeTab, RangeConfig> = {
+  '1H': { interval: '5m', limit: 12,  periodLabel: 'PAST 1H', statPrefix: '1H' },
+  '1D': { interval: '1h', limit: 24,  periodLabel: 'TODAY',   statPrefix: '1D' },
+  '1W': { interval: '4h', limit: 42,  periodLabel: 'PAST 1W', statPrefix: '1W' },
+  '1M': { interval: '1d', limit: 30,  periodLabel: 'PAST 1M', statPrefix: '1M' },
+  '3M': { interval: '1d', limit: 90,  periodLabel: 'PAST 3M', statPrefix: '3M' },
+  '1Y': { interval: '1w', limit: 52,  periodLabel: 'PAST 1Y', statPrefix: '1Y' },
+};
+
+// Minimum candle slot width in SVG units — drives scroll expansion
+const MIN_CANDLE_SLOT_SVG = 8;
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -191,6 +205,102 @@ const ChartSvg = memo<ChartSvgProps>(({
 
 const svgStyle = { width: '100%' as const, height: '100%' as const };
 
+// ─── Chart-type icons ─────────────────────────────────────────────────────────
+const LineIcon = memo(({ color }: { color: string }) => (
+  <Svg width={16} height={16} viewBox="0 0 16 16">
+    <Path
+      d="M1 12 L5 6 L9 9 L15 3"
+      stroke={color}
+      strokeWidth="1.8"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+));
+
+const CandleIcon = memo(({ color }: { color: string }) => (
+  <Svg width={16} height={16} viewBox="0 0 16 16">
+    <Line x1="5" y1="2"  x2="5"  y2="14" stroke={color} strokeWidth="1.2" />
+    <Rect x="3" y="5"   width="4" height="5" fill={RED}   rx="0.5" />
+    <Line x1="11" y1="3" x2="11" y2="13" stroke={color} strokeWidth="1.2" />
+    <Rect x="9"  y="6"  width="4" height="5" fill={GREEN} rx="0.5" />
+  </Svg>
+));
+
+// ─── Candlestick SVG ──────────────────────────────────────────────────────────
+interface CandleSvgProps {
+  klines: KlineRecord[];
+  gridStroke: string;
+  activeIndex: number | null;
+  crosshairStroke: string;
+  totalSvgW: number;
+}
+
+const CandleSvg = memo<CandleSvgProps>(({
+  klines,
+  gridStroke,
+  activeIndex,
+  crosshairStroke,
+  totalSvgW,
+}) => {
+  const n = klines.length;
+  if (n === 0) return null;
+
+  const innerW  = totalSvgW - PAD * 2;
+  const slotW   = innerW / n;
+  const bodyW   = Math.max(2, slotW * 0.6);
+
+  const minVal  = Math.min(...klines.map(k => k.low));
+  const maxVal  = Math.max(...klines.map(k => k.high));
+  const range   = maxVal - minVal || 1;
+  const mapY    = (v: number) => PAD + INNER_H - ((v - minVal) / range) * INNER_H;
+
+  const yGrid   = Array.from({ length: Y_TICK_COUNT }, (_, i) =>
+    PAD + (i / (Y_TICK_COUNT - 1)) * INNER_H,
+  );
+
+  const crosshairX = activeIndex !== null
+    ? PAD + activeIndex * slotW + slotW / 2
+    : null;
+
+  const candleStyle = totalSvgW > SVG_W
+    ? { width: totalSvgW, height: '100%' as const }
+    : svgStyle;
+
+  return (
+    <Svg style={candleStyle} preserveAspectRatio="none" viewBox={`0 0 ${totalSvgW} ${SVG_H}`}>
+      {yGrid.map((svgY, i) => (
+        <Line key={i} x1={0} x2={totalSvgW} y1={svgY} y2={svgY}
+              stroke={gridStroke} strokeWidth="0.5" strokeDasharray="3 4" />
+      ))}
+
+      {klines.map((k, i) => {
+        const cx      = PAD + i * slotW + slotW / 2;
+        const highY   = mapY(k.high);
+        const lowY    = mapY(k.low);
+        const openY   = mapY(k.open);
+        const closeY  = mapY(k.close);
+        const color   = k.close >= k.open ? GREEN : RED;
+        const bodyTop = Math.min(openY, closeY);
+        const bodyH   = Math.max(1.5, Math.abs(closeY - openY));
+        return (
+          <React.Fragment key={i}>
+            <Line x1={cx} x2={cx} y1={highY} y2={lowY} stroke={color} strokeWidth="1.2" />
+            <Rect x={cx - bodyW / 2} y={bodyTop} width={bodyW} height={bodyH}
+                  fill={color} opacity={0.92} />
+          </React.Fragment>
+        );
+      })}
+
+      {crosshairX !== null ? (
+        <Line x1={crosshairX} x2={crosshairX} y1={0} y2={SVG_H}
+              stroke={crosshairStroke} strokeWidth="1" strokeDasharray="3 3" />
+      ) : null}
+    </Svg>
+  );
+});
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface MarketCapPlaceholderProps {
   liveUpdatesEnabled?: boolean;
@@ -214,10 +324,11 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const chartAreaHeight = Math.round(screenHeight * 0.26);
 
   const [activeRange, setActiveRange]         = useState<RangeTab>('1D');
+  const [chartType, setChartType]             = useState<'line' | 'candle'>('line');
   const [hoverIndex, setHoverIndex]           = useState<number | null>(null);
   const [chartPixelWidth, setChartPixelWidth] = useState(SVG_W);
 
-  const rangeConfig = RANGE_CONFIG[activeRange];
+  const rangeConfig = (chartType === 'candle' ? CANDLE_RANGE_CONFIG : RANGE_CONFIG)[activeRange];
   const { data, hasFetched } = useLiveMarketOverview({
     enabled: liveUpdatesEnabled,
     interval: rangeConfig.interval,
@@ -296,6 +407,9 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const activePoint = chartView && hoverIndex !== null ? chartView.points[hoverIndex] : null;
   const activeKline = hoverIndex !== null ? klines[hoverIndex] : null;
 
+  const candleScrollOffsetRef = useRef(0);
+  const pointerScreenX        = useRef(0);
+
   const hoverLabelPos = useMemo(() => {
     if (!activePoint) return null;
     const px = (activePoint.x / SVG_W) * chartPixelWidth;
@@ -307,6 +421,16 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       width: w,
     };
   }, [activePoint, chartPixelWidth, chartAreaHeight]);
+
+  const candleHoverPos = useMemo(() => {
+    if (hoverIndex === null || klines.length === 0) return null;
+    const w = 116;
+    return {
+      left: Math.min(Math.max(pointerScreenX.current - w / 2, 4), chartPixelWidth - w - 4),
+      top: 4,
+      width: w,
+    };
+  }, [hoverIndex, klines.length, chartPixelWidth]);
 
   const yLabelPositions = useMemo(() => {
     if (!chartView) return [];
@@ -322,6 +446,40 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     const maxIdx = chartView.points.length - 1;
     setHoverIndex(Math.max(0, Math.min(maxIdx, Math.round(ratio * maxIdx))));
   }, [chartView, chartPixelWidth]);
+
+  // ── Candle scroll & sizing ──────────────────────────────────────────────────
+  const candleTotalSvgW = Math.max(SVG_W, klines.length * MIN_CANDLE_SLOT_SVG);
+  const candleTotalPixelW = Math.round((candleTotalSvgW / SVG_W) * chartPixelWidth);
+  const needsCandleScroll = candleTotalSvgW > SVG_W;
+
+  const handleCandlePointer = useCallback((locationX: number) => {
+    if (!klines.length) return;
+    pointerScreenX.current = locationX;
+    const totalX = locationX + candleScrollOffsetRef.current;
+    const idx    = Math.round((totalX / Math.max(1, candleTotalPixelW)) * (klines.length - 1));
+    setHoverIndex(Math.max(0, Math.min(klines.length - 1, idx)));
+  }, [klines.length, candleTotalPixelW]);
+
+  const candleYLabelPositions = useMemo(() => {
+    if (klines.length === 0) return [];
+    const minVal = Math.min(...klines.map(k => k.low));
+    const maxVal = Math.max(...klines.map(k => k.high));
+    const range  = maxVal - minVal || 1;
+    return Array.from({ length: Y_TICK_COUNT }, (_, i) => {
+      const t = i / (Y_TICK_COUNT - 1);
+      return {
+        price: maxVal - t * range,
+        top:   Math.max(0, (PAD + t * INNER_H) / SVG_H * chartAreaHeight - 8),
+      };
+    });
+  }, [klines, chartAreaHeight]);
+
+  const candleXLabels = useMemo(() => {
+    if (klines.length === 0) return [];
+    const n = klines.length;
+    return [0, Math.floor(n * 0.33), Math.floor(n * 0.66), n - 1]
+      .map(i => formatXLabel(klines[i].openTime, activeRange));
+  }, [klines, activeRange]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -358,32 +516,50 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
           <Text style={styles.periodLabel}>{rangeConfig.periodLabel}</Text>
         </View>
 
-        {/* Range tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.rangeTabsScroll}
-          contentContainerStyle={styles.rangeTabs}
-        >
-          {RANGE_TABS.map((r) => (
+        {/* Range tabs + chart-type toggle */}
+        <View style={styles.rangeRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.rangeTabsScroll}
+            contentContainerStyle={styles.rangeTabs}
+          >
+            {RANGE_TABS.map((r) => (
+              <TouchableOpacity
+                key={r}
+                style={[styles.rangeTab, activeRange === r && styles.rangeTabActive]}
+                onPress={() => setActiveRange(r)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.rangeTabText, activeRange === r && styles.rangeTabTextActive]}>
+                  {r}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <View style={styles.viewToggleGroup}>
             <TouchableOpacity
-              key={r}
-              style={[styles.rangeTab, activeRange === r && styles.rangeTabActive]}
-              onPress={() => setActiveRange(r)}
+              style={[styles.viewToggleBtn, chartType === 'line' && styles.viewToggleBtnActive]}
+              onPress={() => setChartType('line')}
               activeOpacity={0.7}
             >
-              <Text style={[styles.rangeTabText, activeRange === r && styles.rangeTabTextActive]}>
-                {r}
-              </Text>
+              <LineIcon color={chartType === 'line' ? LINE_COLOR : tokens.textMuted} />
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+            <TouchableOpacity
+              style={[styles.viewToggleBtn, chartType === 'candle' && styles.viewToggleBtnActive]}
+              onPress={() => setChartType('candle')}
+              activeOpacity={0.7}
+            >
+              <CandleIcon color={chartType === 'candle' ? LINE_COLOR : tokens.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Chart */}
         <View style={styles.chartRow}>
-          {/* Y-axis label column — outside the SVG */}
+          {/* Y-axis label column */}
           <View style={[styles.yAxisColumn, { height: chartAreaHeight }]}>
-            {yLabelPositions.map(({ price, top }, i) => (
+            {(chartType === 'candle' ? candleYLabelPositions : yLabelPositions).map(({ price, top }, i) => (
               <Text key={i} style={[styles.yAxisLabel, { top }]}>
                 {fmtMarketShort(price)}
               </Text>
@@ -402,19 +578,45 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
               <View style={[styles.chartSkeleton, { height: chartAreaHeight }]} />
             ) : chartView ? (
               <>
-                {/* Isolated SVG — re-renders only when chart data or hover changes */}
-                <ChartSvg
-                  view={chartView}
-                  gradientId={gradientId}
-                  isDark={isDark}
-                  activePoint={activePoint}
-                  crosshairStroke={chartCrosshairStroke}
-                  markerStroke={chartMarkerStroke}
-                  gridStroke={chartGridStroke}
-                />
+                {chartType === 'line' ? (
+                  <ChartSvg
+                    view={chartView}
+                    gradientId={gradientId}
+                    isDark={isDark}
+                    activePoint={activePoint}
+                    crosshairStroke={chartCrosshairStroke}
+                    markerStroke={chartMarkerStroke}
+                    gridStroke={chartGridStroke}
+                  />
+                ) : needsCandleScroll ? (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    scrollEventThrottle={16}
+                    style={{ height: chartAreaHeight }}
+                    contentContainerStyle={{ width: candleTotalPixelW }}
+                    onScroll={(e) => { candleScrollOffsetRef.current = e.nativeEvent.contentOffset.x; }}
+                  >
+                    <CandleSvg
+                      klines={klines}
+                      gridStroke={chartGridStroke}
+                      activeIndex={hoverIndex}
+                      crosshairStroke={chartCrosshairStroke}
+                      totalSvgW={candleTotalSvgW}
+                    />
+                  </ScrollView>
+                ) : (
+                  <CandleSvg
+                    klines={klines}
+                    gridStroke={chartGridStroke}
+                    activeIndex={hoverIndex}
+                    crosshairStroke={chartCrosshairStroke}
+                    totalSvgW={candleTotalSvgW}
+                  />
+                )}
 
-                {/* Hover price label */}
-                {activeKline && hoverLabelPos ? (
+                {/* Hover label — close price for line, OHLC for candle */}
+                {chartType === 'line' && activeKline && hoverLabelPos ? (
                   <View style={[styles.hoverLabel, {
                     left: hoverLabelPos.left,
                     top: hoverLabelPos.top,
@@ -427,25 +629,55 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                       {fmtMarketShort(activeKline.close)}
                     </Text>
                   </View>
+                ) : chartType === 'candle' && activeKline && candleHoverPos ? (
+                  <View style={[styles.hoverLabel, {
+                    left: candleHoverPos.left,
+                    top: candleHoverPos.top,
+                    width: candleHoverPos.width,
+                  }]}>
+                    <Text style={styles.hoverLabelTime}>
+                      {formatXLabel(activeKline.openTime, activeRange)}
+                    </Text>
+                    <View style={styles.ohlcRow}>
+                      <View style={styles.ohlcItem}>
+                        <Text style={styles.ohlcLabel}>O</Text>
+                        <Text style={styles.ohlcValue}>{fmtMarketShort(activeKline.open)}</Text>
+                      </View>
+                      <View style={styles.ohlcItem}>
+                        <Text style={styles.ohlcLabel}>H</Text>
+                        <Text style={[styles.ohlcValue, { color: GREEN }]}>{fmtMarketShort(activeKline.high)}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.ohlcRow}>
+                      <View style={styles.ohlcItem}>
+                        <Text style={styles.ohlcLabel}>L</Text>
+                        <Text style={[styles.ohlcValue, { color: RED }]}>{fmtMarketShort(activeKline.low)}</Text>
+                      </View>
+                      <View style={styles.ohlcItem}>
+                        <Text style={styles.ohlcLabel}>C</Text>
+                        <Text style={styles.ohlcValue}>{fmtMarketShort(activeKline.close)}</Text>
+                      </View>
+                    </View>
+                  </View>
                 ) : null}
 
                 {/* Touch / hover interaction layer */}
                 <View
                   style={[styles.interactionLayer, { height: chartAreaHeight }]}
                   onStartShouldSetResponder={() => true}
-                  onResponderGrant={(e: any) => handlePointer(e.nativeEvent.locationX)}
-                  onResponderMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
+                  onResponderGrant={(e: any) => chartType === 'candle' ? handleCandlePointer(e.nativeEvent.locationX) : handlePointer(e.nativeEvent.locationX)}
+                  onResponderMove={(e: any) => chartType === 'candle' ? handleCandlePointer(e.nativeEvent.locationX) : handlePointer(e.nativeEvent.locationX)}
                   onResponderRelease={() => setHoverIndex(null)}
                   onResponderTerminate={() => setHoverIndex(null)}
                   {...({
-                    onMouseMove: (e: any) => handlePointer(e.nativeEvent.locationX),
+                    onMouseMove: (e: any) => chartType === 'candle' ? handleCandlePointer(e.nativeEvent.locationX) : handlePointer(e.nativeEvent.locationX),
                     onMouseLeave: () => setHoverIndex(null),
                   } as object)}
                 />
 
                 {/* X-axis time labels */}
                 <View style={styles.xAxisLabels}>
-                  {chartView.xLabels.map((label, i) => (
+                  {(chartType === 'candle' ? candleXLabels : chartView.xLabels).map((label, i) => (
                     <Text key={i} style={styles.xLabel}>{label}</Text>
                   ))}
                 </View>
@@ -559,7 +791,8 @@ function buildStyles(tokens: ThemeTokens) {
     },
 
     // Range tabs
-    rangeTabsScroll: { marginHorizontal: -s.lg, marginBottom: s.sm },
+    rangeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: s.sm },
+    rangeTabsScroll: { flex: 1, marginHorizontal: -s.lg },
     rangeTabs: { flexDirection: 'row', gap: 4, paddingHorizontal: s.lg },
     rangeTab: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
     rangeTabActive: { backgroundColor: accentTabBg },
@@ -570,6 +803,9 @@ function buildStyles(tokens: ThemeTokens) {
       color: tokens.textMuted,
     },
     rangeTabTextActive: { color: LINE_COLOR },
+    viewToggleGroup: { flexDirection: 'row', gap: 2, paddingLeft: 6 },
+    viewToggleBtn: { padding: 5, borderRadius: 6 },
+    viewToggleBtnActive: { backgroundColor: accentTabBg },
 
     // Chart
     chartRow: { flexDirection: 'row', marginTop: s.xs, alignItems: 'flex-start' },
@@ -675,6 +911,22 @@ function buildStyles(tokens: ThemeTokens) {
       fontWeight: typo.fontWeights.medium,
       fontFamily: typo.fontFamilies.sansMedium,
       color: tokens.text,
+      fontVariant: ['tabular-nums'],
+    },
+
+    // OHLC tooltip
+    ohlcRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 },
+    ohlcItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+    ohlcLabel: {
+      fontSize: 9,
+      color: tokens.textMuted,
+      fontFamily: typo.fontFamilies.sans,
+    },
+    ohlcValue: {
+      fontSize: 10,
+      fontWeight: typo.fontWeights.medium,
+      fontFamily: typo.fontFamilies.sansMedium,
+      color: tokens.textStrong,
       fontVariant: ['tabular-nums'],
     },
 

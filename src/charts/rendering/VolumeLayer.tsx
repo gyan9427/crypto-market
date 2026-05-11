@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Group, Path, Skia } from '@shopify/react-native-skia';
 import type { KlineRecord } from '../types';
 import { idxToX } from '../services/chartLayout';
-import { CANDLE_BODY_RATIO } from '../constants';
+import { CANDLE_BODY_RATIO, CHART_H_PAD } from '../constants';
 import { useChartUi } from '../ChartUiContext';
 
 function volToHeight(vol: number, maxVol: number, areaHeight: number): number {
@@ -60,7 +60,8 @@ export function VolumeLayer(props: VolumeLayerProps) {
     for (let i = visibleStartIdx; i <= visibleEndIdx; i++) {
       const c = i === lastIdx && liveCandle ? liveCandle : candles[i];
       if (!c) continue;
-      const x = idxToX(i, totalCandles, candleWidthPx, offsetPx, areaWidth);
+      // Issue 3: offset x by CHART_H_PAD to match candle x positions
+      const x = idxToX(i, totalCandles, candleWidthPx, offsetPx, areaWidth) + CHART_H_PAD;
       const h = volToHeight(c.volume, maxVol, volumeAreaHeight);
       const top = baseY - h;
       const isBull = c.close >= c.open;

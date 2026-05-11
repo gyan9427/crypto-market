@@ -5,20 +5,20 @@
     "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "nayft",
     "userInterfaceStyle": "automatic",
     "android": {
-      "package": "nayft.test",
+      "package": "com.nayft.market",
       "versionCode": 2,
       "compileSdkVersion": 34,
       "targetSdkVersion": 34,
       "minSdkVersion": 24,
       "permissions": [],
-      "usesCleartextTraffic": true
+      "allowBackup": false
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "nayft.test",
+      "bundleIdentifier": "com.nayft.market",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

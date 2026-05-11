@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 import type { KlineRecord, TradeRecord, KlineInterval } from '../types';
-import { fetchTrades } from '../services/chartApi';
+import { fetchTrades, fetchKlines } from '../services/chartApi';
 import { MarketWebSocketManager } from '../services/MarketWebSocketManager';
 import { INTERVAL_MS } from '../constants';
 
@@ -10,6 +10,8 @@ export interface UseRealtimeCandleParams {
   interval: KlineInterval;
   lastCandle: KlineRecord | null;
   onNewCandle?: (candle: KlineRecord) => void;
+  /** Called with gap-fill candles fetched after a WebSocket reconnect */
+  onGapFill?: (candles: KlineRecord[]) => void;
 }
 
 function mergeTradeIntoCandle(candle: KlineRecord, trade: TradeRecord): KlineRecord {
@@ -44,13 +46,15 @@ function candleFromTrade(trade: TradeRecord, intervalMs: number): KlineRecord {
 export function useRealtimeCandle(params: UseRealtimeCandleParams): {
   liveCandle: ReturnType<typeof useSharedValue<KlineRecord | null>>;
 } {
-  const { symbol, interval, lastCandle, onNewCandle } = params;
+  const { symbol, interval, lastCandle, onNewCandle, onGapFill } = params;
   const liveCandle = useSharedValue<KlineRecord | null>(null);
   const lastCandleRef = useRef<KlineRecord | null>(lastCandle);
   const onNewCandleRef = useRef(onNewCandle);
+  const onGapFillRef = useRef(onGapFill);
 
   lastCandleRef.current = lastCandle;
   onNewCandleRef.current = onNewCandle;
+  onGapFillRef.current = onGapFill;
 
   const processTrade = useCallback(
     (trade: TradeRecord, currentLive: KlineRecord | null): KlineRecord => {
@@ -77,7 +81,6 @@ export function useRealtimeCandle(params: UseRealtimeCandleParams): {
 
   useEffect(() => {
     // Cold-start seed: fetch recent trades once before the first WebSocket message
-    // so liveCandle has an initial value immediately on mount.
     fetchTrades({ symbol, limit: 20 })
       .then((trades) => {
         if (trades.length === 0 || liveCandle.value !== null) return;
@@ -93,10 +96,33 @@ export function useRealtimeCandle(params: UseRealtimeCandleParams): {
         // seed failure is non-fatal; WebSocket will fill in
       });
 
-    // Single shared WebSocket via reference-counted singleton
-    const unsubscribe = MarketWebSocketManager.subscribe(symbol, interval, (trade) => {
-      liveCandle.value = processTrade(trade, liveCandle.value);
-    });
+    const unsubscribe = MarketWebSocketManager.subscribe(
+      symbol,
+      interval,
+      (trade) => {
+        liveCandle.value = processTrade(trade, liveCandle.value);
+      },
+      {
+        // Issue 13: on reconnect, fetch the candles that arrived during the gap
+        onReconnect: (gapStartMs) => {
+          fetchKlines({
+            symbol,
+            interval,
+            from: new Date(gapStartMs).toISOString(),
+            to: new Date(Date.now()).toISOString(),
+            limit: 500,
+          })
+            .then((gapCandles) => {
+              if (gapCandles.length > 0) {
+                onGapFillRef.current?.(gapCandles);
+              }
+            })
+            .catch(() => {
+              // gap-fill failure is non-fatal; chart will be slightly stale until next reload
+            });
+        },
+      }
+    );
 
     return () => {
       unsubscribe();
