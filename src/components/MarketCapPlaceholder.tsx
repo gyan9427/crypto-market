@@ -31,11 +31,6 @@ const INNER_H = SVG_H - PAD * 2;
 const LINE_COLOR = '#6383ff';
 const GREEN      = '#27c485';
 const RED        = '#f05252';
-const BG_CARD    = '#0a0a0f';
-const BG_SURFACE = '#11111c';
-const BORDER_DIM = 'rgba(255,255,255,0.07)';
-const TEXT_DIM   = 'rgba(255,255,255,0.38)';
-const TEXT_MID   = 'rgba(255,255,255,0.55)';
 
 // ─── Range tabs ───────────────────────────────────────────────────────────────
 const RANGE_TABS = ['1H', '1D', '1W', '1M', '3M', '1Y'] as const;
@@ -74,9 +69,18 @@ interface ChartSvgProps {
   gradientId: string;
   isDark: boolean;
   activePoint: { x: number; y: number } | null;
+  crosshairStroke: string;
+  markerStroke: string;
 }
 
-const ChartSvg = memo<ChartSvgProps>(({ view, gradientId, isDark, activePoint }) => (
+const ChartSvg = memo<ChartSvgProps>(({
+  view,
+  gradientId,
+  isDark,
+  activePoint,
+  crosshairStroke,
+  markerStroke,
+}) => (
   <Svg
     style={svgStyle}
     preserveAspectRatio="none"
@@ -109,7 +113,7 @@ const ChartSvg = memo<ChartSvgProps>(({ view, gradientId, isDark, activePoint })
       cy={view.lastPoint.y}
       r={3.5}
       fill={LINE_COLOR}
-      stroke="white"
+      stroke={markerStroke}
       strokeWidth="1.5"
     />
 
@@ -119,7 +123,7 @@ const ChartSvg = memo<ChartSvgProps>(({ view, gradientId, isDark, activePoint })
         <Line
           x1={activePoint.x} x2={activePoint.x}
           y1={0} y2={SVG_H}
-          stroke="rgba(255,255,255,0.18)"
+          stroke={crosshairStroke}
           strokeWidth="1"
           strokeDasharray="3 3"
         />
@@ -128,7 +132,7 @@ const ChartSvg = memo<ChartSvgProps>(({ view, gradientId, isDark, activePoint })
           cy={activePoint.y}
           r={4}
           fill={LINE_COLOR}
-          stroke="white"
+          stroke={markerStroke}
           strokeWidth="2"
         />
       </>
@@ -151,6 +155,8 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const { tokens } = useAppTheme();
   const isDark = tokens.isDark;
   const styles = useMemo(() => buildStyles(tokens), [tokens]);
+  const chartCrosshairStroke = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
+  const chartMarkerStroke = isDark ? '#ffffff' : tokens.surface;
 
   const gradientId = useRef(`mcpGrad_${Math.random().toString(36).slice(2, 8)}`).current;
 
@@ -336,6 +342,8 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                 gradientId={gradientId}
                 isDark={isDark}
                 activePoint={activePoint}
+                crosshairStroke={chartCrosshairStroke}
+                markerStroke={chartMarkerStroke}
               />
 
               {/* Y-axis price labels */}
@@ -414,11 +422,14 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 function buildStyles(tokens: ThemeTokens) {
   const { spacing: s, borderRadius: br, typography: typo } = tokens;
+  const accentTabBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
+  const chartSkeletonFill = tokens.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+  const skeletonFill = tokens.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
 
   return StyleSheet.create({
     container: { marginBottom: 0 },
     card: {
-      backgroundColor: BG_CARD,
+      backgroundColor: tokens.bg,
       borderBottomLeftRadius: 0,
       borderBottomRightRadius: 0,
       paddingTop: s.lg,
@@ -438,7 +449,7 @@ function buildStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.xxxl,
       fontWeight: typo.fontWeights.light,
       fontFamily: typo.fontFamilies.sans,
-      color: '#fafafa',
+      color: tokens.textStrong,
       letterSpacing: typo.letterSpacing.section,
       fontVariant: ['tabular-nums'],
     },
@@ -469,7 +480,7 @@ function buildStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.semibold,
       fontFamily: typo.fontFamilies.sansSemiBold,
-      color: TEXT_DIM,
+      color: tokens.textMuted,
       textTransform: 'uppercase',
       letterSpacing: typo.letterSpacing.eyebrow,
       alignSelf: 'flex-start',
@@ -480,12 +491,12 @@ function buildStyles(tokens: ThemeTokens) {
     rangeTabsScroll: { marginHorizontal: -s.lg, marginBottom: s.sm },
     rangeTabs: { flexDirection: 'row', gap: 4, paddingHorizontal: s.lg },
     rangeTab: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
-    rangeTabActive: { backgroundColor: 'rgba(99,131,255,0.18)' },
+    rangeTabActive: { backgroundColor: accentTabBg },
     rangeTabText: {
       fontSize: 12,
       fontWeight: typo.fontWeights.medium,
       fontFamily: typo.fontFamilies.sansMedium,
-      color: TEXT_MID,
+      color: tokens.textMuted,
     },
     rangeTabTextActive: { color: LINE_COLOR },
 
@@ -494,13 +505,13 @@ function buildStyles(tokens: ThemeTokens) {
     chartSkeleton: {
       width: '100%',
       borderRadius: br.md,
-      backgroundColor: 'rgba(255,255,255,0.06)',
+      backgroundColor: chartSkeletonFill,
     },
     yAxisOverlay: { position: 'absolute', left: 0, top: 0, width: 68 },
     yAxisLabel: {
       position: 'absolute',
       fontSize: typo.fontSizes.badge,
-      color: TEXT_DIM,
+      color: tokens.textMuted,
       fontFamily: typo.fontFamilies.sansMedium,
       fontVariant: ['tabular-nums'],
     },
@@ -509,21 +520,21 @@ function buildStyles(tokens: ThemeTokens) {
       paddingHorizontal: 8,
       paddingVertical: 5,
       borderRadius: br.sm,
-      backgroundColor: 'rgba(10,10,15,0.88)',
+      backgroundColor: tokens.isDark ? 'rgba(22,22,28,0.92)' : 'rgba(250,250,252,0.96)',
       borderWidth: 0.5,
-      borderColor: 'rgba(99,131,255,0.30)',
+      borderColor: tokens.isDark ? 'rgba(99,131,255,0.28)' : 'rgba(99,131,255,0.35)',
       alignItems: 'center',
     },
     hoverLabelTime: {
       fontSize: typo.fontSizes.badge,
-      color: TEXT_MID,
+      color: tokens.textMuted,
       fontFamily: typo.fontFamilies.sans,
     },
     hoverLabelPrice: {
       fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.semibold,
       fontFamily: typo.fontFamilies.sansSemiBold,
-      color: '#fafafa',
+      color: tokens.textStrong,
       fontVariant: ['tabular-nums'],
       marginTop: 1,
     },
@@ -540,11 +551,11 @@ function buildStyles(tokens: ThemeTokens) {
     xLabel: {
       fontSize: typo.fontSizes.badge,
       fontFamily: typo.fontFamilies.sans,
-      color: TEXT_DIM,
+      color: tokens.textMuted,
       letterSpacing: typo.letterSpacing.caption,
     },
     noDataText: {
-      color: TEXT_DIM,
+      color: tokens.textMuted,
       fontSize: typo.fontSizes.xs,
       fontFamily: typo.fontFamilies.sans,
       textAlign: 'center',
@@ -559,19 +570,19 @@ function buildStyles(tokens: ThemeTokens) {
       borderRadius: br.md,
       overflow: 'hidden',
       borderWidth: 0.5,
-      borderColor: BORDER_DIM,
-      backgroundColor: BORDER_DIM,
+      borderColor: tokens.borderSubtle,
+      backgroundColor: tokens.borderSubtle,
       gap: 0.5,
     },
     statCell: {
       width: '50%',
-      backgroundColor: BG_SURFACE,
+      backgroundColor: tokens.surfaceMuted,
       paddingHorizontal: 12,
       paddingVertical: 10,
     },
     statLabel: {
       fontSize: 10,
-      color: TEXT_DIM,
+      color: tokens.textMuted,
       fontFamily: typo.fontFamilies.sans,
       marginBottom: 3,
     },
@@ -579,12 +590,12 @@ function buildStyles(tokens: ThemeTokens) {
       fontSize: 14,
       fontWeight: typo.fontWeights.medium,
       fontFamily: typo.fontFamilies.sansMedium,
-      color: 'rgba(255,255,255,0.85)',
+      color: tokens.text,
       fontVariant: ['tabular-nums'],
     },
 
     // Skeleton
-    skeletonBlock: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: br.sm },
+    skeletonBlock: { backgroundColor: skeletonFill, borderRadius: br.sm },
     titleSkeleton: { width: 140, height: 34, marginBottom: 6 },
     statSkeleton:  { width: 64,  height: 14 },
   });

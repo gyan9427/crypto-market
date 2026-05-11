@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import type { ThemeTokens } from '@/src/theme/theme';
 
 interface OrderRow {
   price: number;
@@ -18,7 +20,6 @@ function generateRows(base: number, side: 'ask' | 'bid', count: number): OrderRo
       total: parseFloat((1.2 + Math.random() * 8).toFixed(2)),
     });
   }
-  // asks: highest price first, nearest-to-mid at bottom
   return side === 'ask' ? rows.reverse() : rows;
 }
 
@@ -26,9 +27,14 @@ interface Props {
   basePrice: number;
 }
 
+const ASK = '#f05252';
+const BID = '#27c485';
+
 export function OrderBook({ basePrice }: Props) {
   const [asks, setAsks] = useState<OrderRow[]>([]);
   const [bids, setBids] = useState<OrderRow[]>([]);
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildOrderBookStyles(tokens), [tokens]);
 
   useEffect(() => {
     const refresh = () => {
@@ -60,36 +66,36 @@ export function OrderBook({ basePrice }: Props) {
 
   return (
     <View>
-      <View style={S.header}>
-        <Text style={S.title}>Order Book</Text>
-        <Text style={S.spread}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Order Book</Text>
+        <Text style={styles.spread}>
           Spread: ${spread.abs.toFixed(2)} ({spread.pct}%)
         </Text>
       </View>
 
-      <View style={S.colRow}>
-        <Text style={S.col}>Price (USDT)</Text>
-        <Text style={[S.col, S.right]}>Size</Text>
-        <Text style={[S.col, S.right]}>Total</Text>
+      <View style={styles.colRow}>
+        <Text style={styles.col}>Price (USDT)</Text>
+        <Text style={[styles.col, styles.right]}>Size</Text>
+        <Text style={[styles.col, styles.right]}>Total</Text>
       </View>
 
       {asks.map((row, i) => (
-        <OBRow key={`a${i}`} row={row} side="ask" maxTotal={maxTotal} fmtPx={fmtPx} />
+        <OBRow key={`a${i}`} row={row} side="ask" maxTotal={maxTotal} fmtPx={fmtPx} styles={styles} />
       ))}
 
-      <View style={S.midRow}>
-        <Text style={S.midPrice}>
+      <View style={styles.midRow}>
+        <Text style={styles.midPrice}>
           $
           {basePrice.toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}
         </Text>
-        <Text style={S.midLabel}>Mid price</Text>
+        <Text style={styles.midLabel}>Mid price</Text>
       </View>
 
       {bids.map((row, i) => (
-        <OBRow key={`b${i}`} row={row} side="bid" maxTotal={maxTotal} fmtPx={fmtPx} />
+        <OBRow key={`b${i}`} row={row} side="bid" maxTotal={maxTotal} fmtPx={fmtPx} styles={styles} />
       ))}
     </View>
   );
@@ -100,73 +106,77 @@ function OBRow({
   side,
   maxTotal,
   fmtPx,
+  styles,
 }: {
   row: OrderRow;
   side: 'ask' | 'bid';
   maxTotal: number;
   fmtPx: (n: number) => string;
+  styles: ReturnType<typeof buildOrderBookStyles>;
 }) {
   const depthPct = `${Math.min(100, Math.round((row.total / maxTotal) * 100))}%` as const;
-  const priceColor = side === 'ask' ? '#f05252' : '#27c485';
-  const barColor = side === 'ask' ? 'rgba(240,82,82,0.12)' : 'rgba(39,196,133,0.12)';
+  const priceColor = side === 'ask' ? ASK : BID;
+  const barColor = side === 'ask' ? 'rgba(240,82,82,0.14)' : 'rgba(39,196,133,0.14)';
   const barSide = side === 'ask' ? { right: 0 } : { left: 0 };
 
   return (
-    <View style={S.row}>
-      <View style={[S.bar, { width: depthPct, backgroundColor: barColor, ...barSide }]} />
-      <Text style={[S.priceCell, { color: priceColor }]}>${fmtPx(row.price)}</Text>
-      <Text style={S.sizeCell}>{row.size.toFixed(3)}</Text>
-      <Text style={S.totalCell}>{row.total.toFixed(2)}</Text>
+    <View style={styles.row}>
+      <View style={[styles.bar, { width: depthPct, backgroundColor: barColor, ...barSide }]} />
+      <Text style={[styles.priceCell, { color: priceColor }]}>${fmtPx(row.price)}</Text>
+      <Text style={styles.sizeCell}>{row.size.toFixed(3)}</Text>
+      <Text style={styles.totalCell}>{row.total.toFixed(2)}</Text>
     </View>
   );
 }
 
-const S = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  title: { fontSize: 13, fontWeight: '500', color: '#ffffff' },
-  spread: { fontSize: 11, color: 'rgba(255,255,255,0.4)' },
-  colRow: { flexDirection: 'row', marginBottom: 4, paddingHorizontal: 2 },
-  col: { fontSize: 10, color: 'rgba(255,255,255,0.35)', flex: 1 },
-  right: { textAlign: 'right' },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 22,
-    marginBottom: 2,
-    position: 'relative',
-  },
-  bar: { position: 'absolute', top: 0, bottom: 0, borderRadius: 2 },
-  priceCell: { fontSize: 11, fontWeight: '500', width: 88, zIndex: 1 },
-  sizeCell: {
-    flex: 1,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.55)',
-    textAlign: 'right',
-    zIndex: 1,
-  },
-  totalCell: {
-    width: 60,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.35)',
-    textAlign: 'right',
-    zIndex: 1,
-  },
-  midRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 5,
-    marginVertical: 2,
-    borderTopWidth: 0.5,
-    borderBottomWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  midPrice: { fontSize: 14, fontWeight: '500', color: '#27c485' },
-  midLabel: { fontSize: 10, color: 'rgba(255,255,255,0.35)' },
-});
+function buildOrderBookStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    title: { fontSize: 13, fontWeight: '500', color: tokens.text },
+    spread: { fontSize: 11, color: tokens.textMuted },
+    colRow: { flexDirection: 'row', marginBottom: 4, paddingHorizontal: 2 },
+    col: { fontSize: 10, color: tokens.textMuted, flex: 1 },
+    right: { textAlign: 'right' },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: 22,
+      marginBottom: 2,
+      position: 'relative',
+    },
+    bar: { position: 'absolute', top: 0, bottom: 0, borderRadius: 2 },
+    priceCell: { fontSize: 11, fontWeight: '500', width: 88, zIndex: 1 },
+    sizeCell: {
+      flex: 1,
+      fontSize: 11,
+      color: tokens.textMuted,
+      textAlign: 'right',
+      zIndex: 1,
+    },
+    totalCell: {
+      width: 60,
+      fontSize: 11,
+      color: tokens.textMuted,
+      textAlign: 'right',
+      zIndex: 1,
+    },
+    midRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 6,
+      marginVertical: 2,
+      paddingHorizontal: 2,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: tokens.borderSubtle,
+    },
+    midPrice: { fontSize: 13, fontWeight: '600', color: BID },
+    midLabel: { fontSize: 10, color: tokens.textMuted },
+  });
+}

@@ -31,7 +31,6 @@ import { CommentTray } from '../components/CommentTray';
 import { NewsDetailModal } from './NewsDetailModal';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
-import { colors } from '@/src/theme/colors';
 import { formatPrice, formatPercentage } from '../utils/format';
 import { useAppStore } from '../state/useAppStore';
 import { useAuthStore } from '../state/useAuthStore';
@@ -521,14 +520,14 @@ function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
   coinName: {
     fontSize: 32,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: tokens.textStrong,
     letterSpacing: -1.0,
   },
   rankBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.accent.positiveSubtle,
+    backgroundColor: tokens.isDark ? 'rgba(34,197,94,0.16)' : 'rgba(34,197,94,0.12)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 20,
@@ -536,12 +535,12 @@ function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
   rankText: {
     fontSize: 12,
     fontWeight: '500',
-    color: colors.accent.positive,
+    color: c.success[600],
   },
   coinSymbol: {
     fontSize: 12,
     fontWeight: '400',
-    color: colors.text.secondary,
+    color: tokens.textMuted,
     letterSpacing: 0.4,
     marginTop: 2,
   },
@@ -591,11 +590,11 @@ function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
   chartFallbackPrice: {
     fontSize: 32,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: tokens.textStrong,
   },
   chartFallbackLabel: {
     fontSize: 12,
-    color: colors.text.secondary,
+    color: tokens.textMuted,
     marginTop: s.xs,
   },
   chartFallbackChange: {
@@ -603,14 +602,14 @@ function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
     marginTop: 2,
   },
   chartFallbackPositive: {
-    color: colors.accent.positive,
+    color: c.success[600],
   },
   chartFallbackNegative: {
-    color: colors.accent.negative,
+    color: c.error[600],
   },
   chartFallbackUnavailable: {
     fontSize: 12,
-    color: colors.text.muted,
+    color: tokens.textMuted,
     marginTop: s.sm,
   },
   newsSection: {
@@ -619,7 +618,7 @@ function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: c.neutral[800],
+    color: tokens.text,
     marginBottom: s.md,
     marginHorizontal: s.md,
   },

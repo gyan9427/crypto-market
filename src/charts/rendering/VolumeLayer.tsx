@@ -3,11 +3,7 @@ import { Group, Path, Skia } from '@shopify/react-native-skia';
 import type { KlineRecord } from '../types';
 import { idxToX } from '../services/chartLayout';
 import { CANDLE_BODY_RATIO } from '../constants';
-import { colors } from '../../theme/colors';
-
-const BULL_COLOR = colors.chart.linePositive;
-const BEAR_COLOR = colors.chart.lineNegative;
-const SEPARATOR_COLOR = colors.chart.separator;
+import { useChartUi } from '../ChartUiContext';
 
 function volToHeight(vol: number, maxVol: number, areaHeight: number): number {
   if (maxVol <= 0) return 0;
@@ -28,6 +24,12 @@ export interface VolumeLayerProps {
 }
 
 export function VolumeLayer(props: VolumeLayerProps) {
+  const {
+    linePositive: bullColor,
+    lineNegative: bearColor,
+    separator: separatorColor,
+  } = useChartUi();
+
   const paths = useMemo(() => {
     const {
       candles,
@@ -88,9 +90,9 @@ export function VolumeLayer(props: VolumeLayerProps) {
 
   return (
     <Group>
-      <Path path={paths.sepPath} style="stroke" strokeWidth={0.5} color={SEPARATOR_COLOR} />
-      <Path path={paths.bullPath} color={BULL_COLOR} />
-      <Path path={paths.bearPath} color={BEAR_COLOR} />
+      <Path path={paths.sepPath} style="stroke" strokeWidth={0.5} color={separatorColor} />
+      <Path path={paths.bullPath} color={bullColor} />
+      <Path path={paths.bearPath} color={bearColor} />
     </Group>
   );
 }

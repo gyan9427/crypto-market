@@ -2,7 +2,7 @@ import React from 'react';
 import { Path, Skia } from '@shopify/react-native-skia';
 import { priceToY } from '../services/chartLayout';
 import type { KlineRecord } from '../types';
-import { colors } from '../../theme/colors';
+import { useChartUi } from '../ChartUiContext';
 
 const STROKE_WIDTH = 0.5;
 
@@ -70,6 +70,7 @@ function buildGridPaths(props: GridLayerProps) {
 }
 
 export function GridLayer(props: GridLayerProps) {
+  const { grid: gridColor } = useChartUi();
   const { horizontalPath, verticalPath } = React.useMemo(
     () => buildGridPaths(props),
     [
@@ -92,13 +93,13 @@ export function GridLayer(props: GridLayerProps) {
         path={horizontalPath}
         style="stroke"
         strokeWidth={STROKE_WIDTH}
-        color={colors.chart.grid}
+        color={gridColor}
       />
       <Path
         path={verticalPath}
         style="stroke"
         strokeWidth={STROKE_WIDTH}
-        color={colors.chart.grid}
+        color={gridColor}
       />
     </>
   );

@@ -13,7 +13,7 @@ import type { KlineRecord } from '../types';
 import { formatPrice, formatVolume, formatTime } from '../services/chartFormat';
 import type { KlineInterval } from '../types';
 import { priceToY } from '../services/chartLayout';
-import { colors } from '../../theme/colors';
+import { useChartUi } from '../ChartUiContext';
 
 // Module-level font — avoids flash on first render, fixes Android monospace fallback
 const FONT_SIZE = 10;
@@ -24,9 +24,6 @@ const AXIS_FONT = (() => {
     return null;
   }
 })();
-
-const CROSSHAIR_COLOR = colors.chart.crosshair;
-const TOOLTIP_BG = colors.background.tertiary;
 
 export interface CrosshairLayerProps {
   crosshairX: { value: number };
@@ -44,6 +41,7 @@ export interface CrosshairLayerProps {
 }
 
 export function CrosshairLayer(props: CrosshairLayerProps) {
+  const palette = useChartUi();
   const {
     crosshairX,
     crosshairY,
@@ -104,13 +102,13 @@ export function CrosshairLayer(props: CrosshairLayerProps) {
   return (
     <Group>
       {/* Vertical crosshair — solid */}
-      <Path path={verticalPath} style="stroke" strokeWidth={0.5} color={CROSSHAIR_COLOR} />
+      <Path path={verticalPath} style="stroke" strokeWidth={0.5} color={palette.crosshair} />
       {/* Horizontal crosshair — dashed, snapped to candle close */}
       <Path
         path={horizontalPath}
         style="stroke"
         strokeWidth={0.5}
-        color={CROSSHAIR_COLOR}
+        color={palette.crosshair}
         strokeCap="round"
       />
       {candle && AXIS_FONT && (
@@ -121,35 +119,35 @@ export function CrosshairLayer(props: CrosshairLayerProps) {
             width={tooltipW}
             height={tooltipH}
             r={6}
-            color={TOOLTIP_BG}
+            color={palette.tooltipBg}
           />
           <Text
             x={tooltipX + 8}
             y={tooltipY + 14}
             text={formatTime(candle.openTime, interval)}
             font={AXIS_FONT}
-            color={colors.text.secondary}
+            color={palette.tooltipTextSecondary}
           />
           <Text
             x={tooltipX + 8}
             y={tooltipY + 28}
             text={`O ${formatPrice(candle.open)}  H ${formatPrice(candle.high)}`}
             font={AXIS_FONT}
-            color={colors.text.primary}
+            color={palette.tooltipTextPrimary}
           />
           <Text
             x={tooltipX + 8}
             y={tooltipY + 42}
             text={`L ${formatPrice(candle.low)}  C ${formatPrice(candle.close)}`}
             font={AXIS_FONT}
-            color={colors.text.primary}
+            color={palette.tooltipTextPrimary}
           />
           <Text
             x={tooltipX + 8}
             y={tooltipY + 56}
             text={`V ${formatVolume(candle.volume)}`}
             font={AXIS_FONT}
-            color={colors.text.secondary}
+            color={palette.tooltipTextSecondary}
           />
           {candle.tradeCount != null && (
             <Text
@@ -157,7 +155,7 @@ export function CrosshairLayer(props: CrosshairLayerProps) {
               y={tooltipY + 70}
               text={`Trades ${candle.tradeCount}`}
               font={AXIS_FONT}
-              color={colors.text.secondary}
+              color={palette.tooltipTextSecondary}
             />
           )}
         </Group>

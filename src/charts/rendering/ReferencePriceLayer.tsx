@@ -1,7 +1,7 @@
 import React from 'react';
 import { Group, Path, Skia, DashPathEffect } from '@shopify/react-native-skia';
 import { priceToY } from '../services/chartLayout';
-import { colors } from '../../theme/colors';
+import { useChartUi } from '../ChartUiContext';
 
 export interface ReferencePriceLayerProps {
   sessionOpenPrice: number;
@@ -13,6 +13,7 @@ export interface ReferencePriceLayerProps {
 }
 
 export function ReferencePriceLayer(props: ReferencePriceLayerProps) {
+  const { reference } = useChartUi();
   const { sessionOpenPrice, priceMin, priceMax, priceAreaHeight, topPad, areaWidth } = props;
 
   const linePath = React.useMemo(() => {
@@ -25,7 +26,7 @@ export function ReferencePriceLayer(props: ReferencePriceLayerProps) {
 
   return (
     <Group>
-      <Path path={linePath} style="stroke" strokeWidth={0.5} color={colors.chart.reference}>
+      <Path path={linePath} style="stroke" strokeWidth={0.5} color={reference}>
         <DashPathEffect intervals={[4, 6]} />
       </Path>
     </Group>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { setPerformanceScreen } from '../services/requestCache';
 import {
   View,
@@ -23,24 +23,12 @@ import { fetchActiveCoinsPage } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
 import { usePollingEffect } from '../hooks/usePollingEffect';
 import { LivePriceQuote, useMarketPriceStream } from '../hooks/useMarketPriceStream';
-
-// ── Palette ───────────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0a0a0f',
-  elevated: '#11111c',
-  border: 'rgba(255,255,255,0.06)',
-  borderStrong: 'rgba(255,255,255,0.12)',
-  text: '#ffffff',
-  textSub: 'rgba(255,255,255,0.55)',
-  textMuted: 'rgba(255,255,255,0.4)',
-  green: '#27c485',
-  red: '#f05252',
-  redBg: 'rgba(240,82,82,0.12)',
-  blue: '#6383ff',
-  blueBg: 'rgba(99,131,255,0.18)',
-} as const;
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import type { ThemeTokens } from '@/src/theme/theme';
 
 const GRAPH_ANIM_MS = 280;
+
+const MARKET_ACCENT = '#6383ff';
 
 const CATEGORY_LABELS: Record<ExploreCategory, string> = {
   trending: 'Trending',
@@ -68,6 +56,8 @@ ExploreCoinRow.displayName = 'ExploreCoinRow';
 export const ExploreScreen: React.FC = () => {
   const router = useRouter();
   const isFocused = useIsFocused();
+  const { tokens } = useAppTheme();
+  const S = useMemo(() => buildExploreStyles(tokens), [tokens]);
 
   useEffect(() => {
     if (isFocused) setPerformanceScreen('Explore');
@@ -249,9 +239,9 @@ export const ExploreScreen: React.FC = () => {
       >
         <Text style={S.sectionTitle}>Market Overview</Text>
         {marketGraphExpanded ? (
-          <ChevronUp size={16} color={C.textMuted} accessibilityLabel="" />
+          <ChevronUp size={16} color={tokens.textMuted} accessibilityLabel="" />
         ) : (
-          <ChevronDown size={16} color={C.textMuted} accessibilityLabel="" />
+          <ChevronDown size={16} color={tokens.textMuted} accessibilityLabel="" />
         )}
       </TouchableOpacity>
 
@@ -316,7 +306,7 @@ export const ExploreScreen: React.FC = () => {
         ListFooterComponent={
           loadingMore ? (
             <View style={S.footerLoader}>
-              <ActivityIndicator size="small" color={C.blue} />
+              <ActivityIndicator size="small" color={MARKET_ACCENT} />
             </View>
           ) : null
         }
@@ -330,15 +320,18 @@ export const ExploreScreen: React.FC = () => {
   );
 };
 
-const S = StyleSheet.create({
+function buildExploreStyles(tokens: ThemeTokens) {
+  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
+
+  return StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: tokens.bg,
   },
 
   // Header chrome
   headerSection: {
-    backgroundColor: C.bg,
+    backgroundColor: tokens.bg,
   },
   graphToggleRow: {
     flexDirection: 'row',
@@ -351,7 +344,7 @@ const S = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: C.textSub,
+    color: tokens.textMuted,
     letterSpacing: 0.2,
   },
   graphClip: {},
@@ -371,29 +364,29 @@ const S = StyleSheet.create({
     borderRadius: 8,
   },
   tabActive: {
-    backgroundColor: C.blueBg,
+    backgroundColor: accentBg,
   },
   tabText: {
     fontSize: 12,
     fontWeight: '500',
-    color: C.textMuted,
+    color: tokens.textMuted,
   },
   tabTextActive: {
-    color: C.blue,
+    color: MARKET_ACCENT,
   },
 
   // Error banner
   errorBanner: {
-    backgroundColor: 'rgba(240,82,82,0.1)',
+    backgroundColor: tokens.isDark ? 'rgba(240,82,82,0.12)' : 'rgba(240,82,82,0.08)',
     marginHorizontal: 16,
     marginBottom: 8,
     padding: 10,
     borderRadius: 8,
     borderWidth: 0.5,
-    borderColor: 'rgba(240,82,82,0.25)',
+    borderColor: tokens.isDark ? 'rgba(240,82,82,0.25)' : 'rgba(240,82,82,0.2)',
   },
   errorBannerText: {
-    color: C.red,
+    color: tokens.colors.error[500],
     fontSize: 12,
   },
 
@@ -401,7 +394,7 @@ const S = StyleSheet.create({
   listLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: C.textSub,
+    color: tokens.textMuted,
     paddingHorizontal: 16,
     paddingBottom: 6,
     letterSpacing: 0.2,
@@ -414,4 +407,5 @@ const S = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
-});
+  });
+}

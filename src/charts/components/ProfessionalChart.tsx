@@ -103,7 +103,6 @@ function ProfessionalChartFallback({ style }: { style?: object }) {
 }
 
 function buildProfessionalChartStyles(tokens: ThemeTokens) {
-  const c = tokens.colors;
   return StyleSheet.create({
     webFallback: {
       flex: 1,
@@ -116,7 +115,7 @@ function buildProfessionalChartStyles(tokens: ThemeTokens) {
       flex: 1,
       margin: 10,
       borderRadius: 12,
-      backgroundColor: c.neutral[100],
+      backgroundColor: tokens.surfaceMuted,
       justifyContent: 'center',
       alignItems: 'center',
     },

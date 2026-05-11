@@ -2,8 +2,8 @@ import React, { useMemo } from 'react';
 import { Group, Path, Skia, Text, matchFont } from '@shopify/react-native-skia';
 import { priceToY } from '../services/chartLayout';
 import { formatPrice } from '../services/chartFormat';
+import { useChartUi } from '../ChartUiContext';
 
-const AXIS_COLOR = '#64748b';
 const FONT_SIZE = 10;
 
 // Module-level font — avoids first-render flash, fixes Android monospace fallback (P0-17)
@@ -24,6 +24,7 @@ export interface PriceAxisLayerProps {
 }
 
 export function PriceAxisLayer(props: PriceAxisLayerProps) {
+  const { axisLabel } = useChartUi();
   const { priceMin, priceMax, priceAreaHeight, topPad, areaWidth } = props;
 
   // D13c: dynamic tick count — scales with available height, min 3, max 6
@@ -51,7 +52,7 @@ export function PriceAxisLayer(props: PriceAxisLayerProps) {
 
   return (
     <Group>
-      <Path path={linePath} style="stroke" strokeWidth={0.5} color={AXIS_COLOR} />
+      <Path path={linePath} style="stroke" strokeWidth={0.5} color={axisLabel} />
       {AXIS_FONT && ticks.map(({ price, y }, i) => (
         <Text
           key={i}
@@ -59,7 +60,7 @@ export function PriceAxisLayer(props: PriceAxisLayerProps) {
           y={y + FONT_SIZE / 2}
           text={formatPrice(price)}
           font={AXIS_FONT}
-          color={AXIS_COLOR}
+          color={axisLabel}
         />
       ))}
     </Group>

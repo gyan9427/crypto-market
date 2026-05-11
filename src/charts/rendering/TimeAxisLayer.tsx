@@ -3,8 +3,8 @@ import { Group, Text, matchFont } from '@shopify/react-native-skia';
 import { idxToX } from '../services/chartLayout';
 import { formatTime } from '../services/chartFormat';
 import type { KlineRecord, KlineInterval } from '../types';
+import { useChartUi } from '../ChartUiContext';
 
-const AXIS_COLOR = '#64748b';
 const FONT_SIZE = 10;
 const MIN_LABEL_SPACING_PX = 44;
 
@@ -32,6 +32,7 @@ export interface TimeAxisLayerProps {
 }
 
 export function TimeAxisLayer(props: TimeAxisLayerProps) {
+  const { axisLabel } = useChartUi();
   const {
     candles,
     liveCandle,
@@ -82,7 +83,7 @@ export function TimeAxisLayer(props: TimeAxisLayerProps) {
   return (
     <Group>
       {ticks.map(({ x, label }, i) => (
-        <Text key={i} x={x - 20} y={baseY} text={label} font={AXIS_FONT} color={AXIS_COLOR} />
+        <Text key={i} x={x - 20} y={baseY} text={label} font={AXIS_FONT} color={axisLabel} />
       ))}
     </Group>
   );

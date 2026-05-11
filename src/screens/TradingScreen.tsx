@@ -24,23 +24,12 @@ import { formatMarketCap } from '@/src/utils/format';
 import { useAppStore } from '@/src/state/useAppStore';
 import type { Coin, CoinStats, NewsItem, ReactionType } from '@/src/types';
 import type { KlineInterval } from '@/src/types/kline';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import type { ThemeTokens } from '@/src/theme/theme';
 
-// ── Palette ───────────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0a0a0f',
-  elevated: '#11111c',
-  border: 'rgba(255,255,255,0.06)',
-  borderStrong: 'rgba(255,255,255,0.12)',
-  text: '#ffffff',
-  textSub: 'rgba(255,255,255,0.55)',
-  textMuted: 'rgba(255,255,255,0.4)',
-  green: '#27c485',
-  greenBg: 'rgba(39,196,133,0.12)',
-  red: '#f05252',
-  redBg: 'rgba(240,82,82,0.12)',
-  blue: '#6383ff',
-  blueBg: 'rgba(99,131,255,0.18)',
-} as const;
+const TRADE_GREEN = '#27c485';
+const TRADE_RED = '#f05252';
+const TRADE_ACCENT = '#6383ff';
 
 // ── Interval mapping ──────────────────────────────────────────────────────────
 type RangeTab = '1H' | '1D' | '1W' | '1M' | '3M' | '1Y';
@@ -69,6 +58,8 @@ export function TradingScreen() {
   const { coinId } = useLocalSearchParams<{ coinId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { tokens } = useAppTheme();
+  const S = useMemo(() => buildTradingStyles(tokens), [tokens]);
 
   // ── Market data state ──
   const [coin, setCoin] = useState<Coin | null>(null);
@@ -248,7 +239,7 @@ export function TradingScreen() {
   if (loading) {
     return (
       <View style={[S.root, S.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={C.blue} />
+        <ActivityIndicator color={TRADE_ACCENT} />
       </View>
     );
   }
@@ -274,14 +265,14 @@ export function TradingScreen() {
       {/* Header */}
       <View style={[S.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={S.iconBtn} onPress={() => router.back()}>
-          <ChevronLeft size={16} color="rgba(255,255,255,0.7)" />
+          <ChevronLeft size={16} color={tokens.textMuted} />
         </TouchableOpacity>
         <View style={S.coinInfo}>
           <Text style={S.coinName}>{coin.name}</Text>
           <Text style={S.coinLabel}>{coin.symbol.toUpperCase()} / USDT</Text>
         </View>
         <View style={S.iconBtn}>
-          <Bell size={16} color="rgba(255,255,255,0.7)" />
+          <Bell size={16} color={tokens.textMuted} />
         </View>
       </View>
 
@@ -294,8 +285,8 @@ export function TradingScreen() {
         <View style={S.priceSection}>
           <Text style={S.priceMain}>${fmtPrice(price)}</Text>
           <View style={S.priceRow}>
-            <View style={[S.changeBadge, { backgroundColor: isUp ? C.greenBg : C.redBg }]}>
-              <Text style={[S.changeText, { color: isUp ? C.green : C.red }]}>
+            <View style={[S.changeBadge, { backgroundColor: isUp ? 'rgba(39,196,133,0.12)' : 'rgba(240,82,82,0.12)' }]}>
+              <Text style={[S.changeText, { color: isUp ? TRADE_GREEN : TRADE_RED }]}>
                 {isUp ? '▲' : '▼'} {Math.abs(change).toFixed(2)}%
               </Text>
             </View>
@@ -351,12 +342,12 @@ export function TradingScreen() {
           <View style={S.statsRow}>
             <View style={S.statCell}>
               <Text style={S.statLabel}>24h High</Text>
-              <Text style={[S.statValue, { color: C.green }]}>${fmtPrice(high24h)}</Text>
+              <Text style={[S.statValue, { color: TRADE_GREEN }]}>${fmtPrice(high24h)}</Text>
             </View>
             <View style={S.statDivV} />
             <View style={S.statCell}>
               <Text style={S.statLabel}>24h Low</Text>
-              <Text style={[S.statValue, { color: C.red }]}>${fmtPrice(low24h)}</Text>
+              <Text style={[S.statValue, { color: TRADE_RED }]}>${fmtPrice(low24h)}</Text>
             </View>
           </View>
           <View style={S.statDivH} />
@@ -435,8 +426,14 @@ export function TradingScreen() {
   );
 }
 
-const S = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
+function buildTradingStyles(tokens: ThemeTokens) {
+  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
+  const chipOnBorder = tokens.isDark ? 'rgba(99,131,255,0.4)' : 'rgba(99,131,255,0.45)';
+  const chipOnBg = tokens.isDark ? 'rgba(99,131,255,0.1)' : 'rgba(99,131,255,0.08)';
+  const subtleFill = tokens.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: tokens.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
 
   // Header
@@ -451,13 +448,13 @@ const S = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: subtleFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   coinInfo: { alignItems: 'center' },
-  coinName: { fontSize: 14, color: C.textSub },
-  coinLabel: { fontSize: 16, fontWeight: '500', color: C.text },
+  coinName: { fontSize: 14, color: tokens.textMuted },
+  coinLabel: { fontSize: 16, fontWeight: '500', color: tokens.text },
 
   // Scroll
   scroll: { flex: 1 },
@@ -465,7 +462,7 @@ const S = StyleSheet.create({
 
   // Price
   priceSection: { paddingHorizontal: 16, paddingBottom: 12 },
-  priceMain: { fontSize: 36, fontWeight: '500', color: C.text, letterSpacing: -1, lineHeight: 42 },
+  priceMain: { fontSize: 36, fontWeight: '500', color: tokens.text, letterSpacing: -1, lineHeight: 42 },
   priceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 },
   changeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   changeText: { fontSize: 13, fontWeight: '500' },
@@ -473,9 +470,9 @@ const S = StyleSheet.create({
   // Range tabs
   rangeTabs: { flexDirection: 'row', gap: 4, paddingHorizontal: 16, paddingBottom: 10 },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 5, borderRadius: 8 },
-  tabActive: { backgroundColor: C.blueBg },
-  tabText: { fontSize: 12, fontWeight: '500', color: C.textMuted },
-  tabTextActive: { color: C.blue },
+  tabActive: { backgroundColor: accentBg },
+  tabText: { fontSize: 12, fontWeight: '500', color: tokens.textMuted },
+  tabTextActive: { color: TRADE_ACCENT },
 
   // Indicator chips
   indicatorRow: {
@@ -490,24 +487,30 @@ const S = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 20,
     borderWidth: 0.5,
-    borderColor: C.borderStrong,
+    borderColor: tokens.borderStrong,
   },
-  chipOn: { borderColor: 'rgba(99,131,255,0.4)', backgroundColor: 'rgba(99,131,255,0.1)' },
-  chipText: { fontSize: 10, color: C.textMuted },
-  chipTextOn: { color: C.blue },
+  chipOn: { borderColor: chipOnBorder, backgroundColor: chipOnBg },
+  chipText: { fontSize: 10, color: tokens.textMuted },
+  chipTextOn: { color: TRADE_ACCENT },
   spacer: { flex: 1 },
   typeBtn: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: subtleFill,
   },
-  typeBtnActive: { backgroundColor: C.blueBg },
-  typeText: { fontSize: 11, color: C.textMuted },
-  typeTextActive: { color: C.blue },
+  typeBtnActive: { backgroundColor: accentBg },
+  typeText: { fontSize: 11, color: tokens.textMuted },
+  typeTextActive: { color: TRADE_ACCENT },
 
   // Chart
-  chartWrapper: { height: 250 },
+  chartWrapper: {
+    height: 250,
+    marginHorizontal: 16,
+    borderRadius: tokens.borderRadius.md,
+    overflow: 'hidden',
+    backgroundColor: tokens.surfaceMuted,
+  },
   chart: { flex: 1 },
 
   // Stats grid
@@ -518,14 +521,14 @@ const S = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 0.5,
-    borderColor: C.border,
+    borderColor: tokens.borderSubtle,
   },
   statsRow: { flexDirection: 'row' },
-  statCell: { flex: 1, backgroundColor: C.elevated, padding: 10 },
-  statDivV: { width: 0.5, backgroundColor: C.border },
-  statDivH: { height: 0.5, backgroundColor: C.border },
-  statLabel: { fontSize: 10, color: 'rgba(255,255,255,0.38)', marginBottom: 3 },
-  statValue: { fontSize: 14, fontWeight: '500', color: C.text },
+  statCell: { flex: 1, backgroundColor: tokens.surfaceMuted, padding: 10 },
+  statDivV: { width: 0.5, backgroundColor: tokens.borderSubtle },
+  statDivH: { height: 0.5, backgroundColor: tokens.borderSubtle },
+  statLabel: { fontSize: 10, color: tokens.textMuted, marginBottom: 3 },
+  statValue: { fontSize: 14, fontWeight: '500', color: tokens.text },
 
   // Order book
   obSection: { paddingHorizontal: 16, paddingBottom: 16 },
@@ -535,20 +538,21 @@ const S = StyleSheet.create({
   newsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: C.text,
+    color: tokens.text,
     marginBottom: 4,
     paddingHorizontal: 16,
   },
   emptyNews: {
     fontSize: 13,
-    color: C.textMuted,
+    color: tokens.textMuted,
     textAlign: 'center',
     marginTop: 16,
     paddingHorizontal: 16,
   },
 
   // Error state
-  errorText: { color: C.red, fontSize: 14, textAlign: 'center', marginBottom: 12 },
+  errorText: { color: tokens.colors.error[500], fontSize: 14, textAlign: 'center', marginBottom: 12 },
   retryBtn: { paddingHorizontal: 16, paddingVertical: 8 },
-  retryText: { color: C.blue, fontSize: 14 },
-});
+  retryText: { color: TRADE_ACCENT, fontSize: 14 },
+  });
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, useAnimatedReaction, runOnJS, withTiming } from 'react-native-reanimated';
@@ -15,6 +15,10 @@ import {
   MIN_CANDLE_WIDTH,
   MAX_CANDLE_WIDTH,
 } from '../constants';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import type { ThemeTokens } from '@/src/theme/theme';
+import { getChartUIPalette } from '@/src/theme/chartPalette';
+import { ChartUiProvider } from '../ChartUiContext';
 
 export interface SkiaChartProps {
   symbol: string;
@@ -27,6 +31,10 @@ const SCROLL_LOAD_THRESHOLD = 30;
 
 export function SkiaChart(props: SkiaChartProps) {
   const { symbol, interval, exchange, style } = props;
+
+  const { tokens } = useAppTheme();
+  const chartUi = useMemo(() => getChartUIPalette(tokens), [tokens]);
+  const styles = useMemo(() => buildSkiaChartStyles(tokens), [tokens]);
 
   const [size, setSize] = useState({ width: 0, height: 0 });
   const sizeSv = useSharedValue({ width: 0, height: 0 });
@@ -180,70 +188,84 @@ export function SkiaChart(props: SkiaChartProps) {
   );
 
   if (loading) {
-    return <View style={[styles.container, styles.skeleton, style]} />;
+    return (
+      <ChartUiProvider value={chartUi}>
+        <View style={[styles.container, styles.skeleton, style]} />
+      </ChartUiProvider>
+    );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, styles.errorContainer, style]}>
-        <Text style={styles.errorText}>Failed to load chart</Text>
-        <TouchableOpacity onPress={refetch} style={styles.retryButton}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
+      <ChartUiProvider value={chartUi}>
+        <View style={[styles.container, styles.errorContainer, style]}>
+          <Text style={styles.errorText}>Failed to load chart</Text>
+          <TouchableOpacity onPress={refetch} style={styles.retryButton}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </ChartUiProvider>
     );
   }
 
   return (
-    <GestureDetector gesture={composed}>
-      <View
-        style={[styles.container, style]}
-        onLayout={(e) => {
-          const { width, height } = e.nativeEvent.layout;
-          sizeSv.value = { width, height };
-        }}
-      >
-        <SkiaCanvas
-          candles={candles}
-          liveCandle={liveCandleState ?? lastCandle}
-          viewport={viewport}
-          viewportState={viewportState}
-          crosshair={crosshair}
-          interval={interval}
-          width={size.width}
-          height={size.height}
-        />
-      </View>
-    </GestureDetector>
+    <ChartUiProvider value={chartUi}>
+      <GestureDetector gesture={composed}>
+        <View
+          style={[styles.container, style]}
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            sizeSv.value = { width, height };
+          }}
+        >
+          <SkiaCanvas
+            candles={candles}
+            liveCandle={liveCandleState ?? lastCandle}
+            viewport={viewport}
+            viewportState={viewportState}
+            crosshair={crosshair}
+            interval={interval}
+            width={size.width}
+            height={size.height}
+          />
+        </View>
+      </GestureDetector>
+    </ChartUiProvider>
   );
 }
 
 
-const styles = StyleSheet.create({
-  container: { flex: 1, minHeight: 200 },
-  skeleton: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  errorContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  errorText: {
-    color: 'rgba(240,240,240,0.6)',
-    fontSize: 13,
-  },
-  retryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  retryText: {
-    color: '#F0F0F0',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-});
+function buildSkiaChartStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      minHeight: 200,
+      backgroundColor: tokens.surfaceMuted,
+    },
+    skeleton: {
+      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    },
+    errorContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 8,
+    },
+    errorText: {
+      color: tokens.textMuted,
+      fontSize: 13,
+    },
+    retryButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 6,
+      borderRadius: 20,
+      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+    },
+    retryText: {
+      color: tokens.text,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+  });
+}
 
 export default SkiaChart;

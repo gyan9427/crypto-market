@@ -3,10 +3,7 @@ import { Path, Skia } from '@shopify/react-native-skia';
 import type { KlineRecord } from '../types';
 import { priceToY, idxToX } from '../services/chartLayout';
 import { CANDLE_BODY_RATIO } from '../constants';
-import { colors } from '../../theme/colors';
-
-const BULL_COLOR = colors.chart.linePositive;
-const BEAR_COLOR = colors.chart.lineNegative;
+import { useChartUi } from '../ChartUiContext';
 
 export interface CandlestickLayerProps {
   candles: KlineRecord[];
@@ -77,6 +74,7 @@ function buildCandlePaths(props: CandlestickLayerProps) {
 }
 
 export function CandlestickLayer(props: CandlestickLayerProps) {
+  const { linePositive: bullColor, lineNegative: bearColor } = useChartUi();
   const paths = useMemo(() => buildCandlePaths(props), [
     props.candles,
     props.liveCandle,
@@ -94,10 +92,10 @@ export function CandlestickLayer(props: CandlestickLayerProps) {
 
   return (
     <>
-      <Path path={paths.bullWickPath} style="stroke" strokeWidth={1} color={BULL_COLOR} />
-      <Path path={paths.bearWickPath} style="stroke" strokeWidth={1} color={BEAR_COLOR} />
-      <Path path={paths.bullPath} color={BULL_COLOR} />
-      <Path path={paths.bearPath} color={BEAR_COLOR} />
+      <Path path={paths.bullWickPath} style="stroke" strokeWidth={1} color={bullColor} />
+      <Path path={paths.bearWickPath} style="stroke" strokeWidth={1} color={bearColor} />
+      <Path path={paths.bullPath} color={bullColor} />
+      <Path path={paths.bearPath} color={bearColor} />
     </>
   );
 }

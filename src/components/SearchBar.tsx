@@ -4,6 +4,7 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
+  Platform,
   type TextInputProps,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -94,10 +95,12 @@ function buildStyles(tokens: ThemeTokens) {
     container: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: tokens.isDark ? tokens.colors.neutral[200] : tokens.colors.neutral[100],
+      backgroundColor: tokens.inputBg,
       borderRadius: 9999,
       paddingHorizontal: 16,
       paddingVertical: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: tokens.inputBorder,
       ...tokens.shadows.sm,
       marginHorizontal: 24,
       marginBottom: 16,
@@ -124,6 +127,11 @@ function buildStyles(tokens: ThemeTokens) {
       marginBottom: 0,
       paddingVertical: 10,
       paddingHorizontal: 14,
+      ...Platform.select({
+        ios: {},
+        android: { elevation: 0 },
+        default: {},
+      }),
     },
   });
 }

@@ -304,7 +304,7 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
               cy={hoverCyForIndex}
               r={5}
               fill={stroke}
-              stroke="#ffffff"
+              stroke={tokens.surface}
               strokeWidth="2"
             />
           </Svg>
@@ -523,12 +523,12 @@ function buildStyles(tokens: ThemeTokens) {
     },
     hoverTooltip: {
       position: 'absolute',
-      backgroundColor: isDark ? c.neutral[200] : '#ffffff',
+      backgroundColor: tokens.surfaceMuted,
       borderRadius: br.sm,
       paddingHorizontal: s.sm,
       paddingVertical: s.xs,
       borderWidth: 1,
-      borderColor: isDark ? c.neutral[300] : c.neutral[200],
+      borderColor: tokens.border,
     },
     hoverTooltipTime: {
       fontSize: typo.fontSizes.xs,

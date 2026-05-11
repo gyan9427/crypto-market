@@ -2,7 +2,7 @@ import React from 'react';
 import { Circle, DashPathEffect, Group, Path, RoundedRect, Skia, Text, matchFont } from '@shopify/react-native-skia';
 import { priceToY } from '../services/chartLayout';
 import { formatPrice } from '../services/chartFormat';
-import { colors } from '../../theme/colors';
+import { useChartUi } from '../ChartUiContext';
 
 const FONT_SIZE = 10;
 const LABEL_FONT = (() => {
@@ -24,11 +24,12 @@ export interface LastPriceLayerProps {
 }
 
 export function LastPriceLayer(props: LastPriceLayerProps) {
+  const palette = useChartUi();
   const { lastClose, firstOpen, priceMin, priceMax, priceAreaHeight, topPad, areaWidth } = props;
 
   const isPositive = lastClose >= firstOpen;
-  const lineColor = isPositive ? colors.accent.positive : colors.accent.negative;
-  const pillBg = isPositive ? colors.accent.positiveSubtle : colors.accent.negativeSubtle;
+  const lineColor = isPositive ? palette.linePositive : palette.lineNegative;
+  const pillBg = isPositive ? palette.positiveSubtle : palette.negativeSubtle;
 
   const y = priceToY(lastClose, priceMin, priceMax, priceAreaHeight, topPad);
 
