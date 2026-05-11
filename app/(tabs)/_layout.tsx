@@ -8,6 +8,7 @@ import { FAB } from '@/src/components/FAB';
 import { NavHeaderSearch } from '@/src/components/NavHeaderSearch';
 import { View } from 'react-native';
 import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
+import { colors } from '@/src/theme/colors';
 
 const formatSegmentTitle = (rawSegment: string) => {
   return rawSegment
@@ -29,12 +30,12 @@ export default function TabsLayout() {
 
   const screenOptions = useCallback(
     () => ({
-      tabBarActiveTintColor: tokens.colors.primary[500],
-      tabBarInactiveTintColor: tokens.textMuted,
+      tabBarActiveTintColor: colors.text.primary,
+      tabBarInactiveTintColor: colors.text.muted,
       tabBarStyle: {
-        backgroundColor: tokens.tabBarBg,
-        borderTopWidth: 1,
-        borderTopColor: tokens.tabBarBorder,
+        backgroundColor: colors.background.primary,
+        borderTopWidth: 0.5,
+        borderTopColor: colors.border.subtle,
         paddingBottom: tokens.spacing.sm,
         paddingTop: tokens.spacing.xs,
         height: 68,

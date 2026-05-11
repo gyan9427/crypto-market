@@ -47,7 +47,9 @@ export const Sparkline: React.FC<SparklineProps> = ({
           points={points}
           fill="none"
           stroke={color}
-          strokeWidth="1.5"
+          strokeWidth="1"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </Svg>
     </View>

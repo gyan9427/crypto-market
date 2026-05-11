@@ -13,6 +13,8 @@ import { VolumeLayer } from './VolumeLayer';
 import { PriceAxisLayer } from './PriceAxisLayer';
 import { TimeAxisLayer } from './TimeAxisLayer';
 import { CrosshairLayer } from './CrosshairLayer';
+import { ReferencePriceLayer } from './ReferencePriceLayer';
+import { LastPriceLayer } from './LastPriceLayer';
 import type { ChartViewport } from '../hooks/useChartViewport';
 import type { CrosshairState } from '../hooks/useCrosshair';
 
@@ -34,7 +36,7 @@ export interface SkiaCanvasProps {
   height: number;
 }
 
-export function SkiaCanvas(props: SkiaCanvasProps) {
+function SkiaCanvasInner(props: SkiaCanvasProps) {
   const { candles, liveCandle, viewport, viewportState, crosshair, interval, width, height } = props;
 
   const areaWidth = Math.max(0, width - PRICE_AXIS_WIDTH);
@@ -51,7 +53,10 @@ export function SkiaCanvas(props: SkiaCanvasProps) {
     return getVisiblePriceRange(candles, visibleStartIdx, visibleEndIdx);
   }, [candles, visibleStartIdx, visibleEndIdx]);
 
-  const gridProps = {
+  const sessionOpenPrice = candles.length > 0 ? candles[0].open : 0;
+  const lastClose = liveCandle?.close ?? (candles.length > 0 ? candles[candles.length - 1].close : 0);
+
+  const sharedProps = {
     priceMin,
     priceMax,
     areaWidth,
@@ -64,71 +69,79 @@ export function SkiaCanvas(props: SkiaCanvasProps) {
     candleWidthPx,
     offsetPx,
     totalCandles,
-  };
-
-  const candleProps = {
-    ...gridProps,
-    liveCandle,
-  };
-
-  const volumeProps = {
-    candles,
-    liveCandle,
-    visibleStartIdx,
-    visibleEndIdx,
-    volumeAreaHeight,
-    priceAreaHeight,
-    candleWidthPx,
-    offsetPx,
-    totalCandles,
-    areaWidth,
-  };
-
-  const priceAxisProps = {
-    priceMin,
-    priceMax,
-    priceAreaHeight,
-    topPad,
-    areaWidth,
-  };
-
-  const timeAxisProps = {
-    candles,
-    liveCandle,
-    visibleStartIdx,
-    visibleEndIdx,
-    interval,
-    priceAreaHeight,
-    volumeAreaHeight,
-    candleWidthPx,
-    offsetPx,
-    totalCandles,
-    areaWidth,
-  };
-
-  const crosshairProps = {
-    crosshairX: crosshair.crosshairX,
-    crosshairY: crosshair.crosshairY,
-    crosshairIdx: crosshair.crosshairIdx,
-    candles,
-    liveCandle,
-    interval,
-    priceAreaHeight,
-    volumeAreaHeight,
-    areaWidth,
-    areaHeight: chartHeight,
   };
 
   return (
     <Canvas style={{ flex: 1, width, height }}>
       <Group>
-        <GridLayer {...gridProps} />
-        <CandlestickLayer {...candleProps} />
-        <VolumeLayer {...volumeProps} />
-        <PriceAxisLayer {...priceAxisProps} />
-        <TimeAxisLayer {...timeAxisProps} />
-        <CrosshairLayer {...crosshairProps} />
+        <GridLayer {...sharedProps} />
+        <ReferencePriceLayer
+          sessionOpenPrice={sessionOpenPrice}
+          priceMin={priceMin}
+          priceMax={priceMax}
+          priceAreaHeight={priceAreaHeight}
+          topPad={topPad}
+          areaWidth={areaWidth}
+        />
+        <CandlestickLayer {...sharedProps} liveCandle={liveCandle} />
+        <VolumeLayer
+          candles={candles}
+          liveCandle={liveCandle}
+          visibleStartIdx={visibleStartIdx}
+          visibleEndIdx={visibleEndIdx}
+          volumeAreaHeight={volumeAreaHeight}
+          priceAreaHeight={priceAreaHeight}
+          candleWidthPx={candleWidthPx}
+          offsetPx={offsetPx}
+          totalCandles={totalCandles}
+          areaWidth={areaWidth}
+        />
+        <PriceAxisLayer
+          priceMin={priceMin}
+          priceMax={priceMax}
+          priceAreaHeight={priceAreaHeight}
+          topPad={topPad}
+          areaWidth={areaWidth}
+        />
+        <TimeAxisLayer
+          candles={candles}
+          liveCandle={liveCandle}
+          visibleStartIdx={visibleStartIdx}
+          visibleEndIdx={visibleEndIdx}
+          interval={interval}
+          priceAreaHeight={priceAreaHeight}
+          volumeAreaHeight={volumeAreaHeight}
+          candleWidthPx={candleWidthPx}
+          offsetPx={offsetPx}
+          totalCandles={totalCandles}
+          areaWidth={areaWidth}
+        />
+        <LastPriceLayer
+          lastClose={lastClose}
+          firstOpen={sessionOpenPrice}
+          priceMin={priceMin}
+          priceMax={priceMax}
+          priceAreaHeight={priceAreaHeight}
+          topPad={topPad}
+          areaWidth={areaWidth}
+        />
+        <CrosshairLayer
+          crosshairX={crosshair.crosshairX}
+          crosshairY={crosshair.crosshairY}
+          crosshairIdx={crosshair.crosshairIdx}
+          candles={candles}
+          liveCandle={liveCandle}
+          interval={interval}
+          priceMin={priceMin}
+          priceMax={priceMax}
+          priceAreaHeight={priceAreaHeight}
+          volumeAreaHeight={volumeAreaHeight}
+          areaWidth={areaWidth}
+          areaHeight={chartHeight}
+        />
       </Group>
     </Canvas>
   );
 }
+
+export const SkiaCanvas = React.memo(SkiaCanvasInner);

@@ -1076,16 +1076,8 @@ export const searchUsers = async (
 
 // ── Charts / klines ────────────────────────────────────────────────────────────
 
-export type KlineInterval = '1m' | '5m' | '1h' | '1d' | '1w';
-
-export interface KlineRecord {
-  openTime: string | Date;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
+export type { KlineInterval, KlineRecord } from '@/src/types/kline';
+import type { KlineInterval, KlineRecord } from '@/src/types/kline';
 
 export interface MarketTrendPoint {
   openTime: string | Date;
@@ -1138,8 +1130,10 @@ export const fetchKlines = async (
   return arr.map((raw) => {
     const r = raw as Record<string, unknown>;
     const ot = r.openTime;
+    const openTime =
+      typeof ot === 'number' ? ot : typeof ot === 'string' ? new Date(ot).getTime() : (ot as Date).getTime();
     return {
-      openTime: typeof ot === 'number' ? new Date(ot) : (ot as string | Date),
+      openTime,
       open: Number(r.open),
       high: Number(r.high),
       low: Number(r.low),
@@ -1204,28 +1198,7 @@ export const fetchMarketTrend = async (
   };
 };
 
-/** Converts klines to WAGMI LineChart format: { timestamp, value }[] */
-export function toLineChartData(klines: KlineRecord[]): Array<{ timestamp: number; value: number }> {
-  return klines.map((k) => ({
-    timestamp: typeof k.openTime === 'string' ? new Date(k.openTime).getTime() : (k.openTime as Date).getTime(),
-    value: k.close,
-  }));
-}
-
-/** Converts klines to WAGMI CandlestickChart format */
-export function toCandlestickData(
-  klines: KlineRecord[]
-): Array<{ timestamp: number; open: number; high: number; low: number; close: number }> {
-  return klines.map((k) => ({
-    timestamp: typeof k.openTime === 'string' ? new Date(k.openTime).getTime() : (k.openTime as Date).getTime(),
-    open: k.open,
-    high: k.high,
-    low: k.low,
-    close: k.close,
-  }));
-}
-
-/** Extracts close prices for Skia sparkline: number[] */
+/** Extracts close prices for sparkline rendering: number[] */
 export function toSparklineData(klines: KlineRecord[]): number[] {
   return klines.map((k) => k.close);
 }

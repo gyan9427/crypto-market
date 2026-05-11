@@ -186,6 +186,7 @@ export const ExploreScreen: React.FC = () => {
 
   const renderHeader = () => (
     <View style={styles.headerSection}>
+      {/* Dark section: toggle row + chart — no gap, no light bleed */}
       <View style={styles.graphChrome}>
         <TouchableOpacity
           style={styles.graphToggleRow}
@@ -196,9 +197,9 @@ export const ExploreScreen: React.FC = () => {
         >
           <Text style={styles.graphToggleLabel}>Market overview</Text>
           {marketGraphExpanded ? (
-            <ChevronUp size={20} color={tokens.textMuted} accessibilityLabel="" />
+            <ChevronUp size={20} color="rgba(255,255,255,0.55)" accessibilityLabel="" />
           ) : (
-            <ChevronDown size={20} color={tokens.textMuted} accessibilityLabel="" />
+            <ChevronDown size={20} color="rgba(255,255,255,0.55)" accessibilityLabel="" />
           )}
         </TouchableOpacity>
         <Animated.View style={[styles.graphClip, graphClipStyle]}>
@@ -207,16 +208,19 @@ export const ExploreScreen: React.FC = () => {
           </View>
         </Animated.View>
       </View>
-      <FilterPills
-        categories={categories}
-        selectedCategory={exploreCategory}
-        onSelect={setExploreCategory}
-      />
-      {error && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorBannerText}>{error}</Text>
-        </View>
-      )}
+      {/* Screen-bg section: pills sit on their own surface */}
+      <View style={styles.pillsSection}>
+        <FilterPills
+          categories={categories}
+          selectedCategory={exploreCategory}
+          onSelect={setExploreCategory}
+        />
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{error}</Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 
@@ -269,12 +273,16 @@ function buildExploreScreenStyles(tokens: ThemeTokens) {
     },
     headerSection: {
       zIndex: 10,
+      backgroundColor: tokens.isDark ? '#0f0520' : '#1a0a3c',
+    },
+    pillsSection: {
       backgroundColor: tokens.bg,
       paddingBottom: s.xs,
     },
     graphChrome: {
       marginBottom: 0,
       marginHorizontal: 0,
+      backgroundColor: tokens.isDark ? '#0f0520' : '#1a0a3c',
     },
     graphToggleRow: {
       flexDirection: 'row',
@@ -288,7 +296,7 @@ function buildExploreScreenStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.md,
       fontWeight: typo.fontWeights.semibold,
       fontFamily: typo.fontFamilies.sansSemiBold,
-      color: tokens.heading,
+      color: 'rgba(255,255,255,0.88)',
       letterSpacing: typo.letterSpacing.subheading,
     },
     graphClip: {

@@ -4,7 +4,7 @@ import { TrendingCoin } from '../types';
 import { formatPrice, formatPercentage } from '../utils/format';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
-import { SparklineChart } from './SparklineChart';
+import { Sparkline } from './Sparkline';
 import type { LivePriceQuote } from '../hooks/useMarketPriceStream';
 
 interface TrendingCoinCardProps {
@@ -95,9 +95,9 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, liveQ
 
       {/* Middle: sparkline */}
       <View style={styles.sparklineWrap}>
-        <SparklineChart
+        <Sparkline
           data={sparklineData}
-          color={sparklineColor}
+          lineColor={sparklineColor}
           width={60}
           height={28}
         />
@@ -125,11 +125,11 @@ function buildTrendingCoinCardStyles(tokens: ThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: s.md,
-      paddingVertical: 14,
-      borderBottomWidth: StyleSheet.hairlineWidth,
+      paddingVertical: 0,
+      borderBottomWidth: 0.5,
       borderBottomColor: tokens.borderSubtle,
       backgroundColor: tokens.surface,
-      minHeight: 48,
+      minHeight: 56,
     },
     rank: {
       width: 20,

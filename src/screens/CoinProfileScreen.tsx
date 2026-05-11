@@ -31,6 +31,8 @@ import { CommentTray } from '../components/CommentTray';
 import { NewsDetailModal } from './NewsDetailModal';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { colors } from '@/src/theme/colors';
+import { formatPrice, formatPercentage } from '../utils/format';
 import { useAppStore } from '../state/useAppStore';
 import { useAuthStore } from '../state/useAuthStore';
 import { useHasFeature } from '../utils/features';
@@ -387,8 +389,16 @@ export const CoinProfileScreen: React.FC = () => {
           {hasCharts ? (
             <CoinPriceChart symbol={coin.symbol} />
           ) : (
-            <View style={styles.chartPlaceholder}>
-              <Text style={styles.chartPlaceholderText}>{t('coin.chartsUnavailable')}</Text>
+            <View style={styles.chartFallback}>
+              <Text style={styles.chartFallbackPrice}>{formatPrice(coin.price)}</Text>
+              <Text style={styles.chartFallbackLabel}>24h change</Text>
+              <Text style={[
+                styles.chartFallbackChange,
+                coin.change24h >= 0 ? styles.chartFallbackPositive : styles.chartFallbackNegative,
+              ]}>
+                {formatPercentage(coin.change24h)}
+              </Text>
+              <Text style={styles.chartFallbackUnavailable}>Chart unavailable</Text>
             </View>
           )}
           <CoinStatSegment stats={stats} coinSymbol={coin.symbol} />
@@ -470,7 +480,7 @@ function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
     paddingVertical: s.lg,
     paddingTop: s.xl,
     backgroundColor: tokens.surface,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.5,
     borderBottomColor: tokens.borderSubtle,
   },
   headerContent: {
@@ -509,30 +519,30 @@ function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
     flexWrap: 'wrap',
   },
   coinName: {
-    fontSize: 32, // larger text matching stitch 'Buy BTC' style
+    fontSize: 32,
     fontWeight: '700',
-    color: tokens.text,
-    letterSpacing: -1.0, // tighter tracking like stitch
+    color: colors.text.primary,
+    letterSpacing: -1.0,
   },
   rankBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: c.primary[50],
-    paddingHorizontal: s.sm,
-    paddingVertical: 4,
-    borderRadius: br.sm,
+    backgroundColor: colors.accent.positiveSubtle,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
   },
   rankText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: c.primary[600],
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.accent.positive,
   },
   coinSymbol: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: tokens.textMuted,
-    letterSpacing: 2.0, // wider tracking for symbols like the stitch symbol
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.text.secondary,
+    letterSpacing: 0.4,
     marginTop: 2,
   },
   followersText: {
@@ -574,18 +584,34 @@ function buildCoinProfileScreenStyles(tokens: ThemeTokens) {
     paddingHorizontal: s.md,
     paddingTop: s.lg,
   },
-  chartPlaceholder: {
-    height: 220,
-    backgroundColor: c.neutral[100],
-    borderRadius: br.card,
-    justifyContent: 'center',
-    alignItems: 'center',
+  chartFallback: {
+    padding: s.lg,
     marginBottom: s.md,
   },
-  chartPlaceholderText: {
-    fontSize: 14,
-    color: tokens.textMuted,
-    fontWeight: '500',
+  chartFallbackPrice: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  chartFallbackLabel: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginTop: s.xs,
+  },
+  chartFallbackChange: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  chartFallbackPositive: {
+    color: colors.accent.positive,
+  },
+  chartFallbackNegative: {
+    color: colors.accent.negative,
+  },
+  chartFallbackUnavailable: {
+    fontSize: 12,
+    color: colors.text.muted,
+    marginTop: s.sm,
   },
   newsSection: {
     paddingTop: s.lg,

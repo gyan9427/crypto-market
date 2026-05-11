@@ -1,4 +1,4 @@
-import type { KlineInterval } from './types';
+import type { KlineInterval } from '@/src/types/kline';
 
 /** Right margin for Y-axis price labels (px) */
 export const PRICE_AXIS_WIDTH = 64;
@@ -25,7 +25,9 @@ export const CANDLE_BODY_RATIO = 0.75;
 export const INTERVAL_MS: Record<KlineInterval, number> = {
   '1m': 60_000,
   '5m': 300_000,
+  '15m': 900_000,
   '1h': 3_600_000,
+  '4h': 14_400_000,
   '1d': 86_400_000,
   '1w': 604_800_000,
 };

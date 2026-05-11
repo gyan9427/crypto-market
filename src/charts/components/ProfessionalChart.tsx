@@ -85,9 +85,8 @@ function UniversalLineChart({ symbol, interval, style }: ProfessionalChartProps)
 }
 
 export function ProfessionalChart(props: ProfessionalChartProps) {
-  // Reanimated + GestureHandler chart has stability issues on web/Android.
-  // Use a lightweight SVG line chart there so all devices see chart data.
-  if (Platform.OS === 'web' || Platform.OS === 'android') {
+  // Use a lightweight SVG line chart on web; Skia 2.2.12 is stable on Android.
+  if (Platform.OS === 'web') {
     return <UniversalLineChart {...props} />;
   }
   return (

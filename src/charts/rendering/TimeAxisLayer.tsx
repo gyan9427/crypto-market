@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Group, Text, matchFont } from '@shopify/react-native-skia';
 import { idxToX } from '../services/chartLayout';
 import { formatTime } from '../services/chartFormat';
@@ -6,14 +6,16 @@ import type { KlineRecord, KlineInterval } from '../types';
 
 const AXIS_COLOR = '#64748b';
 const FONT_SIZE = 10;
+const MIN_LABEL_SPACING_PX = 44;
 
-function getFont() {
+// Module-level font — avoids first-render flash, fixes Android monospace fallback (P0-17)
+const AXIS_FONT = (() => {
   try {
-    return matchFont({ fontSize: FONT_SIZE });
+    return matchFont({ familyName: 'System', fontSize: FONT_SIZE, fontStyle: 'normal', fontWeight: 'normal' });
   } catch {
     return null;
   }
-}
+})();
 
 export interface TimeAxisLayerProps {
   candles: KlineRecord[];
@@ -30,7 +32,6 @@ export interface TimeAxisLayerProps {
 }
 
 export function TimeAxisLayer(props: TimeAxisLayerProps) {
-  const font = useMemo(() => getFont(), []);
   const {
     candles,
     liveCandle,
@@ -49,21 +50,17 @@ export function TimeAxisLayer(props: TimeAxisLayerProps) {
     const result: { x: number; label: string }[] = [];
     const lastIdx = candles.length - 1;
     const tickStep = Math.max(1, Math.floor((visibleEndIdx - visibleStartIdx + 1) / 6));
-    const rightEdge = totalCandles * candleWidthPx;
-    const startX = Math.max(0, rightEdge - offsetPx - areaWidth);
-    const endX = rightEdge - offsetPx;
-    const baseY = priceAreaHeight + volumeAreaHeight + FONT_SIZE / 2;
+
+    let lastRenderedX = -Infinity;
 
     for (let i = visibleStartIdx; i <= visibleEndIdx; i += tickStep) {
       const c = i === lastIdx && liveCandle ? liveCandle : candles[i];
       if (!c) continue;
       const x = idxToX(i, totalCandles, candleWidthPx, offsetPx, areaWidth);
-      if (x >= startX && x <= endX) {
-        result.push({
-          x,
-          label: formatTime(c.openTime, interval),
-        });
-      }
+      // P0-8: skip if too close to the previous rendered label
+      if (x - lastRenderedX < MIN_LABEL_SPACING_PX) continue;
+      lastRenderedX = x;
+      result.push({ x, label: formatTime(c.openTime, interval) });
     }
     return result;
   }, [
@@ -80,21 +77,12 @@ export function TimeAxisLayer(props: TimeAxisLayerProps) {
 
   const baseY = priceAreaHeight + volumeAreaHeight + FONT_SIZE;
 
-  if (!font) {
-    return <Group />;
-  }
+  if (!AXIS_FONT) return <Group />;
 
   return (
     <Group>
       {ticks.map(({ x, label }, i) => (
-        <Text
-          key={i}
-          x={x - 20}
-          y={baseY}
-          text={label}
-          font={font}
-          color={AXIS_COLOR}
-        />
+        <Text key={i} x={x - 20} y={baseY} text={label} font={AXIS_FONT} color={AXIS_COLOR} />
       ))}
     </Group>
   );

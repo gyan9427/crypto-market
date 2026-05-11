@@ -1,13 +1,6 @@
-export interface KlineRecord {
-  openTime: Date | string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  quoteVolume?: number;
-  tradeCount?: number;
-}
+import type { KlineRecord, KlineInterval } from '@/src/types/kline';
+
+export type { KlineRecord, KlineInterval };
 
 export interface TradeRecord {
   time: Date | string;
@@ -33,8 +26,6 @@ export interface ChartDataPoint {
 }
 
 export type ChartVariant = 'line' | 'area';
-
-export type KlineInterval = '1m' | '5m' | '1h' | '1d' | '1w';
 
 export interface KlinesParams {
   symbol: string;
@@ -64,12 +55,4 @@ export interface ChartViewState {
 }
 
 /** Partial candle built from real-time trade ticks */
-export interface LiveCandle extends KlineRecord {
-  openTime: Date | string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  tradeCount?: number;
-}
+export type LiveCandle = KlineRecord;

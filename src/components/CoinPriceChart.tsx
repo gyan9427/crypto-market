@@ -2,18 +2,34 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from '@react-navigation/native';
-import Svg, { Defs, LinearGradient, Stop, Rect, Path, Circle, Line } from 'react-native-svg';
-import { fetchKlines, KlineInterval, KlineRecord } from '../services/api';
+import Svg, { Defs, LinearGradient, Stop, Path, Circle, Line } from 'react-native-svg';
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  useAnimatedReaction,
+  runOnJS,
+} from 'react-native-reanimated';
+import { fetchKlines } from '../charts/services/chartApi';
+import type { KlineInterval, KlineRecord } from '@/src/types/kline';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { usePollingEffect } from '../hooks/usePollingEffect';
 
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedLine = Animated.createAnimatedComponent(Line);
+
 type DisplayInterval = '1D' | '1W' | '1M';
 
 const INTERVAL_MAP: Record<DisplayInterval, KlineInterval> = {
-  '1D': '1m',
+  '1D': '5m',  // 288 × 5m = 24h (was 180 × 1m = 3h)
   '1W': '1h',
   '1M': '1d',
+};
+
+const INTERVAL_LIMITS: Record<DisplayInterval, number> = {
+  '1D': 288,
+  '1W': 168,
+  '1M': 30,
 };
 
 const INTERVAL_LABELS: Record<DisplayInterval, string> = {
@@ -28,26 +44,6 @@ const DAY_SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 interface CoinPriceChartProps {
   symbol: string;
   height?: number;
-}
-
-type KlineCacheEntry = {
-  rows: KlineRecord[];
-  updatedAt: number;
-};
-
-const KLINE_CACHE_TTL_MS = 90_000;
-const klineCache = new Map<string, KlineCacheEntry>();
-
-function getCacheKey(symbol: string, interval: DisplayInterval): string {
-  return `${symbol.toUpperCase()}::${interval}`;
-}
-
-function readKlineCache(symbol: string, interval: DisplayInterval): KlineRecord[] | null {
-  const key = getCacheKey(symbol, interval);
-  const entry = klineCache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.updatedAt > KLINE_CACHE_TTL_MS) return null;
-  return entry.rows;
 }
 
 export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
@@ -69,32 +65,35 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
   const chartHeight = Math.max(120, height - 60);
 
   const [interval, setInterval] = useState<DisplayInterval>('1W');
-  const [klines, setKlines] = useState<KlineRecord[]>(() => readKlineCache(symbol, '1W') ?? []);
-  const [loading, setLoading] = useState(() => !(readKlineCache(symbol, '1W')?.length));
+  const [klines, setKlines] = useState<KlineRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  // Hover state — shared value drives crosshair graphic on UI thread;
+  // tooltipIndex (React state) updates only when the candle index changes.
+  const hoverXSV = useSharedValue(-1);
+  const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
+  const chartViewRef = useRef<ReturnType<typeof buildChartView> | null>(null);
 
   useEffect(() => {
-    const cached = readKlineCache(symbol, interval);
-    if (cached && cached.length > 0) {
-      setKlines(cached);
-      setLoading(false);
-      setError(null);
-      return;
-    }
     setKlines([]);
-    setHoverIndex(null);
     setLoading(true);
-  }, [symbol, interval]);
+    setError(null);
+    hoverXSV.value = -1;
+    runOnJS(setTooltipIndex)(null);
+  }, [symbol, interval, hoverXSV]);
 
-  const refreshMs = interval === '1D' ? 15000 : interval === '1W' ? 30000 : 60000;
+  const refreshMs = interval === '1D' ? 30_000 : interval === '1W' ? 60_000 : 120_000;
   usePollingEffect(
     async () => {
       if (!symbol) return;
       try {
         setError(null);
-        const rows = await fetchKlines(symbol, INTERVAL_MAP[interval], 180);
-        klineCache.set(getCacheKey(symbol, interval), { rows, updatedAt: Date.now() });
+        const rows = await fetchKlines({
+          symbol,
+          interval: INTERVAL_MAP[interval],
+          limit: INTERVAL_LIMITS[interval],
+        });
         setKlines(rows);
       } catch (err: any) {
         setError(err?.message || 'Failed to load chart');
@@ -108,105 +107,64 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
 
   const chartView = useMemo(() => {
     if (klines.length < 2) return null;
-
-    const closes = klines.map((k) => k.close);
-    const min = Math.min(...closes);
-    const max = Math.max(...closes);
-    const range = max - min || 1;
-    const stepX = chartWidth / Math.max(closes.length - 1, 1);
-
-    const points = closes.map((value, i) => ({
-      x: i * stepX,
-      y: chartHeight - ((value - min) / range) * chartHeight,
-    }));
-
-    const linePath = points.reduce(
-      (acc, p, i) =>
-        `${acc}${i === 0 ? `M${p.x.toFixed(1)},${p.y.toFixed(1)}` : ` L${p.x.toFixed(1)},${p.y.toFixed(1)}`}`,
-      ''
-    );
-
-    const areaPath = [
-      linePath,
-      `L${points[points.length - 1].x.toFixed(1)},${chartHeight}`,
-      `L${points[0].x.toFixed(1)},${chartHeight}`,
-      'Z',
-    ].join(' ');
-
-    const first = closes[0];
-    const last = closes[closes.length - 1];
-    const isUp = last >= first;
-    const stroke = isUp ? c.success[500] : c.error[500];
-
-    const extremeIndex = isUp ? closes.indexOf(max) : closes.indexOf(min);
-    const peakPoint = points[extremeIndex];
-
-    const change = last - first;
-    const changePct = (change / first) * 100;
-    const changeLabel = `${isUp ? '+' : ''}$${Math.abs(change).toLocaleString(undefined, {
-      maximumFractionDigits: 2,
-    })} (${Math.abs(changePct).toFixed(2)}%)`;
-
-    // Highlight column centred on the extreme point
-    const span = Math.max(2, Math.floor(closes.length * 0.28));
-    const colStart = Math.max(0, extremeIndex - Math.floor(span / 2));
-    const colEnd = Math.min(closes.length - 1, colStart + span);
-    const colX = points[colStart].x;
-    const colW = Math.max(0, points[colEnd].x - colX);
-
-    // Y-axis: three price levels
-    const yPrices = [
-      { price: max, y: chartHeight - ((max - min) / range) * chartHeight },
-      { price: (max + min) / 2, y: chartHeight / 2 },
-      { price: min, y: chartHeight - ((min - min) / range) * chartHeight },
-    ];
-
-    // X-axis labels
-    let xAxisItems: { label: string; x: number }[];
-    if (interval === '1W') {
-      const seen = new Set<number>();
-      xAxisItems = [];
-      klines.forEach((k, i) => {
-        const day = new Date(k.openTime).getDay();
-        if (!seen.has(day)) {
-          seen.add(day);
-          xAxisItems.push({ label: DAY_SHORT[day], x: points[i].x });
-        }
-      });
-    } else {
-      const idxs = [
-        0,
-        Math.floor((klines.length - 1) * 0.33),
-        Math.floor((klines.length - 1) * 0.66),
-        klines.length - 1,
-      ];
-      xAxisItems = idxs.map((idx) => ({
-        label: formatXLabel(klines[idx].openTime, interval),
-        x: points[idx].x,
-      }));
-    }
-
-    return {
-      linePath,
-      areaPath,
-      stroke,
-      isUp,
-      points,
-      peakPoint,
-      extremeIndex,
-      changeLabel,
-      change,
-      last,
-      yPrices,
-      xAxisItems,
-      colX,
-      colW,
-    };
+    const view = buildChartView(klines, chartWidth, chartHeight, c, interval);
+    chartViewRef.current = view;
+    return view;
   }, [klines, chartHeight, chartWidth, c, interval]);
 
-  const activePoint =
-    chartView && hoverIndex !== null ? chartView.points[hoverIndex] : null;
-  const activeKline = hoverIndex !== null ? klines[hoverIndex] : null;
+  // Derive candle index from hover X position — runs on UI thread
+  const chartWidthSV = useSharedValue(chartWidth);
+  const pointsLengthSV = useSharedValue(klines.length);
+  chartWidthSV.value = chartWidth;
+  pointsLengthSV.value = klines.length;
+
+  useAnimatedReaction(
+    () => {
+      const x = hoverXSV.value;
+      if (x < 0 || pointsLengthSV.value < 2) return -1;
+      return Math.max(
+        0,
+        Math.min(
+          pointsLengthSV.value - 1,
+          Math.round((x / chartWidthSV.value) * (pointsLengthSV.value - 1))
+        )
+      );
+    },
+    (idx, prevIdx) => {
+      if (idx !== prevIdx) {
+        runOnJS(setTooltipIndex)(idx < 0 ? null : idx);
+      }
+    }
+  );
+
+  // Animated props for the crosshair vertical line and dot — pure UI thread
+  const crosshairLineProps = useAnimatedProps(() => {
+    const x = hoverXSV.value;
+    return {
+      x1: x < 0 ? -1 : x,
+      x2: x < 0 ? -1 : x,
+      opacity: x < 0 ? 0 : 1,
+    };
+  });
+
+  // To animate the circle's cy we need to know the y for the current index.
+  // We store points as two flat arrays in shared values.
+  const hoverCyForIndex = useMemo(() => {
+    if (!chartView) return -1;
+    if (tooltipIndex === null || tooltipIndex < 0) return -1;
+    return chartView.points[tooltipIndex]?.y ?? -1;
+  }, [chartView, tooltipIndex]);
+
+  const crosshairCircleProps = useAnimatedProps(() => {
+    const x = hoverXSV.value;
+    return {
+      cx: x < 0 ? -1 : x,
+      opacity: x < 0 ? 0 : 1,
+    };
+  });
+
+  const activeKline = tooltipIndex !== null && tooltipIndex >= 0 ? klines[tooltipIndex] : null;
+  const activePoint = tooltipIndex !== null && chartView ? chartView.points[tooltipIndex] : null;
 
   const hoverTooltipPos = useMemo(() => {
     if (!activePoint) return null;
@@ -218,29 +176,16 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
     };
   }, [activePoint, chartWidth]);
 
-  const peakTooltipPos = useMemo(() => {
-    if (!chartView) return null;
-    const w = 172;
-    const { peakPoint } = chartView;
-    return {
-      left: Math.min(Math.max(peakPoint.x - w / 2, 0), chartWidth - w),
-      top: Math.max(peakPoint.y - 44, 4),
-      width: w,
-    };
-  }, [chartView, chartWidth]);
+  const handlePointerMove = (x: number) => {
+    hoverXSV.value = Math.max(0, Math.min(chartWidth, x));
+  };
 
-  const handlePointer = (x: number) => {
-    if (!chartView) return;
-    const maxIdx = chartView.points.length - 1;
-    const idx = Math.max(
-      0,
-      Math.min(maxIdx, Math.round((Math.max(0, Math.min(chartWidth, x)) / chartWidth) * maxIdx))
-    );
-    setHoverIndex(idx);
+  const handlePointerEnd = () => {
+    hoverXSV.value = -1;
+    setTooltipIndex(null);
   };
 
   const fillOpacity = isDark ? 0.42 : 0.24;
-  const colOpacity = isDark ? 0.20 : 0.13;
 
   const renderPills = (interactive: boolean) => (
     <View style={styles.intervalRow}>
@@ -295,7 +240,7 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
     );
   }
 
-  const { stroke, linePath, areaPath, points, peakPoint, changeLabel, change, yPrices, xAxisItems, colX, colW } = chartView;
+  const { stroke, linePath, areaPath, points, yPrices, xAxisItems } = chartView;
 
   return (
     <View style={styles.container}>
@@ -315,7 +260,6 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
           ))}
         </View>
 
-        {/* SVG + overlays */}
         <View style={{ width: chartWidth }}>
           <Svg
             width={chartWidth}
@@ -331,17 +275,6 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
               </LinearGradient>
             </Defs>
 
-            {/* Highlight column */}
-            <Rect
-              x={colX}
-              y={0}
-              width={colW}
-              height={chartHeight}
-              fill={stroke}
-              fillOpacity={colOpacity}
-              rx={6}
-            />
-
             {/* Area gradient fill */}
             <Path d={areaPath} fill={`url(#${gradientId})`} />
 
@@ -350,71 +283,45 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
               d={linePath}
               fill="none"
               stroke={stroke}
-              strokeWidth="2"
+              strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
 
-            {/* Dots: first, peak, last */}
-            {[points[0], peakPoint, points[points.length - 1]].map((pt, i) => (
-              <Circle
-                key={i}
-                cx={pt.x}
-                cy={pt.y}
-                r={4}
-                fill={stroke}
-                stroke={isDark ? '#ffffff' : '#ffffff'}
-                strokeWidth="2"
-              />
-            ))}
+            {/* Crosshair vertical line — animated, UI thread only */}
+            <AnimatedLine
+              animatedProps={crosshairLineProps}
+              y1={0}
+              y2={chartHeight}
+              stroke={tokens.textMuted}
+              strokeWidth="1"
+              strokeDasharray="4"
+            />
 
-            {/* Crosshair on hover */}
-            {activePoint ? (
-              <>
-                <Line
-                  x1={activePoint.x}
-                  x2={activePoint.x}
-                  y1={0}
-                  y2={chartHeight}
-                  stroke={tokens.textMuted}
-                  strokeWidth="1"
-                  strokeDasharray="4"
-                />
-                <Circle
-                  cx={activePoint.x}
-                  cy={activePoint.y}
-                  r={5}
-                  fill={stroke}
-                  stroke="#ffffff"
-                  strokeWidth="2"
-                />
-              </>
-            ) : null}
+            {/* Crosshair dot — cy driven by React state (low-freq) */}
+            <AnimatedCircle
+              animatedProps={crosshairCircleProps}
+              cy={hoverCyForIndex}
+              r={5}
+              fill={stroke}
+              stroke="#ffffff"
+              strokeWidth="2"
+            />
           </Svg>
 
           {/* Touch interaction layer */}
           <View
             style={[styles.interactionLayer, { width: chartWidth, height: chartHeight }]}
             onStartShouldSetResponder={() => true}
-            onResponderGrant={(e: any) => handlePointer(e.nativeEvent.locationX)}
-            onResponderMove={(e: any) => handlePointer(e.nativeEvent.locationX)}
-            onResponderRelease={() => setHoverIndex(null)}
-            onResponderTerminate={() => setHoverIndex(null)}
+            onResponderGrant={(e: any) => handlePointerMove(e.nativeEvent.locationX)}
+            onResponderMove={(e: any) => handlePointerMove(e.nativeEvent.locationX)}
+            onResponderRelease={handlePointerEnd}
+            onResponderTerminate={handlePointerEnd}
             {...({
-              onMouseMove: (e: any) => handlePointer(e.nativeEvent.locationX),
-              onMouseLeave: () => setHoverIndex(null),
+              onMouseMove: (e: any) => handlePointerMove(e.nativeEvent.locationX),
+              onMouseLeave: handlePointerEnd,
             } as object)}
           />
-
-          {/* Static peak tooltip (hidden while hovering) */}
-          {!activeKline && peakTooltipPos ? (
-            <View style={[styles.peakTooltip, { left: peakTooltipPos.left, top: peakTooltipPos.top }]}>
-              <Text style={[styles.peakTooltipText, { color: stroke }]}>
-                {change >= 0 ? '▲ ' : '▼ '}
-                {changeLabel}
-              </Text>
-            </View>
-          ) : null}
 
           {/* Hover tooltip */}
           {activeKline && hoverTooltipPos ? (
@@ -448,8 +355,77 @@ export const CoinPriceChart: React.FC<CoinPriceChartProps> = ({
   );
 };
 
-function formatXLabel(openTime: string | Date, interval: DisplayInterval): string {
-  const date = typeof openTime === 'string' ? new Date(openTime) : openTime;
+function buildChartView(
+  klines: KlineRecord[],
+  chartWidth: number,
+  chartHeight: number,
+  c: ThemeTokens['colors'],
+  interval: DisplayInterval
+) {
+  const closes = klines.map((k) => k.close);
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const range = max - min || 1;
+  const stepX = chartWidth / Math.max(closes.length - 1, 1);
+
+  const points = closes.map((value, i) => ({
+    x: i * stepX,
+    y: chartHeight - ((value - min) / range) * chartHeight,
+  }));
+
+  const linePath = points.reduce(
+    (acc, p, i) =>
+      `${acc}${i === 0 ? `M${p.x.toFixed(1)},${p.y.toFixed(1)}` : ` L${p.x.toFixed(1)},${p.y.toFixed(1)}`}`,
+    ''
+  );
+
+  const areaPath = [
+    linePath,
+    `L${points[points.length - 1].x.toFixed(1)},${chartHeight}`,
+    `L${points[0].x.toFixed(1)},${chartHeight}`,
+    'Z',
+  ].join(' ');
+
+  const first = closes[0];
+  const last = closes[closes.length - 1];
+  const isUp = last >= first;
+  const stroke = isUp ? c.success[500] : c.error[500];
+
+  const yPrices = [
+    { price: max, y: chartHeight - ((max - min) / range) * chartHeight },
+    { price: (max + min) / 2, y: chartHeight / 2 },
+    { price: min, y: chartHeight },
+  ];
+
+  let xAxisItems: { label: string; x: number }[];
+  if (interval === '1W') {
+    const seen = new Set<number>();
+    xAxisItems = [];
+    klines.forEach((k, i) => {
+      const day = new Date(k.openTime).getDay();
+      if (!seen.has(day)) {
+        seen.add(day);
+        xAxisItems.push({ label: DAY_SHORT[day], x: points[i].x });
+      }
+    });
+  } else {
+    const idxs = [
+      0,
+      Math.floor((klines.length - 1) * 0.33),
+      Math.floor((klines.length - 1) * 0.66),
+      klines.length - 1,
+    ];
+    xAxisItems = idxs.map((idx) => ({
+      label: formatXLabel(klines[idx].openTime, interval),
+      x: points[idx].x,
+    }));
+  }
+
+  return { linePath, areaPath, stroke, isUp, points, yPrices, xAxisItems };
+}
+
+function formatXLabel(openTime: number, interval: DisplayInterval): string {
+  const date = new Date(openTime);
   if (Number.isNaN(date.getTime())) return '--';
   if (interval === '1W') {
     return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
@@ -468,7 +444,7 @@ function formatPrice(value: number): string {
 }
 
 function formatPriceShort(value: number): string {
-  if (value >= 10000) return `${(value / 1000).toFixed(1)}k`;
+  if (value >= 10_000) return `${(value / 1000).toFixed(1)}k`;
   if (value >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
@@ -488,23 +464,24 @@ function buildStyles(tokens: ThemeTokens) {
       flexDirection: 'row',
       gap: s.sm,
       marginBottom: s.sm,
+      marginTop: 12,
     },
     intervalPill: {
-      paddingHorizontal: s.md,
-      paddingVertical: s.xs,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
       borderRadius: br.pill,
-      backgroundColor: isDark ? c.neutral[200] : c.neutral[100],
+      backgroundColor: 'transparent',
     },
     intervalPillActive: {
-      backgroundColor: c.primary[500],
+      backgroundColor: isDark ? c.neutral[200] : c.neutral[100],
     },
     intervalText: {
-      fontSize: typo.fontSizes.sm,
-      fontWeight: typo.fontWeights.medium,
-      color: isDark ? c.neutral[700] : c.neutral[600],
+      fontSize: 12,
+      fontWeight: '500',
+      color: isDark ? c.neutral[600] : c.neutral[500],
     },
     intervalTextActive: {
-      color: '#ffffff',
+      color: isDark ? c.neutral[900] : c.neutral[800],
     },
     chartSkeleton: {
       width: '100%',
@@ -544,17 +521,6 @@ function buildStyles(tokens: ThemeTokens) {
       top: 0,
       left: 0,
     },
-    peakTooltip: {
-      position: 'absolute',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: br.sm,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-    },
-    peakTooltipText: {
-      fontSize: typo.fontSizes.xs,
-      fontWeight: typo.fontWeights.bold,
-    },
     hoverTooltip: {
       position: 'absolute',
       backgroundColor: isDark ? c.neutral[200] : '#ffffff',
@@ -571,7 +537,7 @@ function buildStyles(tokens: ThemeTokens) {
     },
     hoverTooltipPrice: {
       fontSize: typo.fontSizes.sm,
-      fontWeight: typo.fontWeights.bold,
+      fontWeight: '700',
     },
     xAxis: {
       position: 'relative',

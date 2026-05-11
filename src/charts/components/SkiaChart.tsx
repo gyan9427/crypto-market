@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, useAnimatedReaction, runOnJS, withTiming } from 'react-native-reanimated';
 import type { KlineRecord, KlineInterval } from '../types';
-import { useKlinesInfinite } from '../hooks/useKlinesInfinite';
+import { useKlinesInfinite, dedupeAndSort } from '../hooks/useKlinesInfinite';
 import { useRealtimeCandle } from '../hooks/useRealtimeCandle';
 import { useChartViewport } from '../hooks/useChartViewport';
 import { useCrosshair } from '../hooks/useCrosshair';
@@ -19,31 +19,40 @@ import {
 export interface SkiaChartProps {
   symbol: string;
   interval: KlineInterval;
+  exchange?: string;
   style?: object;
 }
 
 const SCROLL_LOAD_THRESHOLD = 30;
 
 export function SkiaChart(props: SkiaChartProps) {
-  const { symbol, interval, style } = props;
+  const { symbol, interval, exchange, style } = props;
 
   const [size, setSize] = useState({ width: 0, height: 0 });
   const sizeSv = useSharedValue({ width: 0, height: 0 });
 
-  const { candles, loading, loadingMore, hasMore, loadMore, refetch } = useKlinesInfinite({
+  const { candles, loading, hasMore, error, loadMore, refetch, setCandles } = useKlinesInfinite({
     symbol,
     interval,
     limit: 500,
+    exchange,
   });
 
   const lastCandle = candles.length > 0 ? candles[candles.length - 1] : null;
+
+  // P0-11: wire onNewCandle to append the sealed candle to state
+  const handleNewCandle = useCallback(
+    (sealed: KlineRecord) => {
+      setCandles((prev) => dedupeAndSort([...prev, sealed]));
+    },
+    [setCandles]
+  );
+
   const { liveCandle } = useRealtimeCandle({
     symbol,
     interval,
     lastCandle,
-    onNewCandle: useCallback(() => {
-      // New candle sealed - could trigger refetch if needed
-    }, []),
+    onNewCandle: handleNewCandle,
   });
 
   const areaWidth = Math.max(0, size.width - PRICE_AXIS_WIDTH);
@@ -54,15 +63,13 @@ export function SkiaChart(props: SkiaChartProps) {
     areaHeight,
   });
 
-  const totalCandles = candles.length;
-  const totalCandlesSv = useSharedValue(totalCandles);
-
+  const totalCandlesSv = useSharedValue(candles.length);
   useEffect(() => {
-    totalCandlesSv.value = totalCandles;
-  }, [totalCandles, totalCandlesSv]);
+    totalCandlesSv.value = candles.length;
+  }, [candles.length, totalCandlesSv]);
 
   const crosshair = useCrosshair({
-    totalCandles,
+    totalCandles: candles.length,
     candleWidthPx: viewport.candleWidthPx,
     offsetPx: viewport.offsetPx,
     areaWidth: viewport.areaWidth,
@@ -79,6 +86,9 @@ export function SkiaChart(props: SkiaChartProps) {
     (v) => runOnJS(setLiveCandleState)(v)
   );
 
+  // P0-10: only cross to JS thread when the visible candle range or candle width
+  // changes — not on every sub-pixel offsetPx update. Quantize offsetPx to the
+  // nearest candle slot so a new React render fires at most once per candle scrolled.
   const [viewportState, setViewportState] = useState({
     visibleStartIdx: 0,
     visibleEndIdx: 0,
@@ -87,48 +97,70 @@ export function SkiaChart(props: SkiaChartProps) {
   });
 
   useAnimatedReaction(
-    () => ({
-      visibleStartIdx: viewport.visibleStartIdx.value,
-      visibleEndIdx: viewport.visibleEndIdx.value,
-      candleWidthPx: viewport.candleWidthPx.value,
-      offsetPx: viewport.offsetPx.value,
-    }),
-    (v) => runOnJS(setViewportState)(v)
+    () => {
+      'worklet';
+      const cw = viewport.candleWidthPx.value;
+      return {
+        visibleStartIdx: viewport.visibleStartIdx.value,
+        visibleEndIdx: viewport.visibleEndIdx.value,
+        // Quantize to nearest 0.5px for candle width, nearest slot for offset
+        candleWidthPx: Math.round(cw * 2) / 2,
+        offsetPx: Math.round(viewport.offsetPx.value / Math.max(1, cw)) * Math.round(cw),
+      };
+    },
+    (current, previous) => {
+      'worklet';
+      if (
+        !previous ||
+        current.visibleStartIdx !== previous.visibleStartIdx ||
+        current.visibleEndIdx !== previous.visibleEndIdx ||
+        current.candleWidthPx !== previous.candleWidthPx ||
+        current.offsetPx !== previous.offsetPx
+      ) {
+        runOnJS(setViewportState)(current);
+      }
+    }
   );
 
-  useEffect(() => {
-    if (viewportState.visibleStartIdx < SCROLL_LOAD_THRESHOLD && hasMore && !loadingMore) {
-      loadMore();
-    }
-  }, [viewportState.visibleStartIdx, hasMore, loadMore, loadingMore]);
-
+  // P0-18: add viewport and crosshair to deps — both are stable refs, no runtime cost
   useEffect(() => {
     viewport.resetZoom();
     crosshair.hide();
-  }, [symbol, interval]);
+  }, [symbol, interval, viewport, crosshair]);
 
   const panGesture = Gesture.Pan()
     .onChange((e) => {
+      'worklet';
       const totalW = totalCandlesSv.value * viewport.candleWidthPx.value;
       const maxOffset = Math.max(0, totalW - viewport.areaWidth.value);
       const offset = viewport.offsetPx.value - e.changeX;
       viewport.offsetPx.value = Math.max(0, Math.min(maxOffset, offset));
     })
+    // P0-10: trigger loadMore only on gesture end (low-frequency), not every frame
+    .onEnd(() => {
+      'worklet';
+      if (viewport.visibleStartIdx.value < SCROLL_LOAD_THRESHOLD) {
+        runOnJS(loadMore)();
+      }
+    })
     .activeOffsetX([-10, 10]);
 
+  // P0-9: fix pinch zoom focal point — zoom anchors to where the fingers are placed
   const pinchGesture = Gesture.Pinch()
     .onChange((e) => {
+      'worklet';
       const prev = viewport.candleWidthPx.value;
-      const next = Math.max(
-        MIN_CANDLE_WIDTH,
-        Math.min(MAX_CANDLE_WIDTH, prev * e.scale)
-      );
+      const next = Math.max(MIN_CANDLE_WIDTH, Math.min(MAX_CANDLE_WIDTH, prev * e.scale));
+      const ratio = next / prev;
+      // Adjust offset so the focal point stays fixed on screen
+      viewport.offsetPx.value = e.focalX - (e.focalX - viewport.offsetPx.value) * ratio;
       viewport.candleWidthPx.value = next;
     });
 
   const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd(() => {
+      'worklet';
       viewport.candleWidthPx.value = withTiming(BASE_CANDLE_WIDTH);
       viewport.offsetPx.value = withTiming(0);
       runOnJS(crosshair.hide)();
@@ -137,6 +169,7 @@ export function SkiaChart(props: SkiaChartProps) {
   const singleTapGesture = Gesture.Tap()
     .numberOfTaps(1)
     .onEnd((e) => {
+      'worklet';
       runOnJS(crosshair.show)(e.x, e.y);
     });
 
@@ -147,7 +180,18 @@ export function SkiaChart(props: SkiaChartProps) {
   );
 
   if (loading) {
-    return <View style={[styles.container, style]} />;
+    return <View style={[styles.container, styles.skeleton, style]} />;
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.errorContainer, style]}>
+        <Text style={styles.errorText}>Failed to load chart</Text>
+        <TouchableOpacity onPress={refetch} style={styles.retryButton}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
@@ -174,8 +218,32 @@ export function SkiaChart(props: SkiaChartProps) {
   );
 }
 
+
 const styles = StyleSheet.create({
   container: { flex: 1, minHeight: 200 },
+  skeleton: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  errorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorText: {
+    color: 'rgba(240,240,240,0.6)',
+    fontSize: 13,
+  },
+  retryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  retryText: {
+    color: '#F0F0F0',
+    fontSize: 13,
+    fontWeight: '500',
+  },
 });
 
 export default SkiaChart;

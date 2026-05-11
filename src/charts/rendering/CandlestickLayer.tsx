@@ -3,9 +3,10 @@ import { Path, Skia } from '@shopify/react-native-skia';
 import type { KlineRecord } from '../types';
 import { priceToY, idxToX } from '../services/chartLayout';
 import { CANDLE_BODY_RATIO } from '../constants';
+import { colors } from '../../theme/colors';
 
-const BULL_COLOR = '#22c55e';
-const BEAR_COLOR = '#ef4444';
+const BULL_COLOR = colors.chart.linePositive;
+const BEAR_COLOR = colors.chart.lineNegative;
 
 export interface CandlestickLayerProps {
   candles: KlineRecord[];

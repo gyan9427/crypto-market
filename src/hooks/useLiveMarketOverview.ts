@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { fetchMarketTrend, KlineRecord } from '../services/api';
+import { fetchMarketTrend } from '../services/api';
+import type { KlineRecord } from '@/src/types/kline';
 import { usePollingEffect } from './usePollingEffect';
 
 export interface MarketOverviewState {

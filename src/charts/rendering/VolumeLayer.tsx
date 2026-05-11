@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
-import { Path, Skia } from '@shopify/react-native-skia';
+import { Group, Path, Skia } from '@shopify/react-native-skia';
 import type { KlineRecord } from '../types';
 import { idxToX } from '../services/chartLayout';
 import { CANDLE_BODY_RATIO } from '../constants';
+import { colors } from '../../theme/colors';
 
-const BULL_COLOR = '#22c55e';
-const BEAR_COLOR = '#ef4444';
+const BULL_COLOR = colors.chart.linePositive;
+const BEAR_COLOR = colors.chart.lineNegative;
+const SEPARATOR_COLOR = colors.chart.separator;
 
 function volToHeight(vol: number, maxVol: number, areaHeight: number): number {
   if (maxVol <= 0) return 0;
@@ -65,7 +67,12 @@ export function VolumeLayer(props: VolumeLayerProps) {
       else bearPath.addRect(rect);
     }
 
-    return { bullPath, bearPath };
+    // P0-13: separator between candle area and volume bars
+    const sepPath = Skia.Path.Make();
+    sepPath.moveTo(0, priceAreaHeight);
+    sepPath.lineTo(areaWidth, priceAreaHeight);
+
+    return { bullPath, bearPath, sepPath };
   }, [
     props.candles,
     props.liveCandle,
@@ -80,9 +87,10 @@ export function VolumeLayer(props: VolumeLayerProps) {
   ]);
 
   return (
-    <>
+    <Group>
+      <Path path={paths.sepPath} style="stroke" strokeWidth={0.5} color={SEPARATOR_COLOR} />
       <Path path={paths.bullPath} color={BULL_COLOR} />
       <Path path={paths.bearPath} color={BEAR_COLOR} />
-    </>
+    </Group>
   );
 }
