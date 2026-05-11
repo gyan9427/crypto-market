@@ -19,10 +19,10 @@ import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
 import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import { useAppStore } from '../state/useAppStore';
-import { fetchActiveCoinsPage } from '../services/api';
+import { fetchActiveCoinsPage, fetchMarketSnapshot, enrichTrendingCoinsWithSnapshot } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
 import { usePollingEffect } from '../hooks/usePollingEffect';
-import { LivePriceQuote, useMarketPriceStream } from '../hooks/useMarketPriceStream';
+import { LivePriceQuote, useMarketPriceStream, useSparklineHistory, seedPriceHistory } from '../hooks/useMarketPriceStream';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 
@@ -47,8 +47,27 @@ const ExploreCoinRow = React.memo(function ExploreCoinRow({
 }) {
   const { quotes } = useMarketPriceStream([coin.symbol], { enabled: isFocused });
   const liveQuote: LivePriceQuote | undefined = quotes[coin.symbol.toUpperCase()];
+  const liveTicks = useSparklineHistory(coin.symbol);
 
-  return <TrendingCoinCard coin={coin} liveQuote={liveQuote} onPress={onPress} />;
+  // Merge snapshot baseline with live ticks so the sparkline shows real movement.
+  // Keep last 40 snapshot points as context, then append all accumulated live ticks.
+  const enrichedCoin = useMemo(() => {
+    if (liveTicks.length < 2) return coin;
+    const base = coin.sparklineData;
+    const combined = base && base.length >= 2
+      ? [...base.slice(-40), ...liveTicks]
+      : liveTicks;
+    return { ...coin, sparklineData: combined };
+  }, [coin, liveTicks]);
+
+  // Seed history with snapshot closes so the sparkline is populated from the first render.
+  useEffect(() => {
+    if (coin.sparklineData && coin.sparklineData.length >= 2) {
+      seedPriceHistory(coin.symbol, coin.sparklineData);
+    }
+  }, [coin.symbol, coin.sparklineData]);
+
+  return <TrendingCoinCard coin={enrichedCoin} liveQuote={liveQuote} onPress={onPress} />;
 });
 
 ExploreCoinRow.displayName = 'ExploreCoinRow';
@@ -92,12 +111,12 @@ export const ExploreScreen: React.FC = () => {
       setError(null);
       setCoins([]);
       setNextCursor(undefined);
-      const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
-        undefined,
-        20,
-        exploreCategory
-      );
-      setCoins(pageCoins);
+      const cat = exploreCategory === 'analysis' ? 'trending' : exploreCategory;
+      const [{ coins: pageCoins, nextCursor: cursor }, snapshot] = await Promise.all([
+        fetchActiveCoinsPage(undefined, 20, cat),
+        fetchMarketSnapshot().catch(() => null),
+      ]);
+      setCoins(enrichTrendingCoinsWithSnapshot(pageCoins, snapshot));
       setNextCursor(cursor);
     } catch (err: any) {
       setError(err.message || 'Failed to load data');
@@ -117,15 +136,16 @@ export const ExploreScreen: React.FC = () => {
   // don't flash blank each cycle, and skips the loading skeleton entirely.
   const refreshCoins = useCallback(async () => {
     try {
-      const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
-        undefined,
-        20,
-        exploreCategory
-      );
+      const cat = exploreCategory === 'analysis' ? 'trending' : exploreCategory;
+      const [{ coins: pageCoins, nextCursor: cursor }, snapshot] = await Promise.all([
+        fetchActiveCoinsPage(undefined, 20, cat),
+        fetchMarketSnapshot().catch(() => null),
+      ]);
+      const enriched = enrichTrendingCoinsWithSnapshot(pageCoins, snapshot);
       setCoins((prev) => {
-        if (prev.length === 0) return pageCoins;
+        if (prev.length === 0) return enriched;
         const sparklineMap = new Map(prev.map((c) => [c.id, c.sparklineData]));
-        return pageCoins.map((c) => ({
+        return enriched.map((c) => ({
           ...c,
           sparklineData: c.sparklineData ?? sparklineMap.get(c.id),
         }));
@@ -146,10 +166,11 @@ export const ExploreScreen: React.FC = () => {
     if (loadingMore || nextCursor === null || nextCursor === undefined) return;
     try {
       setLoadingMore(true);
+      const cat = exploreCategory === 'analysis' ? 'trending' : exploreCategory;
       const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
         nextCursor,
         20,
-        exploreCategory
+        cat
       );
       setCoins((prev) => [...prev, ...pageCoins]);
       setNextCursor(cursor);
