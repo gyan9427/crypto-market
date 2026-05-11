@@ -1,21 +1,12 @@
-import React from 'react';
-import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CoinProfileScreen } from '@/src/screens/CoinProfileScreen';
-import { StatusBar } from 'expo-status-bar';
+import React, { useLayoutEffect } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { TradingScreen } from '@/src/screens/TradingScreen';
 
-export default function CoinProfileRoute() {
-  return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <StatusBar style="dark" />
-      <CoinProfileScreen />
-    </SafeAreaView>
-  );
+export default function CoinRoute() {
+  const navigation = useNavigation();
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
+
+  return <TradingScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-});
