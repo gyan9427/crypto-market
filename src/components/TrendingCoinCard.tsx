@@ -7,6 +7,8 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { Sparkline } from './Sparkline';
 import type { LivePriceQuote } from '../hooks/useMarketPriceStream';
 
+const FLAT_SPARKLINE: number[] = [0, 0];
+
 interface TrendingCoinCardProps {
   coin: TrendingCoin;
   liveQuote?: LivePriceQuote;
@@ -51,10 +53,11 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, liveQ
   const sparklineData = useMemo(() => {
     const s = coin.sparklineData;
     if (s && s.length >= 2) return s;
-    const p = livePrice;
-    if (Number.isFinite(p)) return [p, p];
-    return [];
-  }, [coin.sparklineData, livePrice]);
+    // Flat-line placeholder. A [v, v] pair always maps to the same SVG output
+    // regardless of v (min === max → range fallback of 1 → all y = height),
+    // so there is no visual benefit in updating this on every live-price tick.
+    return FLAT_SPARKLINE;
+  }, [coin.sparklineData]);
   const sparklineColor = isPositive ? c.success[500] : c.danger[500];
   const showCoinLogo = Boolean(coin.logo) && !imageLoadFailed;
 
@@ -127,8 +130,8 @@ function buildTrendingCoinCardStyles(tokens: ThemeTokens) {
       paddingHorizontal: s.md,
       paddingVertical: 0,
       borderBottomWidth: 0.5,
-      borderBottomColor: tokens.borderSubtle,
-      backgroundColor: tokens.surface,
+      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
       minHeight: 56,
     },
     rank: {

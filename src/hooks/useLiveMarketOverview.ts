@@ -1,66 +1,110 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { fetchMarketTrend } from '../services/api';
 import type { KlineRecord } from '@/src/types/kline';
 import { usePollingEffect } from './usePollingEffect';
 
-export interface MarketOverviewState {
+export interface MarketOverviewData {
   klines: KlineRecord[];
   totalMarketCap: number;
   absoluteChange24h: number;
   relativeChange24h: number;
+  high24h: number;
+  low24h: number;
 }
 
 interface LiveMarketOverviewOptions {
-  /** Parent should pass focus (e.g. `useIsFocused() && expanded`). Do not double-gate with `useIsFocused` here — it can stay false on web and block all fetches. */
   enabled?: boolean;
-  /** Defaults to 12s. Kept stable in deps to avoid resetting the polling loop every WS tick. */
   intervalMs?: number;
 }
 
-const EMPTY_OVERVIEW: MarketOverviewState = {
+const EMPTY_DATA: MarketOverviewData = {
   klines: [],
   totalMarketCap: 0,
   absoluteChange24h: 0,
   relativeChange24h: 0,
+  high24h: 0,
+  low24h: 0,
 };
 
-/**
- * Live market summary data sourced from backend APIs with periodic refresh.
- * Designed to be reused by market cards/widgets that require synchronized values.
- */
+interface State {
+  data: MarketOverviewData;
+  hasFetched: boolean;
+}
+
+const INITIAL_STATE: State = { data: EMPTY_DATA, hasFetched: false };
+
 export function useLiveMarketOverview(
   options: LiveMarketOverviewOptions = {}
-): { data: MarketOverviewState; hasFetched: boolean } {
+): { data: MarketOverviewData; hasFetched: boolean } {
   const { enabled = true, intervalMs = 12_000 } = options;
-  const pollEnabled = enabled;
-  const [data, setData] = useState<MarketOverviewState>(EMPTY_OVERVIEW);
-  const [hasFetched, setHasFetched] = useState(false);
 
-  usePollingEffect(
-    async () => {
-      try {
-        const trend = await fetchMarketTrend('1m', 240, { cacheTtlMs: 10_000 });
-        setData({
-          klines: trend.points.map((point) => ({
-            openTime: point.openTime,
-            open: point.value,
-            high: point.value,
-            low: point.value,
-            close: point.value,
-            volume: 0,
-          })),
+  const [state, setState] = useState<State>(INITIAL_STATE);
+
+  // Stable ref to previous klines so we can reuse the same array reference
+  // when data hasn't meaningfully changed (avoids SVG repaint flicker).
+  const prevKlinesRef = useRef<KlineRecord[]>([]);
+  const prevLatestRef = useRef<number>(0);
+
+  const poll = useCallback(async () => {
+    try {
+      const trend = await fetchMarketTrend('1m', 240, { cacheTtlMs: 10_000 });
+
+      // Treat any response with no points or a non-positive market cap as a
+      // transient/degraded payload (the backend or its upstream occasionally
+      // returns zeros while a cache warms up or a fan-out partially fails).
+      // If we already have good data on screen, ignore the bad response so
+      // the UI doesn't flicker $X → $0 → $X between polls. Only surface the
+      // empty state on the very first fetch so the skeleton can resolve.
+      const isDegraded = trend.points.length === 0 || !(trend.latestValue > 0);
+      if (isDegraded) {
+        setState((prev) =>
+          prev.hasFetched ? prev : { ...prev, hasFetched: true }
+        );
+        return;
+      }
+
+      const sameLength = trend.points.length === prevKlinesRef.current.length;
+      const sameLatest = trend.latestValue === prevLatestRef.current;
+
+      // Bail out without a re-render if data hasn't changed.
+      if (sameLength && sameLatest) return;
+
+      const values = trend.points.map((p) => p.value);
+      const high24h = values.length ? Math.max(...values) : 0;
+      const low24h  = values.length ? Math.min(...values) : 0;
+
+      const newKlines: KlineRecord[] = trend.points.map((point) => ({
+        openTime: point.openTime,
+        open: point.value,
+        high: point.value,
+        low: point.value,
+        close: point.value,
+        volume: 0,
+      }));
+
+      prevKlinesRef.current = newKlines;
+      prevLatestRef.current = trend.latestValue;
+
+      // Single setState → single render pass.
+      setState({
+        hasFetched: true,
+        data: {
+          klines: newKlines,
           totalMarketCap: trend.latestValue,
           absoluteChange24h: trend.absoluteChange24h,
           relativeChange24h: trend.relativeChange24h,
-        });
-        setHasFetched(true);
-      } catch {
-        setHasFetched(true);
-      }
-    },
-    [pollEnabled],
-    { enabled: pollEnabled, intervalMs, immediate: true }
-  );
+          high24h,
+          low24h,
+        },
+      });
+    } catch {
+      setState((prev) =>
+        prev.hasFetched ? prev : { ...prev, hasFetched: true }
+      );
+    }
+  }, []);
 
-  return useMemo(() => ({ data, hasFetched }), [data, hasFetched]);
+  usePollingEffect(poll, [enabled], { enabled, intervalMs, immediate: true });
+
+  return state;
 }

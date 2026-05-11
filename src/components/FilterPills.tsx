@@ -73,24 +73,24 @@ function buildFilterPillsStyles(tokens: ThemeTokens) {
       borderRadius: tokens.borderRadius.pill,
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: tokens.border,
+      borderColor: tokens.isDark ? 'rgba(255,255,255,0.12)' : tokens.border,
       minHeight: 34,
       justifyContent: 'center',
       alignItems: 'center',
     },
     pillActive: {
-      backgroundColor: c.primary[500],
-      borderColor: c.primary[500],
+      backgroundColor: tokens.isDark ? 'rgba(99,131,255,0.18)' : c.primary[500],
+      borderColor: tokens.isDark ? 'rgba(99,131,255,0.4)' : c.primary[500],
     },
     pillText: {
       fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.semibold,
       fontFamily: typo.fontFamilies.sansSemiBold,
-      color: tokens.textMuted,
+      color: tokens.isDark ? 'rgba(255,255,255,0.4)' : tokens.textMuted,
       letterSpacing: typo.letterSpacing.button,
     },
     pillTextActive: {
-      color: '#ffffff',
+      color: tokens.isDark ? '#6383ff' : '#ffffff',
     },
   });
 }
