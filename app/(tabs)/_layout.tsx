@@ -6,8 +6,28 @@ import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { FAB } from '@/src/components/FAB';
 import { NavHeaderSearch } from '@/src/components/NavHeaderSearch';
-import { View } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
+import { useAuthStore } from '@/src/state/useAuthStore';
+
+function ProfileTabIcon({ color, size }: { color: string; size: number }) {
+  const user = useAuthStore((s) => s.user);
+  if (user?.avatar) {
+    return (
+      <Image
+        source={{ uri: user.avatar }}
+        style={[tabStyles.avatar, { width: size + 4, height: size + 4, borderRadius: (size + 4) / 2, borderColor: color }]}
+      />
+    );
+  }
+  return <User size={size} color={color} />;
+}
+
+const tabStyles = StyleSheet.create({
+  avatar: {
+    borderWidth: 1.5,
+  },
+});
 
 const formatSegmentTitle = (rawSegment: string) => {
   return rawSegment
@@ -170,7 +190,7 @@ export default function TabsLayout() {
             headerTitle: () => <NavHeaderSearch segment="users" />,
             headerTitleAlign: 'center',
             headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
-            tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+            tabBarIcon: ({ color, size }) => <ProfileTabIcon color={color} size={size} />,
           }}
         />
         <Tabs.Screen
