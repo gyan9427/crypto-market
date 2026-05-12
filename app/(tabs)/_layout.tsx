@@ -127,7 +127,8 @@ export default function TabsLayout() {
           options={{
             title: t('nav.home'),
             headerTitle: () => <NavHeaderSearch />,
-            headerTitleAlign: 'left',
+            headerTitleAlign: 'center',
+            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
             tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
             href: hasNewsFeed ? undefined : null,
           }}
@@ -136,6 +137,9 @@ export default function TabsLayout() {
           name="portfolio"
           options={{
             title: t('nav.portfolio'),
+            headerTitle: () => <NavHeaderSearch />,
+            headerTitleAlign: 'center',
+            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
             tabBarIcon: ({ color, size }) => <Briefcase size={size} color={color} />,
             href: hasPortfolioTracking ? undefined : null,
           }}
@@ -152,13 +156,9 @@ export default function TabsLayout() {
           name="market"
           options={{
             title: t('nav.market'),
-            headerTitle: () => (
-              <NavHeaderSearch
-                segment="all"
-                placeholder={t('search.placeholderMarket')}
-              />
-            ),
-            headerTitleAlign: 'left',
+            headerTitle: () => <NavHeaderSearch segment="all" />,
+            headerTitleAlign: 'center',
+            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
             tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
             href: hasMarketData ? undefined : null,
           }}
@@ -167,10 +167,9 @@ export default function TabsLayout() {
           name="profile"
           options={{
             title: t('nav.profile'),
-            headerTitle: () => (
-              <NavHeaderSearch segment="users" placeholder={t('search.placeholderUsers')} />
-            ),
-            headerTitleAlign: 'left',
+            headerTitle: () => <NavHeaderSearch segment="users" />,
+            headerTitleAlign: 'center',
+            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
             tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
           }}
         />
