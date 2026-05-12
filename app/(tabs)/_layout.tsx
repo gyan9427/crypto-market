@@ -106,6 +106,7 @@ export default function TabsLayout() {
         portfolio: t('nav.portfolio'),
         'search/index': t('nav.search'),
         rewards: t('nav.rewards'),
+        notifications: 'Notifications',
         'coin/[coinId]': t('nav.coin'),
         'coins/[coinId]': t('nav.coin'),
         'news-boards/index': t('nav.newsBoards'),
@@ -225,6 +226,12 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="search/index"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="notifications"
           options={{
             href: null,
           }}

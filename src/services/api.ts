@@ -131,8 +131,8 @@ export interface UnifiedSearchOptions {
   signal?: AbortSignal;
 }
 
-// Helper function to make API requests
-async function apiRequest<T>(
+/** Exported for feature modules (notifications, etc.) — same auth + error handling as core API. */
+export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {

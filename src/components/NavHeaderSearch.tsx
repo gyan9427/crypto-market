@@ -50,13 +50,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingLeft: 10,
+    paddingRight: 18,
   },
   iconButton: {
     padding: 4,
   },
   logo: {
     height: 120,
-    width: 300,
+    width: 200,
   },
 });
