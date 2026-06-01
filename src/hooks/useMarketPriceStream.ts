@@ -1,6 +1,38 @@
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { resolveApiBaseUrl } from '@/src/config/apiBaseUrl';
 
+// Rolling price history per symbol — up to 60 samples, throttled to ≥10 s apart.
+// 60 points × 10 s ≈ 10 minutes of live ticks (visual sparkline movement).
+const hubPriceHistory = new Map<string, number[]>();
+const lastAppendMs = new Map<string, number>();
+const HISTORY_MAX = 60;
+const HISTORY_SAMPLE_INTERVAL_MS = 10_000;
+
+function appendHistory(symbol: string, price: number): boolean {
+  if (!Number.isFinite(price)) return false;
+  const now = Date.now();
+  const last = lastAppendMs.get(symbol) ?? 0;
+  if (now - last < HISTORY_SAMPLE_INTERVAL_MS) return false;
+  lastAppendMs.set(symbol, now);
+  const prev = hubPriceHistory.get(symbol) ?? [];
+  hubPriceHistory.set(
+    symbol,
+    prev.length >= HISTORY_MAX ? [...prev.slice(1), price] : [...prev, price]
+  );
+  return true;
+}
+
+export function seedPriceHistory(symbol: string, prices: number[]): void {
+  const upper = symbol.toUpperCase();
+  if (!hubPriceHistory.has(upper) || (hubPriceHistory.get(upper)?.length ?? 0) === 0) {
+    hubPriceHistory.set(upper, prices.slice(-HISTORY_MAX));
+  }
+}
+
+export function getPriceHistory(symbol: string): number[] {
+  return hubPriceHistory.get(symbol.toUpperCase()) ?? [];
+}
+
 export interface LivePriceQuote {
   price: number;
   percentChange24h: number;
@@ -88,6 +120,7 @@ function applySnapshot(prices: Record<string, LivePriceQuote>) {
   hubQuotes = nextQuotes;
 
   for (const [symbol, quote] of Object.entries(upper)) {
+    appendHistory(symbol, quote.price);
     if (!quotesEqual(previousQuotes[symbol], quote)) {
       bumpSymbolVersion(symbol);
     }
@@ -103,8 +136,13 @@ function applyUpdates(updates: { symbol: string; price: number; percentChange24h
       price: u.price,
       percentChange24h: u.percentChange24h,
     };
-    if (!quotesEqual(next[symbol], nextQuote)) {
+    const changed = !quotesEqual(next[symbol], nextQuote);
+    if (changed) {
       next[symbol] = nextQuote;
+      const historyChanged = appendHistory(symbol, u.price);
+      if (historyChanged) {
+        // history version is the same as symbol version — bump once covers both
+      }
       bumpSymbolVersion(symbol);
     }
   }
@@ -276,4 +314,27 @@ export function useMarketPriceStream(
   const isConnected = ws !== null && ws.readyState === WebSocket.OPEN;
 
   return { quotes, isConnected };
+}
+
+/**
+ * Returns the rolling live-price history for a single symbol as a number[].
+ * Re-renders whenever a new sample is appended (throttled to HISTORY_SAMPLE_INTERVAL_MS).
+ */
+export function useSparklineHistory(symbol: string): number[] {
+  const upper = useMemo(() => symbol.trim().toUpperCase(), [symbol]);
+
+  const subscribe = useCallback(
+    (cb: () => void) => subscribeSymbols([upper], cb),
+    [upper]
+  );
+  const getVersion = useCallback(
+    () => symbolVersions.get(upper) ?? 0,
+    [upper]
+  );
+  const version = useSyncExternalStore(subscribe, getVersion, getVersion);
+
+  return useMemo(() => {
+    void version;
+    return hubPriceHistory.get(upper) ?? [];
+  }, [version, upper]);
 }

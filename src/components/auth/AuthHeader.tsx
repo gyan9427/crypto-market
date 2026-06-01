@@ -22,8 +22,8 @@ export function AuthHeader({
 }: Props) {
   const logoSource = isDark ? LOGO_LIGHT : LOGO_DARK;
   const { width: screenW } = useWindowDimensions();
-  const logoW = Math.min(screenW - 64, 480);
-  const logoH = Math.min(Math.round(logoW * 0.36), 180);
+  const logoW = Math.min(screenW - 64, 420);
+  const logoH = Math.min(Math.round(logoW * 0.36), 152);
 
   return (
     <Animated.View
@@ -36,7 +36,9 @@ export function AuthHeader({
         contentFit="contain"
         accessibilityLabel="NAYFT"
       />
-      {title ? <Text style={[styles.title, { color: palette.textPrimary }]}>{title}</Text> : null}
+      {title ? (
+        <Text style={[styles.title, { color: palette.textPrimary }]}>{title}</Text>
+      ) : null}
       {subtitle ? (
         <Text style={[styles.subtitle, { color: palette.textSecondary }]}>{subtitle}</Text>
       ) : null}
@@ -48,26 +50,27 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
     marginBottom: 32,
-    marginTop: 20,
+    marginTop: 16,
   },
   logo: {
-    marginBottom: 24,
-    maxHeight: 180,
+    marginBottom: 20,
+    maxHeight: 152,
   },
   title: {
-    marginTop: 8,
+    marginTop: 4,
     fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.6,
+    fontWeight: '300',
+    letterSpacing: -0.64,
+    textAlign: 'center',
   },
   subtitle: {
-    marginTop: 10,
-    fontSize: 15,
-    fontWeight: '500',
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: '400',
     textAlign: 'center',
     lineHeight: 22,
-    paddingHorizontal: 20,
-    letterSpacing: 0.1,
-    maxWidth: 340,
+    paddingHorizontal: 16,
+    letterSpacing: 0,
+    maxWidth: 320,
   },
 });

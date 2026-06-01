@@ -85,9 +85,8 @@ function UniversalLineChart({ symbol, interval, style }: ProfessionalChartProps)
 }
 
 export function ProfessionalChart(props: ProfessionalChartProps) {
-  // Reanimated + GestureHandler chart has stability issues on web/Android.
-  // Use a lightweight SVG line chart there so all devices see chart data.
-  if (Platform.OS === 'web' || Platform.OS === 'android') {
+  // Use a lightweight SVG line chart on web; Skia 2.2.12 is stable on Android.
+  if (Platform.OS === 'web') {
     return <UniversalLineChart {...props} />;
   }
   return (
@@ -104,7 +103,6 @@ function ProfessionalChartFallback({ style }: { style?: object }) {
 }
 
 function buildProfessionalChartStyles(tokens: ThemeTokens) {
-  const c = tokens.colors;
   return StyleSheet.create({
     webFallback: {
       flex: 1,
@@ -117,7 +115,7 @@ function buildProfessionalChartStyles(tokens: ThemeTokens) {
       flex: 1,
       margin: 10,
       borderRadius: 12,
-      backgroundColor: c.neutral[100],
+      backgroundColor: tokens.surfaceMuted,
       justifyContent: 'center',
       alignItems: 'center',
     },

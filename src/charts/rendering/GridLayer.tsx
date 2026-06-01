@@ -1,9 +1,9 @@
 import React from 'react';
 import { Path, Skia } from '@shopify/react-native-skia';
-import { priceToY } from '../services/chartLayout';
+import { priceToY, PAD_RATIO } from '../services/chartLayout';
 import type { KlineRecord } from '../types';
+import { useChartUi } from '../ChartUiContext';
 
-const GRID_OPACITY = 0.12;
 const STROKE_WIDTH = 0.5;
 
 export interface GridLayerProps {
@@ -29,7 +29,6 @@ function buildGridPaths(props: GridLayerProps) {
     priceAreaHeight,
     volumeAreaHeight,
     topPad,
-    candles,
     visibleStartIdx,
     visibleEndIdx,
     candleWidthPx,
@@ -38,15 +37,18 @@ function buildGridPaths(props: GridLayerProps) {
   } = props;
 
   const range = priceMax - priceMin || 1;
-  const paddedMin = priceMin - range * 0.05;
-  const paddedMax = priceMax + range * 0.05;
+  const paddedMin = priceMin - range * PAD_RATIO;
+  const paddedMax = priceMax + range * PAD_RATIO;
   const paddedRange = paddedMax - paddedMin || 1;
+
+  // D13c: match PriceAxisLayer dynamic tick count
+  const tickCount = Math.max(3, Math.min(6, Math.floor(priceAreaHeight / 48)));
 
   const horizontalPath = Skia.Path.Make();
   const verticalPath = Skia.Path.Make();
 
-  for (let i = 0; i <= 5; i++) {
-    const price = paddedMin + (paddedRange * i) / 5;
+  for (let i = 0; i <= tickCount; i++) {
+    const price = paddedMin + (paddedRange * i) / tickCount;
     const y = priceToY(price, priceMin, priceMax, priceAreaHeight, topPad);
     horizontalPath.moveTo(0, y);
     horizontalPath.lineTo(areaWidth, y);
@@ -68,6 +70,7 @@ function buildGridPaths(props: GridLayerProps) {
 }
 
 export function GridLayer(props: GridLayerProps) {
+  const { grid: gridColor } = useChartUi();
   const { horizontalPath, verticalPath } = React.useMemo(
     () => buildGridPaths(props),
     [
@@ -90,13 +93,13 @@ export function GridLayer(props: GridLayerProps) {
         path={horizontalPath}
         style="stroke"
         strokeWidth={STROKE_WIDTH}
-        color={`rgba(128,128,128,${GRID_OPACITY})`}
+        color={gridColor}
       />
       <Path
         path={verticalPath}
         style="stroke"
         strokeWidth={STROKE_WIDTH}
-        color={`rgba(128,128,128,${GRID_OPACITY})`}
+        color={gridColor}
       />
     </>
   );

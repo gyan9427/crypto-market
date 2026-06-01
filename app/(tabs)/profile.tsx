@@ -12,7 +12,7 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import type { ThemePreference } from '@/src/types';
 import { SegmentToggle } from '@/src/components/SegmentToggle';
-import { LogOut, Shield, Info, User as UserIcon, Bookmark } from 'lucide-react-native';
+import { LogOut, Shield, Info, User as UserIcon, Bookmark, Bell } from 'lucide-react-native';
 import {
   followUser,
   unfollowUser,
@@ -293,6 +293,13 @@ export default function ProfileScreen() {
             onPress={() => {
               console.log('Account pressed');
             }}
+          />
+          <ProfileMenuItem
+            tokens={tokens}
+            label="Notifications"
+            description="Alerts, wallet activity, and social updates"
+            icon={<Bell size={18} color={tokens.colors.neutral[600]} />}
+            onPress={() => router.push('/(tabs)/notifications' as never)}
           />
           <ProfileMenuItem
             tokens={tokens}

@@ -1,11 +1,9 @@
 import React, { useMemo } from 'react';
-import { Path, Skia } from '@shopify/react-native-skia';
+import { Group, Path, Skia } from '@shopify/react-native-skia';
 import type { KlineRecord } from '../types';
 import { idxToX } from '../services/chartLayout';
-import { CANDLE_BODY_RATIO } from '../constants';
-
-const BULL_COLOR = '#22c55e';
-const BEAR_COLOR = '#ef4444';
+import { CANDLE_BODY_RATIO, CHART_H_PAD } from '../constants';
+import { useChartUi } from '../ChartUiContext';
 
 function volToHeight(vol: number, maxVol: number, areaHeight: number): number {
   if (maxVol <= 0) return 0;
@@ -26,6 +24,12 @@ export interface VolumeLayerProps {
 }
 
 export function VolumeLayer(props: VolumeLayerProps) {
+  const {
+    linePositive: bullColor,
+    lineNegative: bearColor,
+    separator: separatorColor,
+  } = useChartUi();
+
   const paths = useMemo(() => {
     const {
       candles,
@@ -56,7 +60,8 @@ export function VolumeLayer(props: VolumeLayerProps) {
     for (let i = visibleStartIdx; i <= visibleEndIdx; i++) {
       const c = i === lastIdx && liveCandle ? liveCandle : candles[i];
       if (!c) continue;
-      const x = idxToX(i, totalCandles, candleWidthPx, offsetPx, areaWidth);
+      // Issue 3: offset x by CHART_H_PAD to match candle x positions
+      const x = idxToX(i, totalCandles, candleWidthPx, offsetPx, areaWidth) + CHART_H_PAD;
       const h = volToHeight(c.volume, maxVol, volumeAreaHeight);
       const top = baseY - h;
       const isBull = c.close >= c.open;
@@ -65,7 +70,12 @@ export function VolumeLayer(props: VolumeLayerProps) {
       else bearPath.addRect(rect);
     }
 
-    return { bullPath, bearPath };
+    // P0-13: separator between candle area and volume bars
+    const sepPath = Skia.Path.Make();
+    sepPath.moveTo(0, priceAreaHeight);
+    sepPath.lineTo(areaWidth, priceAreaHeight);
+
+    return { bullPath, bearPath, sepPath };
   }, [
     props.candles,
     props.liveCandle,
@@ -80,9 +90,10 @@ export function VolumeLayer(props: VolumeLayerProps) {
   ]);
 
   return (
-    <>
-      <Path path={paths.bullPath} color={BULL_COLOR} />
-      <Path path={paths.bearPath} color={BEAR_COLOR} />
-    </>
+    <Group>
+      <Path path={paths.sepPath} style="stroke" strokeWidth={0.5} color={separatorColor} />
+      <Path path={paths.bullPath} color={bullColor} />
+      <Path path={paths.bearPath} color={bearColor} />
+    </Group>
   );
 }

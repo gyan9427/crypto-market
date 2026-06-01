@@ -1,6 +1,7 @@
 import type { KlineRecord, TradeRecord, KlineInterval } from '../types';
 import { resolveApiBaseUrl } from '@/src/config/apiBaseUrl';
-import { fetchKlines as fetchKlinesFromApi } from '@/src/services/api';
+import { fetchKlines as fetchKlinesFromApi, toChartSymbol } from '@/src/services/api';
+import { fetchJsonCached } from '@/src/services/requestCache';
 
 /** Re-export for callers that need the same origin as REST API */
 export { resolveApiBaseUrl };
@@ -32,20 +33,62 @@ function parseTrade(raw: Record<string, unknown>): TradeRecord {
   };
 }
 
+/** Per-interval cache TTLs matching backend ingestion cadence. */
+const CHART_TTL_MS: Record<KlineInterval, number> = {
+  '1m': 30_000,
+  '5m': 45_000,
+  '15m': 60_000,
+  '1h': 90_000,
+  '4h': 120_000,
+  '1d': 120_000,
+  '1w': 180_000,
+};
+
 export interface FetchKlinesParams {
   symbol: string;
   interval: KlineInterval;
   from?: string;
   to?: string;
   limit?: number;
+  exchange?: string;
 }
 
 /**
- * Unified klines fetch (same as `src/services/api`); uses cached JSON + minimal fields server-side.
+ * Unified klines fetch with per-interval TTL caching.
+ * Single cache layer via fetchJsonCached (in-flight dedup + TTL).
  */
 export async function fetchKlines(params: FetchKlinesParams): Promise<KlineRecord[]> {
-  const { symbol, interval, from, to, limit = 500 } = params;
-  return fetchKlinesFromApi(symbol, interval, limit, from || to ? { from, to } : undefined);
+  const { symbol, interval, from, to, limit = 500, exchange } = params;
+  const chartSymbol = toChartSymbol(symbol);
+  if (!chartSymbol) return [];
+  const base = resolveApiBaseUrl();
+  const search = new URLSearchParams();
+  search.set('symbol', chartSymbol);
+  search.set('interval', interval);
+  search.set('limit', String(limit));
+  search.set('fields', 'minimal');
+  if (from) search.set('from', from);
+  if (to) search.set('to', to);
+  if (exchange) search.set('exchange', exchange);
+  const url = `${base}/charts/klines?${search.toString()}`;
+  const data = await fetchJsonCached<unknown>(url, { cacheTtlMs: CHART_TTL_MS[interval] });
+  const arr = Array.isArray(data) ? data : [];
+  return arr.map((raw) => {
+    const r = raw as Record<string, unknown>;
+    const ot = r.openTime;
+    const openTime =
+      typeof ot === 'number' ? ot : typeof ot === 'string' ? new Date(ot).getTime() : (ot as Date).getTime();
+    return {
+      openTime,
+      open: Number(r.open),
+      high: Number(r.high),
+      low: Number(r.low),
+      close: Number(r.close),
+      volume: Number(r.volume),
+      quoteVolume: r.quoteVolume != null ? Number(r.quoteVolume) : undefined,
+      tradeCount: r.tradeCount != null ? Number(r.tradeCount) : undefined,
+    };
+  });
 }
 
 export interface FetchTradesParams {

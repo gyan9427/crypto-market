@@ -98,13 +98,16 @@ export const spacing = {
 };
 
 export const borderRadius = {
-  xs: 8,
-  sm: 12,
-  md: 16,
-  lg: 24,
-  card: 32,
-  button: 24,
-  fab: 28,
+  xs: 4,
+  sm: 6,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  card: 12,
+  button: 8,
+  sheet: 24,
+  fab: 24,
+  pill: 999,
 };
 
 export const motion = {
@@ -157,11 +160,15 @@ export type ThemeTokens = {
   bg: string;
   bgElevated: string;
   surface: string;
+  surfaceMuted: string;
   text: string;
   textMuted: string;
   textStrong: string;
+  heading: string;
+  label: string;
   border: string;
   borderSubtle: string;
+  borderStrong: string;
   link: string;
   linkHover: string;
   tabBarBg: string;
@@ -230,11 +237,23 @@ export const typography = {
     xxxl: 32,
   },
   fontWeights: {
+    light: '300' as const,
     regular: '400' as const,
     medium: '500' as const,
     semibold: '600' as const,
     bold: '700' as const,
     extrabold: '800' as const,
+  },
+  letterSpacing: {
+    display: -0.96,
+    large: -0.8,
+    section: -0.64,
+    card: -0.48,
+    subheading: -0.4,
+    caption: -0.24,
+    eyebrow: 0.12,
+    button: 0.02,
+    normal: 0,
   },
   lineHeights: {
     tight: 1.1,
@@ -247,54 +266,55 @@ export const typography = {
 function buildShadows(isDark: boolean): ThemeTokens['shadows'] {
   if (isDark) {
     const card = Platform.select({
-      web: shadowWeb('0 20px 50px rgba(0, 0, 0, 0.35)'),
-      default: shadowNative(1, 50, 12, 20, 0.35),
+      web: shadowWeb('0 12px 40px rgba(0,0,0,0.35)'),
+      default: shadowNative(1, 40, 12, 12, 0.35),
     }) as ShadowStyle;
     const cardHover = Platform.select({
-      web: shadowWeb('0 24px 56px rgba(0, 0, 0, 0.42)'),
-      default: shadowNative(1, 56, 16, 24, 0.4),
+      web: shadowWeb('0 16px 48px rgba(0,0,0,0.42)'),
+      default: shadowNative(1, 48, 16, 16, 0.42),
     }) as ShadowStyle;
     const dropdown = Platform.select({
-      web: shadowWeb('0 18px 40px rgba(0, 0, 0, 0.45)'),
-      default: shadowNative(1, 40, 16, 18, 0.45),
+      web: shadowWeb('0 24px 64px rgba(0,0,0,0.50)'),
+      default: shadowNative(1, 64, 16, 24, 0.5),
     }) as ShadowStyle;
     const sm = Platform.select({
-      web: shadowWeb('0 12px 40px rgba(0, 0, 0, 0.35)'),
-      default: shadowNative(1, 40, 8, 12, 0.35),
+      web: shadowWeb('0 2px 8px rgba(0,0,0,0.25)'),
+      default: shadowNative(1, 8, 4, 2, 0.25),
     }) as ShadowStyle;
     const md = Platform.select({
-      web: shadowWeb('0 12px 40px rgba(0, 0, 0, 0.35)'),
+      web: shadowWeb('0 12px 40px rgba(0,0,0,0.35)'),
       default: shadowNative(1, 40, 10, 12, 0.35),
     }) as ShadowStyle;
     const lg = Platform.select({
-      web: shadowWeb('0 18px 48px rgba(0, 0, 0, 0.4)'),
-      default: shadowNative(1, 48, 12, 18, 0.4),
+      web: shadowWeb('0 16px 48px rgba(0,0,0,0.42)'),
+      default: shadowNative(1, 48, 12, 16, 0.42),
     }) as ShadowStyle;
     return { sm, md, lg, card, cardHover, dropdown };
   }
+  // Light mode: chromatic purple-tinted shadows per NAYFT design system
   const card = Platform.select({
-    web: shadowWeb('0 8px 28px rgba(0, 0, 0, 0.06)'),
-    default: shadowNative(1, 28, 4, 8, 0.06),
+    web: shadowWeb('0 4px 20px rgba(88,28,135,0.08), 0 1px 3px rgba(0,0,0,0.04)'),
+    default: shadowNative(1, 20, 4, 4, 0.08),
   }) as ShadowStyle;
   const cardHover = Platform.select({
-    web: shadowWeb('0 20px 50px rgba(0, 0, 0, 0.1)'),
-    default: shadowNative(1, 50, 8, 20, 0.1),
+    web: shadowWeb('0 8px 32px rgba(88,28,135,0.12), 0 2px 6px rgba(0,0,0,0.06)'),
+    default: shadowNative(1, 32, 8, 8, 0.12),
   }) as ShadowStyle;
   const dropdown = Platform.select({
-    web: shadowWeb('0 18px 40px rgba(0, 0, 0, 0.12)'),
-    default: shadowNative(1, 40, 8, 18, 0.12),
+    web: shadowWeb('0 16px 48px rgba(88,28,135,0.18), 0 4px 12px rgba(0,0,0,0.08)'),
+    default: shadowNative(1, 48, 8, 16, 0.18),
   }) as ShadowStyle;
   const sm = Platform.select({
-    web: shadowWeb('0 4px 20px rgba(0, 0, 0, 0.06)'),
-    default: shadowNative(1, 20, 3, 4, 0.06),
+    web: shadowWeb('0 1px 3px rgba(0,0,0,0.04)'),
+    default: shadowNative(1, 3, 2, 1, 0.04),
   }) as ShadowStyle;
   const md = Platform.select({
-    web: shadowWeb('0 4px 6px rgba(0, 0, 0, 0.08)'),
-    default: shadowNative(1, 6, 4, 4, 0.08),
+    web: shadowWeb('0 4px 20px rgba(88,28,135,0.08), 0 1px 3px rgba(0,0,0,0.04)'),
+    default: shadowNative(1, 20, 4, 4, 0.08),
   }) as ShadowStyle;
   const lg = Platform.select({
-    web: shadowWeb('0 8px 16px rgba(0, 0, 0, 0.1)'),
-    default: shadowNative(1, 16, 6, 8, 0.1),
+    web: shadowWeb('0 8px 32px rgba(88,28,135,0.12), 0 2px 6px rgba(0,0,0,0.06)'),
+    default: shadowNative(1, 32, 6, 8, 0.12),
   }) as ShadowStyle;
   return { sm, md, lg, card, cardHover, dropdown };
 }
@@ -316,14 +336,18 @@ export function getThemeTokens(isDark: boolean): ThemeTokens {
     return {
       isDark: true,
       colors: palette,
-      bg: '#0a0a0a',
-      bgElevated: '#121212',
-      surface: '#121212',
-      text: darkColors.neutral[900],
-      textMuted: darkColors.neutral[600],
+      bg: '#0E0E12',
+      bgElevated: '#16161C',
+      surface: '#16161C',
+      surfaceMuted: '#1E1E26',
+      text: '#f5f5f5',
+      textMuted: '#a3a3a3',
       textStrong: '#ffffff',
+      heading: '#fafafa',
+      label: '#d8b4fe',
       border: 'rgba(255, 255, 255, 0.08)',
       borderSubtle: 'rgba(255, 255, 255, 0.06)',
+      borderStrong: 'rgba(255, 255, 255, 0.12)',
       link: colors.primary[400],
       linkHover: colors.accent[400],
       tabBarBg: 'rgba(10, 10, 10, 0.96)',
@@ -337,9 +361,9 @@ export function getThemeTokens(isDark: boolean): ThemeTokens {
       semantic: {
         surface: '#121212',
         backdrop: darkColors.backdrop,
-        cardRadius: borderRadius.md,
-        cardRadiusSmall: borderRadius.xs,
-        sheetRadius: borderRadius.lg,
+        cardRadius: borderRadius.lg,
+        cardRadiusSmall: borderRadius.md,
+        sheetRadius: borderRadius.sheet,
         cardShadow: shadowsResolved.card,
         cardPadding: spacing.md,
         listMarginH: spacing.lg,
@@ -357,11 +381,15 @@ export function getThemeTokens(isDark: boolean): ThemeTokens {
     bg: '#f4f4f5',
     bgElevated: '#ffffff',
     surface: '#ffffff',
-    text: colors.neutral[900],
-    textMuted: colors.neutral[600],
-    textStrong: colors.neutral[950],
-    border: 'rgba(0, 0, 0, 0.08)',
-    borderSubtle: colors.neutral[200],
+    surfaceMuted: '#fafafa',
+    text: '#171717',
+    textMuted: '#525252',
+    textStrong: '#0a0a0a',
+    heading: '#1a0a2e',
+    label: '#3d2059',
+    border: '#e5e5e5',
+    borderSubtle: '#f5f5f5',
+    borderStrong: '#d4d4d4',
     link: colors.primary[600],
     linkHover: colors.accent[600],
     tabBarBg: 'rgba(255, 255, 255, 0.98)',
@@ -375,9 +403,9 @@ export function getThemeTokens(isDark: boolean): ThemeTokens {
     semantic: {
       surface: colors.surface,
       backdrop: colors.backdrop,
-      cardRadius: borderRadius.md,
-      cardRadiusSmall: borderRadius.xs,
-      sheetRadius: borderRadius.lg,
+      cardRadius: borderRadius.lg,
+      cardRadiusSmall: borderRadius.md,
+      sheetRadius: borderRadius.sheet,
       cardShadow: shadowsResolved.card,
       cardPadding: spacing.md,
       listMarginH: spacing.lg,
@@ -393,9 +421,9 @@ export function getThemeTokens(isDark: boolean): ThemeTokens {
 export const semantic = {
   surface: colors.surface,
   backdrop: colors.backdrop,
-  cardRadius: borderRadius.md,
-  cardRadiusSmall: borderRadius.xs,
-  sheetRadius: borderRadius.lg,
+  cardRadius: borderRadius.lg,
+  cardRadiusSmall: borderRadius.md,
+  sheetRadius: borderRadius.sheet,
   cardShadow: shadows.sm,
   cardPadding: spacing.md,
   listMarginH: spacing.lg,

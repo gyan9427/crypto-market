@@ -19,15 +19,15 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const secondaryElevation =
   Platform.OS === 'web'
-    ? { boxShadow: '0px 4px 16px rgba(15,23,42,0.05)' }
+    ? { boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }
     : Platform.OS === 'ios'
       ? {
-          shadowColor: '#0f172a',
-          shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.06,
-          shadowRadius: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.04,
+          shadowRadius: 3,
         }
-      : { elevation: 2 };
+      : { elevation: 1 };
 
 type Props = {
   palette: AuthPalette;
@@ -39,7 +39,7 @@ type Props = {
 
 function GoogleGlyph() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 48 48">
+    <Svg width={18} height={18} viewBox="0 0 48 48">
       <Path
         fill="#FFC107"
         d="M43.611 20.083H42V20H24v8h11.303C33.749 34.743 29.454 37 24 37c-7.18 0-13-5.82-13-13s5.82-13 13-13c3.106 0 5.974 1.09 8.229 2.917l5.834-5.834C34.725 8.084 29.694 6 24 6 12.955 6 4 14.955 4 26s8.955 20 20 20 20-8.955 20-20c0-1.341-.146-2.669-.389-4.017z"
@@ -95,7 +95,7 @@ export function GoogleButton({ palette, label, onPress, disabled, loading }: Pro
       <View style={styles.row}>
         <GoogleGlyph />
         {loading ? (
-          <ActivityIndicator color={palette.textPrimary} style={styles.spinner} />
+          <ActivityIndicator color={palette.textSecondary} style={styles.spinner} />
         ) : (
           <Text style={[styles.label, { color: palette.textPrimary }]}>{label}</Text>
         )}
@@ -106,8 +106,8 @@ export function GoogleButton({ palette, label, onPress, disabled, loading }: Pro
 
 const styles = StyleSheet.create({
   btn: {
-    minHeight: 54,
-    borderRadius: 27,
+    minHeight: 48,
+    borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -119,12 +119,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
-    letterSpacing: -0.15,
-    marginLeft: 12,
+    letterSpacing: 0.02,
+    marginLeft: 10,
   },
   spinner: {
-    marginLeft: 12,
+    marginLeft: 10,
   },
 });

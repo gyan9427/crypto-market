@@ -1,6 +1,6 @@
 import type { KlineRecord } from '../types';
 
-const PAD_RATIO = 0.05;
+export const PAD_RATIO = 0.08;
 
 /**
  * Map price to Y coordinate (top = high price).

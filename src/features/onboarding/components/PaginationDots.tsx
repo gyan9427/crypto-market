@@ -8,8 +8,8 @@ export interface PaginationDotsProps {
   activeIndex: number;
 }
 
-const DOT = 8;
-const DOT_ACTIVE = 22;
+const DOT = 6;
+const DOT_ACTIVE = 20;
 const DURATION = 240;
 
 function PaginationDotsInner({ count, activeIndex }: PaginationDotsProps) {
@@ -21,7 +21,7 @@ function PaginationDotsInner({ count, activeIndex }: PaginationDotsProps) {
     <View style={styles.row} accessibilityRole="progressbar">
       {Array.from({ length: count }, (_, i) => (
         <View key={i} style={i > 0 ? styles.dotWrap : undefined}>
-          <Dot active={i === activeIndex} activeColor={c.primary[500]} inactiveColor={c.neutral[300]} />
+          <Dot active={i === activeIndex} activeColor={c.primary[500]} inactiveColor={tokens.isDark ? 'rgba(255,255,255,0.20)' : c.neutral[300]} />
         </View>
       ))}
     </View>

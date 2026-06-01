@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Group,
   Path,
@@ -8,21 +8,22 @@ import {
   matchFont,
 } from '@shopify/react-native-skia';
 import { useAnimatedReaction, runOnJS } from 'react-native-reanimated';
+import { useState } from 'react';
 import type { KlineRecord } from '../types';
 import { formatPrice, formatVolume, formatTime } from '../services/chartFormat';
 import type { KlineInterval } from '../types';
+import { priceToY } from '../services/chartLayout';
+import { useChartUi } from '../ChartUiContext';
 
-const CROSSHAIR_COLOR = 'rgba(100,116,139,0.6)';
-const TOOLTIP_BG = 'rgba(15,23,42,0.95)';
+// Module-level font — avoids flash on first render, fixes Android monospace fallback
 const FONT_SIZE = 10;
-
-function getFont() {
+const AXIS_FONT = (() => {
   try {
-    return matchFont({ fontSize: FONT_SIZE });
+    return matchFont({ familyName: 'System', fontSize: FONT_SIZE, fontStyle: 'normal', fontWeight: 'normal' });
   } catch {
     return null;
   }
-}
+})();
 
 export interface CrosshairLayerProps {
   crosshairX: { value: number };
@@ -31,6 +32,8 @@ export interface CrosshairLayerProps {
   candles: KlineRecord[];
   liveCandle: KlineRecord | null;
   interval: KlineInterval;
+  priceMin: number;
+  priceMax: number;
   priceAreaHeight: number;
   volumeAreaHeight: number;
   areaWidth: number;
@@ -38,6 +41,7 @@ export interface CrosshairLayerProps {
 }
 
 export function CrosshairLayer(props: CrosshairLayerProps) {
+  const palette = useChartUi();
   const {
     crosshairX,
     crosshairY,
@@ -45,15 +49,12 @@ export function CrosshairLayer(props: CrosshairLayerProps) {
     candles,
     liveCandle,
     interval,
+    priceMin,
+    priceMax,
     priceAreaHeight,
     areaWidth,
     areaHeight,
   } = props;
-  const [font, setFont] = useState<ReturnType<typeof matchFont> | null>(null);
-
-  useEffect(() => {
-    setFont(getFont());
-  }, []);
 
   const [state, setState] = useState({ x: -1, y: -1, idx: -1 });
   useAnimatedReaction(
@@ -61,7 +62,7 @@ export function CrosshairLayer(props: CrosshairLayerProps) {
     (v) => runOnJS(setState)(v)
   );
 
-  const { x, y, idx } = state;
+  const { x, idx } = state;
   const visible = x >= 0;
   const candle =
     idx >= 0 && idx < candles.length
@@ -70,71 +71,91 @@ export function CrosshairLayer(props: CrosshairLayerProps) {
         : candles[idx]
       : null;
 
-  const linePath = React.useMemo(() => {
+  // Snap horizontal line to candle close price — not to raw tap Y
+  const snappedY = candle
+    ? priceToY(candle.close, priceMin, priceMax, priceAreaHeight, 0)
+    : state.y;
+
+  const verticalPath = React.useMemo(() => {
     if (!visible) return Skia.Path.Make();
     const p = Skia.Path.Make();
     p.moveTo(x, 0);
     p.lineTo(x, priceAreaHeight);
-    p.moveTo(0, y);
-    p.lineTo(areaWidth, y);
     return p;
-  }, [visible, x, y, priceAreaHeight, areaWidth]);
+  }, [visible, x, priceAreaHeight]);
+
+  const horizontalPath = React.useMemo(() => {
+    if (!visible) return Skia.Path.Make();
+    const p = Skia.Path.Make();
+    p.moveTo(0, snappedY);
+    p.lineTo(areaWidth, snappedY);
+    return p;
+  }, [visible, snappedY, areaWidth]);
 
   if (!visible) return null;
 
   const tooltipW = 140;
-  const tooltipH = 100;
+  const tooltipH = candle?.tradeCount != null ? 110 : 90;
   const tooltipX = x > areaWidth - tooltipW - 20 ? x - tooltipW - 10 : x + 10;
-  const tooltipY = Math.max(0, Math.min(y - tooltipH / 2, areaHeight - tooltipH));
+  const tooltipY = Math.max(0, Math.min(snappedY - tooltipH / 2, areaHeight - tooltipH));
 
   return (
     <Group>
-      <Path path={linePath} style="stroke" strokeWidth={1} color={CROSSHAIR_COLOR} />
-      {candle && font && (
+      {/* Vertical crosshair — solid */}
+      <Path path={verticalPath} style="stroke" strokeWidth={0.5} color={palette.crosshair} />
+      {/* Horizontal crosshair — dashed, snapped to candle close */}
+      <Path
+        path={horizontalPath}
+        style="stroke"
+        strokeWidth={0.5}
+        color={palette.crosshair}
+        strokeCap="round"
+      />
+      {candle && AXIS_FONT && (
         <Group>
           <RoundedRect
             x={tooltipX}
             y={tooltipY}
             width={tooltipW}
             height={tooltipH}
-            r={4}
-            color={TOOLTIP_BG}
+            r={6}
+            color={palette.tooltipBg}
           />
           <Text
-            x={tooltipX + 6}
-            y={tooltipY + 12}
+            x={tooltipX + 8}
+            y={tooltipY + 14}
             text={formatTime(candle.openTime, interval)}
-            font={font}
-            color="#94a3b8"
+            font={AXIS_FONT}
+            color={palette.tooltipTextSecondary}
           />
           <Text
-            x={tooltipX + 6}
-            y={tooltipY + 26}
+            x={tooltipX + 8}
+            y={tooltipY + 28}
             text={`O ${formatPrice(candle.open)}  H ${formatPrice(candle.high)}`}
-            font={font}
-            color="#e2e8f0"
+            font={AXIS_FONT}
+            color={palette.tooltipTextPrimary}
           />
           <Text
-            x={tooltipX + 6}
-            y={tooltipY + 40}
+            x={tooltipX + 8}
+            y={tooltipY + 42}
             text={`L ${formatPrice(candle.low)}  C ${formatPrice(candle.close)}`}
-            font={font}
-            color="#e2e8f0"
+            font={AXIS_FONT}
+            color={palette.tooltipTextPrimary}
           />
           <Text
-            x={tooltipX + 6}
-            y={tooltipY + 54}
+            x={tooltipX + 8}
+            y={tooltipY + 56}
             text={`V ${formatVolume(candle.volume)}`}
-            font={font}
-            color="#94a3b8"
+            font={AXIS_FONT}
+            color={palette.tooltipTextSecondary}
           />
           {candle.tradeCount != null && (
             <Text
-              x={tooltipX + 6}
-              y={tooltipY + 68}
+              x={tooltipX + 8}
+              y={tooltipY + 70}
               text={`Trades ${candle.tradeCount}`}
-              font={font}
-              color="#94a3b8"
+              font={AXIS_FONT}
+              color={palette.tooltipTextSecondary}
             />
           )}
         </Group>

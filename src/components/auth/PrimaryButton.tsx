@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -15,19 +16,19 @@ import type { AuthPalette } from '@/src/components/auth/authPalette';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const BTN_RADIUS = 27;
+const BTN_RADIUS = 8;
 
-const btnElevation =
+const btnGlow =
   Platform.OS === 'web'
-    ? { boxShadow: '0px 14px 32px rgba(15,23,42,0.09)' }
+    ? { boxShadow: '0 4px 20px rgba(168,85,247,0.30)' }
     : Platform.OS === 'ios'
       ? {
-          shadowColor: '#0f172a',
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.08,
-          shadowRadius: 22,
+          shadowColor: '#a855f7',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.30,
+          shadowRadius: 14,
         }
-      : { elevation: 5 };
+      : { elevation: 6 };
 
 type Props = {
   palette: AuthPalette;
@@ -67,35 +68,48 @@ export function PrimaryButton({
       disabled={busy}
       style={[
         styles.btn,
-        btnElevation,
-        { backgroundColor: palette.primaryGreen, opacity: busy ? 0.65 : 1 },
+        btnGlow,
+        { opacity: busy ? 0.65 : 1 },
         anim,
       ]}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel || title}
     >
-      {loading ? (
-        <ActivityIndicator color="#FFFFFF" />
-      ) : (
-        <Text style={styles.btnText}>{title}</Text>
-      )}
+      <LinearGradient
+        colors={busy ? [palette.primary, palette.primary] : ['#a855f7', '#d946ef']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradient}
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.btnText}>{title}</Text>
+        )}
+      </LinearGradient>
     </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
   btn: {
-    minHeight: 54,
+    minHeight: 48,
     borderRadius: BTN_RADIUS,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  gradient: {
+    flex: 1,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
     paddingHorizontal: 24,
+    paddingVertical: 10,
   },
   btnText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    letterSpacing: -0.15,
+    letterSpacing: 0.02,
   },
 });

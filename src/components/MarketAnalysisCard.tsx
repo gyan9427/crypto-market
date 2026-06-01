@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Plus } from 'lucide-react-native';
 import type { MarketAnalysisCoin } from '../types';
 import type { LivePriceQuote } from '../hooks/useMarketPriceStream';
 import { formatPrice, formatPercentage } from '../utils/format';
@@ -73,15 +74,17 @@ export const MarketAnalysisCard = React.memo(function MarketAnalysisCard({
 
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={styles.row}
       onPress={() => onPress(coin.coinId)}
       accessibilityRole="button"
       accessibilityLabel={`${coin.name} ${formatPrice(livePrice)}`}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
     >
+      {/* ── Row 1: identity + price + signals ── */}
       <View style={styles.topRow}>
         <Text style={styles.rank}>{rank}</Text>
-        <View style={styles.coinIconContainer}>
+
+        <View style={styles.coinIconWrap}>
           {showCoinLogo ? (
             <Image
               source={{ uri: coin.image }}
@@ -90,57 +93,65 @@ export const MarketAnalysisCard = React.memo(function MarketAnalysisCard({
               onError={() => setImageLoadFailed(true)}
             />
           ) : (
-            <Text style={styles.coinIconFallbackText}>{coin.symbol}</Text>
+            <Text style={styles.coinIconFallback}>{coin.symbol.slice(0, 3)}</Text>
           )}
         </View>
-        <View style={styles.titleBlock}>
-          <Text style={styles.coinName} numberOfLines={1}>
-            {coin.name}
-          </Text>
-          <Text style={styles.coinSymbol} numberOfLines={1}>
-            {coin.symbol}
-          </Text>
+
+        <View style={styles.identity}>
+          <Text style={styles.coinName} numberOfLines={1}>{coin.name}</Text>
+          <Text style={styles.coinSymbol} numberOfLines={1}>{coin.symbol}</Text>
         </View>
+
         <View style={styles.priceBlock}>
-          <Text style={[styles.change, isPositive ? styles.changePositive : styles.changeNegative]}>
-            {formatPercentage(liveChange24h)}
-          </Text>
           <Text style={styles.price}>{formatPrice(livePrice)}</Text>
+          <Text style={[styles.change, isPositive ? styles.positive : styles.negative]}>
+            {isPositive ? '▲' : '▼'} {formatPercentage(liveChange24h).replace(/^[+-]/, '')}
+          </Text>
+        </View>
+
+        <View style={styles.signalsBlock}>
+          {visibleSignals.map((s) => (
+            <SignalTag key={s.type} signal={s} />
+          ))}
         </View>
       </View>
 
-      <View style={styles.tagsRow}>
-        {visibleSignals.map((s) => (
-          <SignalTag key={s.type} signal={s} />
-        ))}
-      </View>
-
-      {coin.whyMoving ? (
-        <Text style={styles.whyMoving} numberOfLines={2}>
-          <Text style={styles.whyMovingLead}>{t('explore.whyMoving')} </Text>
-          {coin.whyMoving}
-        </Text>
-      ) : null}
-
-      <View style={styles.footerRow}>
-        <Text style={styles.holdingsHint}>
-          {isHeld ? t('explore.youHold') : t('explore.youDontHold')}
-        </Text>
-        <TouchableOpacity
-          style={[styles.addBtn, isFollowing && styles.addBtnActive]}
-          onPress={onAddPress}
-          disabled={followBusy}
-          accessibilityRole="button"
-          accessibilityLabel={isFollowing ? t('accessibility.unfollowCoin') : t('explore.add')}
-        >
-          {followBusy ? (
-            <ActivityIndicator size="small" color={c.primary[600]} />
-          ) : (
-            <Text style={[styles.addBtnText, isFollowing && styles.addBtnTextActive]}>
-              {isFollowing ? t('explore.following') : t('explore.add')}
+      {/* ── Row 2: why-moving + action ── */}
+      <View style={styles.bottomRow}>
+        <View style={styles.whyBlock}>
+          {coin.whyMoving ? (
+            <Text style={styles.whyMoving} numberOfLines={2}>
+              <Text style={styles.whyMovingLead}>{t('explore.whyMoving')} </Text>
+              {coin.whyMoving}
             </Text>
+          ) : (
+            <View style={styles.whyMovingPlaceholder} />
           )}
-        </TouchableOpacity>
+        </View>
+
+        <View style={styles.actionBlock}>
+          <TouchableOpacity
+            style={[styles.addBtn, isFollowing && styles.addBtnFollowing]}
+            onPress={onAddPress}
+            disabled={followBusy}
+            accessibilityRole="button"
+            accessibilityLabel={isFollowing ? t('accessibility.unfollowCoin') : t('explore.add')}
+          >
+            {followBusy ? (
+              <ActivityIndicator size="small" color={isFollowing ? c.primary[500] : c.success[500]} />
+            ) : (
+              <View style={styles.addBtnInner}>
+                {!isFollowing && <Plus size={13} color={c.success[500]} strokeWidth={2.5} />}
+                <Text style={[styles.addBtnText, isFollowing && styles.addBtnTextFollowing]}>
+                  {isFollowing ? t('explore.following') : t('explore.add')}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.holdingsHint}>
+            {isHeld ? t('explore.youHold') : t('explore.youDontHold')}
+          </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -149,38 +160,35 @@ export const MarketAnalysisCard = React.memo(function MarketAnalysisCard({
 function buildStyles(tokens: ThemeTokens) {
   const c = tokens.colors;
   const s = tokens.spacing;
-  const sem = tokens.semantic;
   const typo = tokens.typography;
-  const br = tokens.borderRadius;
   return StyleSheet.create({
-    container: {
-      marginHorizontal: sem.listMarginH,
-      marginBottom: sem.listGap,
-      backgroundColor: sem.surface,
-      borderRadius: br.md,
-      padding: s.md,
-      borderWidth: 1,
-      borderColor: c.neutral[100],
-      ...sem.cardShadow,
+    row: {
+      paddingHorizontal: s.md,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: tokens.border,
+      backgroundColor: tokens.bg,
     },
+    // ── Row 1 ──
     topRow: {
       flexDirection: 'row',
       alignItems: 'center',
     },
     rank: {
-      width: 22,
-      fontSize: typo.fontSizes.sm,
-      fontWeight: typo.fontWeights.bold,
+      width: 18,
+      fontSize: typo.fontSizes.xs,
+      fontWeight: typo.fontWeights.semibold,
       color: tokens.textMuted,
       marginRight: s.xs,
+      textAlign: 'center',
     },
-    coinIconContainer: {
-      width: 36,
-      height: 36,
-      backgroundColor: c.primary[100],
-      borderRadius: 18,
+    coinIconWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: tokens.isDark ? 'rgba(168,85,247,0.12)' : c.primary[100],
       borderWidth: 1,
-      borderColor: c.neutral[100],
+      borderColor: tokens.border,
       marginRight: s.sm,
       alignItems: 'center',
       justifyContent: 'center',
@@ -190,89 +198,113 @@ function buildStyles(tokens: ThemeTokens) {
       width: '100%',
       height: '100%',
     },
-    coinIconFallbackText: {
-      fontSize: typo.fontSizes.badge,
+    coinIconFallback: {
+      fontSize: 9,
       fontWeight: typo.fontWeights.bold,
-      color: c.primary[700],
+      color: c.primary[600],
     },
-    titleBlock: {
-      flex: 1,
-      minWidth: 0,
+    identity: {
+      width: 74,
       marginRight: s.sm,
     },
     coinName: {
-      fontSize: typo.fontSizes.base,
+      fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.semibold,
       color: tokens.text,
+      letterSpacing: -0.2,
     },
     coinSymbol: {
-      fontSize: typo.fontSizes.xs,
+      fontSize: typo.fontSizes.badge,
       color: tokens.textMuted,
       marginTop: 2,
+      fontWeight: typo.fontWeights.medium,
     },
     priceBlock: {
-      alignItems: 'flex-end',
+      width: 72,
+      marginRight: s.sm,
+      alignItems: 'flex-start',
     },
-    change: {
-      fontSize: typo.fontSizes.sm,
-      fontWeight: typo.fontWeights.semibold,
-    },
-    changePositive: { color: c.success[500] },
-    changeNegative: { color: c.danger[500] },
     price: {
-      fontSize: typo.fontSizes.base,
+      fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.semibold,
       color: tokens.text,
-      marginTop: 2,
+      fontVariant: ['tabular-nums'],
     },
-    tagsRow: {
+    change: {
+      fontSize: typo.fontSizes.badge,
+      fontWeight: typo.fontWeights.semibold,
+      marginTop: 2,
+      fontVariant: ['tabular-nums'],
+    },
+    positive: { color: c.success[500] },
+    negative: { color: c.danger[500] },
+    signalsBlock: {
+      flex: 1,
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: s.xs,
-      marginTop: s.sm,
+      gap: 4,
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+    },
+    // ── Row 2 ──
+    bottomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 10,
+      paddingLeft: 18 + 34 + s.sm,
+    },
+    whyBlock: {
+      flex: 1,
+      marginRight: s.sm,
     },
     whyMoving: {
-      marginTop: s.sm,
-      fontSize: typo.fontSizes.sm,
+      fontSize: typo.fontSizes.xs,
       color: tokens.textMuted,
-      lineHeight: 18,
+      lineHeight: 16,
     },
     whyMovingLead: {
       fontWeight: typo.fontWeights.semibold,
       color: tokens.text,
     },
-    footerRow: {
-      marginTop: s.md,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+    whyMovingPlaceholder: {
+      height: 32,
     },
-    holdingsHint: {
-      fontSize: typo.fontSizes.xs,
-      color: tokens.textMuted,
-      flex: 1,
-      marginRight: s.sm,
+    actionBlock: {
+      alignItems: 'center',
     },
     addBtn: {
-      paddingHorizontal: s.md,
-      paddingVertical: 8,
-      borderRadius: 9999,
       borderWidth: 1,
       borderColor: c.success[500],
-      minWidth: 88,
+      borderRadius: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      minWidth: 72,
       alignItems: 'center',
+      justifyContent: 'center',
     },
-    addBtnActive: {
+    addBtnFollowing: {
       borderColor: c.primary[400],
-      backgroundColor: c.primary[50],
+      backgroundColor: tokens.isDark ? 'rgba(168,85,247,0.10)' : c.primary[50],
+    },
+    addBtnInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
     },
     addBtnText: {
-      fontSize: typo.fontSizes.sm,
+      fontSize: typo.fontSizes.xs,
       fontWeight: typo.fontWeights.semibold,
-      color: c.success[600],
+      color: c.success[500],
+      letterSpacing: 0.02,
     },
-    addBtnTextActive: {
-      color: c.primary[700],
+    addBtnTextFollowing: {
+      color: c.primary[500],
+    },
+    holdingsHint: {
+      fontSize: 10,
+      color: tokens.textMuted,
+      marginTop: 4,
+      textAlign: 'center',
     },
   });
 }

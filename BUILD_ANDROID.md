@@ -1,6 +1,6 @@
 # Building Android APK for Testing
 
-This project is configured to generate APK files for testing using EAS Build. The `google-services.json` (Firebase) is wired for package `nayft.test`.
+This project is configured to generate APK files for testing using EAS Build. The `google-services.json` (Firebase) is wired for package `com.nayft.market`.
 
 ## Prerequisites
 
@@ -42,5 +42,5 @@ npx eas-cli build -p android --profile preview
 
 ## Configuration
 
-- **app.json** – `android.package`: `nayft.test`, `googleServicesFile`: `./google-services.json`
+- **app.json** – `android.package`: `com.nayft.market`, `googleServicesFile`: `./google-services.json`
 - **eas.json** – `preview` profile uses `buildType: "apk"` for direct installation

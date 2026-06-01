@@ -16,6 +16,7 @@ import { NewsDetailModal } from './NewsDetailModal';
 import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { buildAppWsUrl } from '@/src/config/wsBaseUrl';
 
 /** After this many article cards, insert the Featured carousel (sixth vertical block). */
 const FEATURE_INSERT_AFTER = 5;
@@ -68,10 +69,13 @@ export const HomeScreen: React.FC = () => {
   const setReaction = useAppStore((state) => state.setReaction);
   const newsReactions = useAppStore((state) => state.newsReactions);
 
-  const loadNews = useCallback(async () => {
+  const loadNews = useCallback(async (options?: { background?: boolean }) => {
+    const isBackground = options?.background === true;
     try {
-      setLoading(true);
-      setError(null);
+      if (!isBackground) {
+        setLoading(true);
+        setError(null);
+      }
       const news = await fetchNews(feedFilter, 1, 50, []);
       const { newsReactions: reactions, isSavedToAnyBoard: savedFn } = useAppStore.getState();
 
@@ -94,15 +98,80 @@ export const HomeScreen: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setError(err.message || t('errors.failedToLoadNews'));
+      if (!isBackground) {
+        setError(err.message || t('errors.failedToLoadNews'));
+      }
       console.error('Error loading news:', err);
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   }, [feedFilter, t]);
 
   useEffect(() => {
     loadNews();
+  }, [loadNews]);
+
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let refreshInFlight = false;
+    let closing = false;
+
+    const queueBackgroundRefresh = () => {
+      if (refreshInFlight || refreshTimer) return;
+      refreshTimer = setTimeout(async () => {
+        refreshTimer = null;
+        refreshInFlight = true;
+        try {
+          await loadNews({ background: true });
+        } finally {
+          refreshInFlight = false;
+        }
+      }, 350);
+    };
+
+    const connect = () => {
+      if (closing) return;
+      ws = new WebSocket(buildAppWsUrl());
+
+      ws.onopen = () => {
+        ws?.send(JSON.stringify({ type: 'news_subscribe' }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(String(event.data)) as { type?: string };
+          if (message.type === 'news:new') {
+            queueBackgroundRefresh();
+          }
+        } catch {
+          /* ignore malformed messages */
+        }
+      };
+
+      ws.onclose = () => {
+        ws = null;
+        if (closing) return;
+        reconnectTimer = setTimeout(connect, 2000);
+      };
+
+      ws.onerror = () => {
+        ws?.close();
+      };
+    };
+
+    connect();
+
+    return () => {
+      closing = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (refreshTimer) clearTimeout(refreshTimer);
+      ws?.close();
+      ws = null;
+    };
   }, [loadNews]);
 
   const handleRefresh = async () => {

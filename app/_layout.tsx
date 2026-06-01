@@ -12,6 +12,7 @@ import { useAppStore } from '@/src/state/useAppStore';
 import { useOnboardingStore } from '@/src/state/useOnboardingStore';
 import { useSplashStore } from '@/src/state/useSplashStore';
 import { useFeaturesStore, isOnboardingFeatureEnabled } from '@/src/utils/features';
+import { NotificationsGatewayHost } from '@/src/components/NotificationsGatewayHost';
 
 const RootView = Platform.OS === 'android'
   ? View
@@ -25,14 +26,17 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="splash" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="register" />
-      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-      <Stack.Screen name="+not-found" />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="splash" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+      <NotificationsGatewayHost />
+    </>
   );
 }
 

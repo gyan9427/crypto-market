@@ -6,8 +6,28 @@ import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { FAB } from '@/src/components/FAB';
 import { NavHeaderSearch } from '@/src/components/NavHeaderSearch';
-import { View } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
+import { useAuthStore } from '@/src/state/useAuthStore';
+
+function ProfileTabIcon({ color, size }: { color: string; size: number }) {
+  const user = useAuthStore((s) => s.user);
+  if (user?.avatar) {
+    return (
+      <Image
+        source={{ uri: user.avatar }}
+        style={[tabStyles.avatar, { width: size + 4, height: size + 4, borderRadius: (size + 4) / 2, borderColor: color }]}
+      />
+    );
+  }
+  return <User size={size} color={color} />;
+}
+
+const tabStyles = StyleSheet.create({
+  avatar: {
+    borderWidth: 1.5,
+  },
+});
 
 const formatSegmentTitle = (rawSegment: string) => {
   return rawSegment
@@ -29,36 +49,40 @@ export default function TabsLayout() {
 
   const screenOptions = useCallback(
     () => ({
-      tabBarActiveTintColor: tokens.colors.primary[500],
+      tabBarActiveTintColor: tokens.text,
       tabBarInactiveTintColor: tokens.textMuted,
       tabBarStyle: {
         backgroundColor: tokens.tabBarBg,
-        borderTopWidth: 1,
+        borderTopWidth: 0.5,
         borderTopColor: tokens.tabBarBorder,
         paddingBottom: tokens.spacing.sm,
-        paddingTop: tokens.spacing.sm,
-        height: 70,
+        paddingTop: tokens.spacing.xs,
+        height: 68,
         paddingRight: 0,
       },
       tabBarItemStyle: {
         flex: 1,
       },
       tabBarLabelStyle: {
-        fontSize: tokens.typography.fontSizes.xs,
-        fontWeight: tokens.typography.fontWeights.semibold,
+        fontSize: 11,
+        fontWeight: '600' as const,
+        letterSpacing: 0.08,
+        textTransform: 'uppercase' as const,
         fontFamily: tokens.typography.fontFamilies.sansSemiBold,
       },
       headerShown: true,
       headerStyle: {
-        backgroundColor: tokens.bgElevated,
+        backgroundColor: tokens.headerBg,
       },
       headerTintColor: tokens.text,
       headerTitleStyle: {
-        fontSize: tokens.typography.fontSizes.lg,
+        fontSize: tokens.typography.fontSizes.md,
         fontWeight: tokens.typography.fontWeights.semibold,
         fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+        letterSpacing: -0.4,
       },
-      headerShadowVisible: true,
+      headerShadowVisible: false,
+      headerBorderBottomColor: tokens.headerBorder,
     }),
     [tokens]
   );
@@ -82,6 +106,7 @@ export default function TabsLayout() {
         portfolio: t('nav.portfolio'),
         'search/index': t('nav.search'),
         rewards: t('nav.rewards'),
+        notifications: 'Notifications',
         'coin/[coinId]': t('nav.coin'),
         'coins/[coinId]': t('nav.coin'),
         'news-boards/index': t('nav.newsBoards'),
@@ -123,7 +148,8 @@ export default function TabsLayout() {
           options={{
             title: t('nav.home'),
             headerTitle: () => <NavHeaderSearch />,
-            headerTitleAlign: 'left',
+            headerTitleAlign: 'center',
+            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
             tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
             href: hasNewsFeed ? undefined : null,
           }}
@@ -132,6 +158,9 @@ export default function TabsLayout() {
           name="portfolio"
           options={{
             title: t('nav.portfolio'),
+            headerTitle: () => <NavHeaderSearch />,
+            headerTitleAlign: 'center',
+            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
             tabBarIcon: ({ color, size }) => <Briefcase size={size} color={color} />,
             href: hasPortfolioTracking ? undefined : null,
           }}
@@ -148,13 +177,9 @@ export default function TabsLayout() {
           name="market"
           options={{
             title: t('nav.market'),
-            headerTitle: () => (
-              <NavHeaderSearch
-                segment="all"
-                placeholder={t('search.placeholderMarket')}
-              />
-            ),
-            headerTitleAlign: 'left',
+            headerTitle: () => <NavHeaderSearch segment="all" />,
+            headerTitleAlign: 'center',
+            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
             tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
             href: hasMarketData ? undefined : null,
           }}
@@ -163,11 +188,10 @@ export default function TabsLayout() {
           name="profile"
           options={{
             title: t('nav.profile'),
-            headerTitle: () => (
-              <NavHeaderSearch segment="users" placeholder={t('search.placeholderUsers')} />
-            ),
-            headerTitleAlign: 'left',
-            tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+            headerTitle: () => <NavHeaderSearch segment="users" />,
+            headerTitleAlign: 'center',
+            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
+            tabBarIcon: ({ color, size }) => <ProfileTabIcon color={color} size={size} />,
           }}
         />
         <Tabs.Screen
@@ -202,6 +226,12 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="search/index"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="notifications"
           options={{
             href: null,
           }}

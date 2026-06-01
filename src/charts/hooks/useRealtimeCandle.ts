@@ -1,8 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 import type { KlineRecord, TradeRecord, KlineInterval } from '../types';
-import { resolveWsUrl } from '../services/chartApi';
-import { fetchTrades } from '../services/chartApi';
+import { fetchTrades, fetchKlines } from '../services/chartApi';
+import { MarketWebSocketManager } from '../services/MarketWebSocketManager';
 import { INTERVAL_MS } from '../constants';
 
 export interface UseRealtimeCandleParams {
@@ -10,186 +10,125 @@ export interface UseRealtimeCandleParams {
   interval: KlineInterval;
   lastCandle: KlineRecord | null;
   onNewCandle?: (candle: KlineRecord) => void;
-}
-
-function toMs(v: Date | string): number {
-  return typeof v === 'string' ? new Date(v).getTime() : v.getTime();
+  /** Called with gap-fill candles fetched after a WebSocket reconnect */
+  onGapFill?: (candles: KlineRecord[]) => void;
 }
 
 function mergeTradeIntoCandle(candle: KlineRecord, trade: TradeRecord): KlineRecord {
-  const price = trade.price;
-  const qty = trade.quantity;
   return {
     ...candle,
-    high: Math.max(candle.high, price),
-    low: Math.min(candle.low, price),
-    close: price,
-    volume: candle.volume + qty,
+    high: Math.max(candle.high, trade.price),
+    low: Math.min(candle.low, trade.price),
+    close: trade.price,
+    volume: candle.volume + trade.quantity,
     tradeCount: (candle.tradeCount ?? 0) + 1,
+  };
+}
+
+function tradeTimeMs(t: Date | string): number {
+  return typeof t === 'string' ? new Date(t).getTime() : t.getTime();
+}
+
+function candleFromTrade(trade: TradeRecord, intervalMs: number): KlineRecord {
+  const t = tradeTimeMs(trade.time);
+  const base = Math.floor(t / intervalMs) * intervalMs;
+  return {
+    openTime: base,
+    open: trade.price,
+    high: trade.price,
+    low: trade.price,
+    close: trade.price,
+    volume: trade.quantity,
+    tradeCount: 1,
   };
 }
 
 export function useRealtimeCandle(params: UseRealtimeCandleParams): {
   liveCandle: ReturnType<typeof useSharedValue<KlineRecord | null>>;
 } {
-  const { symbol, interval, lastCandle, onNewCandle } = params;
+  const { symbol, interval, lastCandle, onNewCandle, onGapFill } = params;
   const liveCandle = useSharedValue<KlineRecord | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const reconnectRef = useRef(0);
   const lastCandleRef = useRef<KlineRecord | null>(lastCandle);
+  const onNewCandleRef = useRef(onNewCandle);
+  const onGapFillRef = useRef(onGapFill);
 
   lastCandleRef.current = lastCandle;
+  onNewCandleRef.current = onNewCandle;
+  onGapFillRef.current = onGapFill;
 
-  const connectRef = useRef<() => void>(() => {});
-
-  const tryReconnect = useCallback(() => {
-    const delays = [1000, 2000, 4000, 8000, 16000, 30000];
-    const idx = Math.min(reconnectRef.current, delays.length - 1);
-    const delay = delays[idx];
-    reconnectRef.current += 1;
-    setTimeout(() => connectRef.current(), delay);
-  }, []);
-
-  const connect = useCallback(() => {
-    try {
-      const url = resolveWsUrl();
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        reconnectRef.current = 0;
-        ws.send(JSON.stringify({ action: 'subscribe', symbol, interval }));
-      };
-
-      ws.onmessage = (ev) => {
-        try {
-          const msg = JSON.parse(ev.data as string) as { type?: string; data?: TradeRecord | TradeRecord[] };
-          const trades = msg.data
-            ? Array.isArray(msg.data)
-              ? msg.data
-              : [msg.data]
-            : [];
-          for (const trade of trades) {
-            const t = toMs(trade.time);
-            const intervalMs = INTERVAL_MS[interval];
-            const base = Math.floor(t / intervalMs) * intervalMs;
-            const baseDate = new Date(base);
-
-            const current = liveCandle.value ?? lastCandleRef.current;
-            if (current) {
-              const currentBase = toMs(current.openTime);
-              const currentBaseAligned = Math.floor(currentBase / intervalMs) * intervalMs;
-              if (base > currentBaseAligned) {
-                if (onNewCandle) onNewCandle(current);
-                liveCandle.value = {
-                  openTime: baseDate,
-                  open: trade.price,
-                  high: trade.price,
-                  low: trade.price,
-                  close: trade.price,
-                  volume: trade.quantity,
-                  tradeCount: 1,
-                };
-              } else {
-                liveCandle.value = mergeTradeIntoCandle(current, trade);
-              }
-            } else {
-              liveCandle.value = {
-                openTime: baseDate,
-                open: trade.price,
-                high: trade.price,
-                low: trade.price,
-                close: trade.price,
-                volume: trade.quantity,
-                tradeCount: 1,
-              };
-            }
-          }
-        } catch {
-          // ignore parse errors
+  const processTrade = useCallback(
+    (trade: TradeRecord, currentLive: KlineRecord | null): KlineRecord => {
+      const intervalMs = INTERVAL_MS[interval];
+      const tradeMs = tradeTimeMs(trade.time);
+      const base = Math.floor(tradeMs / intervalMs) * intervalMs;
+      const current = currentLive ?? lastCandleRef.current;
+      if (current) {
+        const currentBase = Math.floor(current.openTime / intervalMs) * intervalMs;
+        if (base > currentBase) {
+          onNewCandleRef.current?.(current);
+          return candleFromTrade(trade, intervalMs);
         }
-      };
-
-      ws.onclose = () => {
-        wsRef.current = null;
-        tryReconnect();
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-    } catch {
-      tryReconnect();
-    }
-  }, [symbol, interval, onNewCandle, liveCandle, tryReconnect]);
-
-  connectRef.current = connect;
+        return mergeTradeIntoCandle(current, trade);
+      }
+      return candleFromTrade(trade, intervalMs);
+    },
+    [interval]
+  );
 
   useEffect(() => {
     liveCandle.value = lastCandle;
   }, [lastCandle, liveCandle]);
 
   useEffect(() => {
-    connect();
-
-    const poll = setInterval(async () => {
-      try {
-        const trades = await fetchTrades({ symbol, limit: 10 });
-        if (trades.length === 0) return;
-        const intervalMs = INTERVAL_MS[interval];
-        for (const trade of trades.reverse()) {
-          const t = toMs(trade.time);
-          const base = Math.floor(t / intervalMs) * intervalMs;
-          const baseDate = new Date(base);
-          const current = liveCandle.value ?? lastCandleRef.current;
-          if (current) {
-            const currentBase = toMs(current.openTime);
-            const currentBaseAligned = Math.floor(currentBase / intervalMs) * intervalMs;
-            if (base > currentBaseAligned) {
-              if (onNewCandle) onNewCandle(current);
-              liveCandle.value = {
-                openTime: baseDate,
-                open: trade.price,
-                high: trade.price,
-                low: trade.price,
-                close: trade.price,
-                volume: trade.quantity,
-                tradeCount: 1,
-              };
-            } else {
-              liveCandle.value = mergeTradeIntoCandle(current, trade);
-            }
-          } else {
-            liveCandle.value = {
-              openTime: baseDate,
-              open: trade.price,
-              high: trade.price,
-              low: trade.price,
-              close: trade.price,
-              volume: trade.quantity,
-              tradeCount: 1,
-            };
-          }
+    // Cold-start seed: fetch recent trades once before the first WebSocket message
+    fetchTrades({ symbol, limit: 20 })
+      .then((trades) => {
+        if (trades.length === 0 || liveCandle.value !== null) return;
+        let candle: KlineRecord | null = null;
+        for (const trade of trades) {
+          candle = processTrade(trade, candle);
         }
-      } catch {
-        // ignore
+        if (candle && liveCandle.value === null) {
+          liveCandle.value = candle;
+        }
+      })
+      .catch(() => {
+        // seed failure is non-fatal; WebSocket will fill in
+      });
+
+    const unsubscribe = MarketWebSocketManager.subscribe(
+      symbol,
+      interval,
+      (trade) => {
+        liveCandle.value = processTrade(trade, liveCandle.value);
+      },
+      {
+        // Issue 13: on reconnect, fetch the candles that arrived during the gap
+        onReconnect: (gapStartMs) => {
+          fetchKlines({
+            symbol,
+            interval,
+            from: new Date(gapStartMs).toISOString(),
+            to: new Date(Date.now()).toISOString(),
+            limit: 500,
+          })
+            .then((gapCandles) => {
+              if (gapCandles.length > 0) {
+                onGapFillRef.current?.(gapCandles);
+              }
+            })
+            .catch(() => {
+              // gap-fill failure is non-fatal; chart will be slightly stale until next reload
+            });
+        },
       }
-    }, 2000);
-    pollRef.current = poll;
+    );
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
+      unsubscribe();
       liveCandle.value = null;
     };
-  }, [symbol, interval, connect, liveCandle, onNewCandle]);
+  }, [symbol, interval, liveCandle, processTrade]);
 
   return { liveCandle };
 }

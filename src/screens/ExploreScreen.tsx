@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { setPerformanceScreen } from '../services/requestCache';
 import {
   View,
@@ -13,23 +13,28 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
-import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
-import { FilterPills } from '../components/FilterPills';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
-import { MarketAnalysisCard } from '../components/MarketAnalysisCard';
 import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import { useAppStore } from '../state/useAppStore';
-import { fetchActiveCoinsPage, fetchMarketAnalysis } from '../services/api';
-import { ExploreCategory, MarketAnalysisCoin, TrendingCoin } from '../types';
-import type { ThemeTokens } from '../theme/theme';
-import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { fetchActiveCoinsPage, fetchMarketSnapshot, enrichTrendingCoinsWithSnapshot } from '../services/api';
+import { ExploreCategory, TrendingCoin } from '../types';
 import { usePollingEffect } from '../hooks/usePollingEffect';
-import { LivePriceQuote, useMarketPriceStream } from '../hooks/useMarketPriceStream';
+import { LivePriceQuote, useMarketPriceStream, useSparklineHistory, seedPriceHistory } from '../hooks/useMarketPriceStream';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import type { ThemeTokens } from '@/src/theme/theme';
 
 const GRAPH_ANIM_MS = 280;
+
+const MARKET_ACCENT = '#6383ff';
+
+const CATEGORY_LABELS: Record<ExploreCategory, string> = {
+  trending: 'Trending',
+  top: 'Top',
+  analysis: 'Analysis',
+};
 
 const ExploreCoinRow = React.memo(function ExploreCoinRow({
   coin,
@@ -42,40 +47,36 @@ const ExploreCoinRow = React.memo(function ExploreCoinRow({
 }) {
   const { quotes } = useMarketPriceStream([coin.symbol], { enabled: isFocused });
   const liveQuote: LivePriceQuote | undefined = quotes[coin.symbol.toUpperCase()];
+  const liveTicks = useSparklineHistory(coin.symbol);
 
-  return <TrendingCoinCard coin={coin} liveQuote={liveQuote} onPress={onPress} />;
+  // Merge snapshot baseline with live ticks so the sparkline shows real movement.
+  // Keep last 40 snapshot points as context, then append all accumulated live ticks.
+  const enrichedCoin = useMemo(() => {
+    if (liveTicks.length < 2) return coin;
+    const base = coin.sparklineData;
+    const combined = base && base.length >= 2
+      ? [...base.slice(-40), ...liveTicks]
+      : liveTicks;
+    return { ...coin, sparklineData: combined };
+  }, [coin, liveTicks]);
+
+  // Seed history with snapshot closes so the sparkline is populated from the first render.
+  useEffect(() => {
+    if (coin.sparklineData && coin.sparklineData.length >= 2) {
+      seedPriceHistory(coin.symbol, coin.sparklineData);
+    }
+  }, [coin.symbol, coin.sparklineData]);
+
+  return <TrendingCoinCard coin={enrichedCoin} liveQuote={liveQuote} onPress={onPress} />;
 });
 
 ExploreCoinRow.displayName = 'ExploreCoinRow';
 
-const MarketAnalysisCoinRow = React.memo(function MarketAnalysisCoinRow({
-  coin,
-  rank,
-  isFocused,
-  onPress,
-}: {
-  coin: MarketAnalysisCoin;
-  rank: number;
-  isFocused: boolean;
-  onPress: (coinId: string) => void;
-}) {
-  const { quotes } = useMarketPriceStream([coin.symbol], { enabled: isFocused });
-  const liveQuote: LivePriceQuote | undefined = quotes[coin.symbol.toUpperCase()];
-
-  return (
-    <MarketAnalysisCard coin={coin} rank={rank} liveQuote={liveQuote} onPress={onPress} />
-  );
-});
-
-MarketAnalysisCoinRow.displayName = 'MarketAnalysisCoinRow';
-
 export const ExploreScreen: React.FC = () => {
-  const { t } = useTranslation();
-  const { tokens } = useAppTheme();
-  const styles = useMemo(() => buildExploreScreenStyles(tokens), [tokens]);
-  const c = tokens.colors;
   const router = useRouter();
   const isFocused = useIsFocused();
+  const { tokens } = useAppTheme();
+  const S = useMemo(() => buildExploreStyles(tokens), [tokens]);
 
   useEffect(() => {
     if (isFocused) setPerformanceScreen('Explore');
@@ -85,7 +86,6 @@ export const ExploreScreen: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState<TrendingCoin[]>([]);
-  const [analysisCoins, setAnalysisCoins] = useState<MarketAnalysisCoin[]>([]);
   const [nextCursor, setNextCursor] = useState<number | null | undefined>(undefined);
   const [marketGraphExpanded, setMarketGraphExpanded] = useState(true);
   const [measuredGraphHeight, setMeasuredGraphHeight] = useState(0);
@@ -103,73 +103,83 @@ export const ExploreScreen: React.FC = () => {
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
 
-  const categories: ExploreCategory[] = ['analysis', 'trending', 'top'];
-  const isAnalysis = exploreCategory === 'analysis';
+  const categories: ExploreCategory[] = ['trending', 'top'];
 
   const loadInitialPage = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       setCoins([]);
-      setAnalysisCoins([]);
       setNextCursor(undefined);
-
-      if (exploreCategory === 'analysis') {
-        const { coins: ac } = await fetchMarketAnalysis();
-        setAnalysisCoins(ac);
-      } else {
-        const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
-          undefined,
-          20,
-          exploreCategory
-        );
-        setCoins(pageCoins);
-        setNextCursor(cursor);
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load data';
-      setError(msg);
+      const cat = exploreCategory === 'analysis' ? 'trending' : exploreCategory;
+      const [{ coins: pageCoins, nextCursor: cursor }, snapshot] = await Promise.all([
+        fetchActiveCoinsPage(undefined, 20, cat),
+        fetchMarketSnapshot().catch(() => null),
+      ]);
+      setCoins(enrichTrendingCoinsWithSnapshot(pageCoins, snapshot));
+      setNextCursor(cursor);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load data');
       console.error('Error loading explore data:', err);
     } finally {
       setLoading(false);
     }
   }, [exploreCategory]);
 
+  // Trigger initial load (and reload on category change) without wiping the list
+  // on the periodic background refresh below.
+  useEffect(() => {
+    void loadInitialPage();
+  }, [loadInitialPage]);
+
+  // Silent background refresh — preserves existing sparklineData so sparklines
+  // don't flash blank each cycle, and skips the loading skeleton entirely.
+  const refreshCoins = useCallback(async () => {
+    try {
+      const cat = exploreCategory === 'analysis' ? 'trending' : exploreCategory;
+      const [{ coins: pageCoins, nextCursor: cursor }, snapshot] = await Promise.all([
+        fetchActiveCoinsPage(undefined, 20, cat),
+        fetchMarketSnapshot().catch(() => null),
+      ]);
+      const enriched = enrichTrendingCoinsWithSnapshot(pageCoins, snapshot);
+      setCoins((prev) => {
+        if (prev.length === 0) return enriched;
+        const sparklineMap = new Map(prev.map((c) => [c.id, c.sparklineData]));
+        return enriched.map((c) => ({
+          ...c,
+          sparklineData: c.sparklineData ?? sparklineMap.get(c.id),
+        }));
+      });
+      setNextCursor(cursor);
+    } catch {
+      // Silent — transient network blips shouldn't interrupt the visible list
+    }
+  }, [exploreCategory]);
+
+  usePollingEffect(
+    refreshCoins,
+    [refreshCoins, isFocused],
+    { enabled: isFocused, intervalMs: 20_000, immediate: false }
+  );
+
   const loadMore = useCallback(async () => {
-    if (exploreCategory === 'analysis') return;
     if (loadingMore || nextCursor === null || nextCursor === undefined) return;
     try {
       setLoadingMore(true);
+      const cat = exploreCategory === 'analysis' ? 'trending' : exploreCategory;
       const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
         nextCursor,
         20,
-        exploreCategory
+        cat
       );
       setCoins((prev) => [...prev, ...pageCoins]);
       setNextCursor(cursor);
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Error loading more:', err);
     } finally {
       setLoadingMore(false);
     }
   }, [loadingMore, nextCursor, exploreCategory]);
-
-  usePollingEffect(
-    loadInitialPage,
-    [loadInitialPage, isFocused],
-    { enabled: isFocused, intervalMs: 20000, immediate: true }
-  );
-
-  useEffect(() => {
-    if (exploreCategory === 'analysis') {
-      setMarketGraphExpanded(true);
-    } else {
-      graphMeasureReadyRef.current = false;
-      recordedGraphFullHeightRef.current = 0;
-      lastSyncedGraphHeightRef.current = 0;
-      setMeasuredGraphHeight(0);
-    }
-  }, [exploreCategory]);
 
   const handleCoinPress = (coinId: string) => {
     router.push(`/coin/${coinId}` as never);
@@ -184,7 +194,7 @@ export const ExploreScreen: React.FC = () => {
   };
 
   useLayoutEffect(() => {
-    if (!isAnalysis || measuredGraphHeight <= 0) return;
+    if (measuredGraphHeight <= 0) return;
 
     if (!graphMeasureReadyRef.current) {
       graphMeasureReadyRef.current = true;
@@ -203,11 +213,11 @@ export const ExploreScreen: React.FC = () => {
         graphHeightAnim.setValue(fullH);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- graphHeightAnim is stable Animated.Value
-  }, [measuredGraphHeight, marketGraphExpanded, expandedGraphTargetHeight, isAnalysis]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measuredGraphHeight, marketGraphExpanded, expandedGraphTargetHeight]);
 
   useEffect(() => {
-    if (!isAnalysis || measuredGraphHeight <= 0 || !graphMeasureReadyRef.current) return;
+    if (measuredGraphHeight <= 0 || !graphMeasureReadyRef.current) return;
     if (skipToggleEffectOnceRef.current) {
       skipToggleEffectOnceRef.current = false;
       return;
@@ -219,7 +229,7 @@ export const ExploreScreen: React.FC = () => {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [marketGraphExpanded, measuredGraphHeight, graphHeightAnim, expandedGraphTargetHeight, isAnalysis]);
+  }, [marketGraphExpanded, measuredGraphHeight, graphHeightAnim, expandedGraphTargetHeight]);
 
   const toggleGraph = () => {
     setMarketGraphExpanded((v) => !v);
@@ -230,188 +240,193 @@ export const ExploreScreen: React.FC = () => {
       ? { height: graphHeightAnim, overflow: 'hidden' as const }
       : { alignSelf: 'stretch' as const };
 
-  const listEmpty =
-    exploreCategory === 'analysis' ? analysisCoins.length === 0 : coins.length === 0;
+  // IMPORTANT: build this as a React element (not a component function) and
+  // pass the element to FlatList.ListHeaderComponent. VirtualizedList wraps
+  // a function/component prop as `<ListHeaderComponent />`, so passing an
+  // inline arrow function recreates the component type on every parent
+  // render and unmounts + remounts the entire header subtree — which would
+  // reset `MarketCapPlaceholder`'s internal state to zeros each cycle and
+  // cause the Market Overview values to flicker $X → $0 → $X. Passing an
+  // element lets React reconcile the tree in place and preserve child state.
+  const headerElement = (
+    <View style={S.headerSection}>
+      {/* Market overview toggle + collapsible chart */}
+      <TouchableOpacity
+        style={S.graphToggleRow}
+        onPress={toggleGraph}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={marketGraphExpanded ? 'Hide market chart' : 'Show market chart'}
+      >
+        <Text style={S.sectionTitle}>Market Overview</Text>
+        {marketGraphExpanded ? (
+          <ChevronUp size={16} color={tokens.textMuted} accessibilityLabel="" />
+        ) : (
+          <ChevronDown size={16} color={tokens.textMuted} accessibilityLabel="" />
+        )}
+      </TouchableOpacity>
 
-  const renderHeader = () => (
-    <View style={styles.headerSection}>
-      {isAnalysis ? (
-        <>
-          <View style={styles.graphChrome}>
-            <TouchableOpacity
-              style={styles.graphToggleRow}
-              onPress={toggleGraph}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={marketGraphExpanded ? 'Hide market chart' : 'Show market chart'}
-            >
-              <Text style={styles.graphToggleLabel}>{t('explore.marketOverview')}</Text>
-              {marketGraphExpanded ? (
-                <ChevronUp size={22} color={c.neutral[700]} accessibilityLabel="" />
-              ) : (
-                <ChevronDown size={22} color={c.neutral[700]} accessibilityLabel="" />
-              )}
-            </TouchableOpacity>
-            <Animated.View style={[styles.graphClip, graphClipStyle]}>
-              <View onLayout={onMarketGraphLayout} collapsable={false}>
-                <MarketCapPlaceholder liveUpdatesEnabled={isFocused && marketGraphExpanded} />
-              </View>
-            </Animated.View>
-          </View>
-          <Text style={styles.analysisSubtitle}>{t('explore.analysisSubtitle')}</Text>
-        </>
-      ) : null}
-      <FilterPills
-        categories={categories}
-        selectedCategory={exploreCategory}
-        onSelect={setExploreCategory}
-      />
-      {error ? (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorBannerText}>{error}</Text>
+      <Animated.View style={[S.graphClip, graphClipStyle]}>
+        <View onLayout={onMarketGraphLayout} collapsable={false}>
+          <MarketCapPlaceholder liveUpdatesEnabled={isFocused && marketGraphExpanded} />
         </View>
-      ) : null}
+      </Animated.View>
+
+      {/* Category tabs — same pattern as TradingScreen range tabs */}
+      <View style={S.categoryRow}>
+        {categories.map((cat) => (
+          <TouchableOpacity
+            key={cat}
+            style={[S.tab, exploreCategory === cat && S.tabActive]}
+            onPress={() => setExploreCategory(cat)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: exploreCategory === cat }}
+          >
+            <Text style={[S.tabText, exploreCategory === cat && S.tabTextActive]}>
+              {CATEGORY_LABELS[cat]}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {error && (
+        <View style={S.errorBanner}>
+          <Text style={S.errorBannerText}>{error}</Text>
+        </View>
+      )}
+
+      {/* Coins list label */}
+      <Text style={S.listLabel}>
+        {CATEGORY_LABELS[exploreCategory]} Coins
+      </Text>
     </View>
   );
 
-  if (error && listEmpty && !loading) {
+  if (error && coins.length === 0) {
     return (
-      <View style={styles.container}>
+      <View style={S.root}>
         <ServiceUnavailableState onRetry={loadInitialPage} />
       </View>
     );
   }
 
-  const listData =
-    loading && listEmpty
-      ? Array(5).fill(null)
-      : isAnalysis
-        ? analysisCoins
-        : coins;
-
   return (
-    <View style={styles.container}>
-      {renderHeader()}
+    <View style={S.root}>
       <FlatList
-        data={listData}
-        keyExtractor={(item, index) =>
-          isAnalysis
-            ? (item as MarketAnalysisCoin)?.coinId || `skeleton-${index}`
-            : (item as TrendingCoin)?.id || `skeleton-${index}`
-        }
+        data={loading && coins.length === 0 ? Array(5).fill(null) : coins}
+        keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
+        ListHeaderComponent={headerElement}
         renderItem={({ item, index }) => {
-          if (loading && listEmpty) {
+          if (loading && coins.length === 0) {
             return <TrendingCoinCardSkeleton key={`skeleton-${index}`} />;
           }
-          if (isAnalysis) {
-            const coin = item as MarketAnalysisCoin;
-            return (
-              <MarketAnalysisCoinRow
-                coin={coin}
-                rank={index + 1}
-                isFocused={isFocused}
-                onPress={handleCoinPress}
-              />
-            );
-          }
-          return (
-            <ExploreCoinRow
-              coin={item as TrendingCoin}
-              isFocused={isFocused}
-              onPress={handleCoinPress}
-            />
-          );
+          return <ExploreCoinRow coin={item} isFocused={isFocused} onPress={handleCoinPress} />;
         }}
-        onEndReached={isAnalysis ? undefined : loadMore}
+        onEndReached={loadMore}
         onEndReachedThreshold={0.5}
-        ListEmptyComponent={
-          !loading && isAnalysis && analysisCoins.length === 0 ? (
-            <Text style={styles.emptyAnalysis}>{t('explore.analysisEmpty')}</Text>
-          ) : null
-        }
         ListFooterComponent={
-          !isAnalysis && loadingMore ? (
-            <View style={styles.footerLoader}>
-              <ActivityIndicator size="small" color={c.primary[500]} />
+          loadingMore ? (
+            <View style={S.footerLoader}>
+              <ActivityIndicator size="small" color={MARKET_ACCENT} />
             </View>
           ) : null
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={S.listContent}
         initialNumToRender={10}
         maxToRenderPerBatch={5}
         showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[]}
       />
     </View>
   );
 };
 
-function buildExploreScreenStyles(tokens: ThemeTokens) {
-  const c = tokens.colors;
-  const s = tokens.spacing;
-  const typo = tokens.typography;
+function buildExploreStyles(tokens: ThemeTokens) {
+  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
+
   return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: tokens.bg,
-    },
-    headerSection: {
-      zIndex: 10,
-      backgroundColor: tokens.bg,
-      paddingBottom: s.xs,
-    },
-    graphChrome: {
-      marginBottom: 0,
-    },
-    graphToggleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: s.lg,
-      paddingTop: s.xs,
-      paddingBottom: s.sm,
-    },
-    graphToggleLabel: {
-      fontSize: typo.fontSizes.sm,
-      fontWeight: typo.fontWeights.semibold,
-      color: tokens.text,
-    },
-    graphClip: {
-      marginBottom: 0,
-    },
-    analysisSubtitle: {
-      fontSize: typo.fontSizes.sm,
-      color: tokens.textMuted,
-      paddingHorizontal: s.lg,
-      paddingBottom: s.sm,
-      lineHeight: 18,
-    },
-    errorBanner: {
-      backgroundColor: c.error[50],
-      padding: s.md,
-      marginHorizontal: 24,
-      marginTop: s.xs,
-      borderRadius: 16,
-    },
-    errorBannerText: {
-      color: c.error[700],
-      fontSize: 14,
-    },
-    listContent: {
-      paddingTop: s.xs,
-      paddingBottom: 96,
-      paddingHorizontal: s.lg,
-      flexGrow: 1,
-    },
-    footerLoader: {
-      paddingVertical: s.md,
-      alignItems: 'center',
-    },
-    emptyAnalysis: {
-      textAlign: 'center',
-      marginTop: s.lg,
-      paddingHorizontal: s.lg,
-      fontSize: typo.fontSizes.sm,
-      color: tokens.textMuted,
-    },
+  root: {
+    flex: 1,
+    backgroundColor: tokens.bg,
+  },
+
+  // Header chrome
+  headerSection: {
+    backgroundColor: tokens.bg,
+  },
+  graphToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: tokens.textMuted,
+    letterSpacing: 0.2,
+  },
+  graphClip: {},
+
+  // Category tabs — mirrors TradingScreen range tabs
+  categoryRow: {
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  tabActive: {
+    backgroundColor: accentBg,
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: tokens.textMuted,
+  },
+  tabTextActive: {
+    color: MARKET_ACCENT,
+  },
+
+  // Error banner
+  errorBanner: {
+    backgroundColor: tokens.isDark ? 'rgba(240,82,82,0.12)' : 'rgba(240,82,82,0.08)',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: tokens.isDark ? 'rgba(240,82,82,0.25)' : 'rgba(240,82,82,0.2)',
+  },
+  errorBannerText: {
+    color: tokens.colors.error[500],
+    fontSize: 12,
+  },
+
+  // List section label
+  listLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: tokens.textMuted,
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+    letterSpacing: 0.2,
+  },
+
+  listContent: {
+    paddingBottom: 96,
+  },
+  footerLoader: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
   });
 }

@@ -6,59 +6,55 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 export const TrendingCoinCardSkeleton: React.FC = () => {
   const { tokens } = useAppTheme();
-  const styles = useMemo(() => buildTrendingCoinCardSkeletonStyles(tokens), [tokens]);
-  const sem = tokens.semantic;
+  const styles = useMemo(() => buildStyles(tokens), [tokens]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.leftSection}>
-        <Skeleton width={40} height={24} borderRadius={sem.cardRadiusSmall} style={styles.badge} />
-        <View style={styles.coinDetails}>
-          <Skeleton width={60} height={14} style={styles.marginBottom} />
-          <Skeleton width={80} height={12} />
-        </View>
+    <View style={styles.row}>
+      <Skeleton width={18} height={12} borderRadius={4} style={styles.rank} />
+      <Skeleton width={34} height={34} borderRadius={17} style={styles.icon} />
+      <View style={styles.identity}>
+        <Skeleton width={64} height={13} borderRadius={4} style={styles.mb2} />
+        <Skeleton width={36} height={10} borderRadius={4} />
       </View>
-      <View style={styles.rightSection}>
-        <Skeleton width={50} height={13} style={styles.marginBottom} />
-        <Skeleton width={70} height={13} style={styles.marginBottom} />
-        <Skeleton width={24} height={11} />
+      <Skeleton width={60} height={28} borderRadius={4} style={styles.sparkline} />
+      <View style={styles.priceBlock}>
+        <Skeleton width={56} height={13} borderRadius={4} style={styles.mb2} />
+        <Skeleton width={40} height={10} borderRadius={4} />
       </View>
     </View>
   );
 };
 
-function buildTrendingCoinCardSkeletonStyles(tokens: ThemeTokens) {
+function buildStyles(tokens: ThemeTokens) {
   const s = tokens.spacing;
-  const sem = tokens.semantic;
   return StyleSheet.create({
-    container: {
+    row: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
-      marginHorizontal: sem.listMarginH,
-      marginBottom: sem.listGap,
-      backgroundColor: sem.surface,
-      borderRadius: sem.cardRadiusSmall,
-      padding: sem.cardPadding,
-      ...sem.cardShadow,
+      paddingHorizontal: s.md,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: tokens.border,
+      backgroundColor: tokens.bg,
     },
-    leftSection: {
-      flexDirection: 'row',
-      alignItems: 'center',
+    rank: {
+      marginRight: s.xs,
+    },
+    icon: {
+      marginRight: s.sm,
+    },
+    identity: {
       flex: 1,
       marginRight: s.sm,
     },
-    badge: {
-      marginRight: s.sm,
+    sparkline: {
+      marginRight: s.md,
     },
-    coinDetails: {
-      flex: 1,
-    },
-    marginBottom: {
-      marginBottom: 2,
-    },
-    rightSection: {
+    priceBlock: {
       alignItems: 'flex-end',
+    },
+    mb2: {
+      marginBottom: 4,
     },
   });
 }

@@ -334,30 +334,32 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   errBox: {
-    borderRadius: 14,
+    borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.30)',
   },
   errText: {
-    fontSize: 14,
+    fontSize: 13,
     lineHeight: 20,
     textAlign: 'center',
   },
   link: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
   },
   muted: {
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
     lineHeight: 22,
   },
   boldLink: {
-    fontWeight: '700',
+    fontWeight: '600',
   },
   subtleFoot: {
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
     marginBottom: 4,
   },

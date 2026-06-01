@@ -393,8 +393,10 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
   const { semantic, spacing, typography, borderRadius } = tokens;
   return StyleSheet.create({
   container: {
-    backgroundColor: semantic.surface,
+    backgroundColor: tokens.surface,
     borderRadius: semantic.cardRadius,
+    borderWidth: 1,
+    borderColor: tokens.border,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
     ...semantic.cardShadow,
@@ -416,18 +418,24 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
     fontSize: typography.fontSizes.badge,
     color: tokens.textMuted,
     fontWeight: typography.fontWeights.semibold,
+    fontFamily: typography.fontFamilies.sansSemiBold,
     marginBottom: spacing.xs,
+    letterSpacing: typography.letterSpacing.eyebrow * 0.5,
+    textTransform: 'uppercase',
   },
   gridTitle: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
-    color: c.neutral[900],
+    fontFamily: typography.fontFamilies.sansSemiBold,
+    color: tokens.text,
     lineHeight: 18,
+    letterSpacing: typography.letterSpacing.caption,
     marginBottom: spacing.xs,
   },
   gridSnippet: {
     fontSize: typography.fontSizes.xs,
-    color: c.neutral[600],
+    fontFamily: typography.fontFamilies.sans,
+    color: tokens.textMuted,
     lineHeight: 16,
   },
   header: {
@@ -448,14 +456,16 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
   sourceAttribution: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
-    color: c.neutral[800],
+    fontFamily: typography.fontFamilies.sansSemiBold,
+    color: tokens.text,
+    letterSpacing: typography.letterSpacing.caption,
   },
   coinAvatarImage: {
     width: 40,
     height: 40,
     borderRadius: 20,
     marginRight: spacing.sm,
-    backgroundColor: c.neutral[200],
+    backgroundColor: tokens.border,
   },
   coinAvatarPlaceholder: {
     width: 40,
@@ -469,10 +479,12 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
   coinAvatarText: {
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.bold,
+    fontFamily: typography.fontFamilies.sansBold,
     color: c.white,
   },
   timeAgo: {
     fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamilies.sans,
     color: tokens.textMuted,
     marginTop: 2,
   },
@@ -484,6 +496,7 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
   },
   moreCoins: {
     fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamilies.sans,
     color: tokens.textMuted,
     alignSelf: 'center',
     marginLeft: spacing.xs,
@@ -498,24 +511,27 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
   heroWrap: {
     width: '100%',
     aspectRatio: 16 / 9,
-    backgroundColor: c.neutral[200],
+    backgroundColor: tokens.isDark ? c.neutral[800] : c.neutral[200],
   },
   heroImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: c.neutral[200],
+    backgroundColor: tokens.isDark ? c.neutral[800] : c.neutral[200],
   },
   heroPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: c.neutral[300],
+    backgroundColor: tokens.isDark
+      ? 'rgba(168,85,247,0.08)'
+      : 'rgba(168,85,247,0.04)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   heroPlaceholderText: {
     fontSize: 32,
     fontWeight: typography.fontWeights.bold,
-    color: c.neutral[500],
+    fontFamily: typography.fontFamilies.sansBold,
+    color: tokens.isDark ? c.primary[700] : c.primary[200],
   },
   heroFollowButton: {
     position: 'absolute',
@@ -530,16 +546,18 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
     borderColor: c.primary[500],
   },
   heroFollowButtonFollowing: {
-    backgroundColor: semantic.surface,
-    borderColor: c.neutral[300],
+    backgroundColor: tokens.surface,
+    borderColor: tokens.borderStrong,
   },
   heroFollowText: {
     fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.bold,
+    fontWeight: typography.fontWeights.semibold,
+    fontFamily: typography.fontFamilies.sansSemiBold,
     color: c.white,
+    letterSpacing: typography.letterSpacing.button,
   },
   heroFollowTextFollowing: {
-    color: c.neutral[700],
+    color: tokens.text,
   },
   content: {
     padding: spacing.md,
@@ -547,19 +565,23 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
   title: {
     fontSize: typography.fontSizes.lg,
     fontWeight: typography.fontWeights.semibold,
-    color: c.neutral[900],
+    fontFamily: typography.fontFamilies.sansSemiBold,
+    color: tokens.text,
     lineHeight: 24,
+    letterSpacing: typography.letterSpacing.subheading * 0.5,
     marginBottom: spacing.sm,
   },
   snippet: {
     fontSize: typography.fontSizes.sm,
-    color: c.neutral[600],
+    fontFamily: typography.fontFamilies.sans,
+    color: tokens.textMuted,
     lineHeight: 18,
     marginTop: spacing.xs,
   },
   sourceMeta: {
     marginTop: spacing.sm,
     fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamilies.sansMedium,
     color: tokens.textMuted,
     fontWeight: typography.fontWeights.medium,
   },
@@ -569,8 +591,11 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
   relatedCoinsHeader: {
     fontSize: typography.fontSizes.badge,
     fontWeight: typography.fontWeights.semibold,
-    color: c.neutral[600],
+    fontFamily: typography.fontFamilies.sansSemiBold,
+    color: tokens.textMuted,
     marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: typography.letterSpacing.eyebrow * 0.5,
   },
   relatedCoinsRow: {
     flexDirection: 'row',
@@ -580,13 +605,21 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
   relatedCoinBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: semantic.cardRadiusSmall,
-    backgroundColor: '#FEF08A',
+    borderRadius: borderRadius.xs,
+    backgroundColor: tokens.isDark
+      ? 'rgba(168,85,247,0.15)'
+      : 'rgba(168,85,247,0.10)',
+    borderWidth: 1,
+    borderColor: tokens.isDark
+      ? 'rgba(168,85,247,0.30)'
+      : 'rgba(168,85,247,0.25)',
   },
   relatedCoinBadgeText: {
     fontSize: typography.fontSizes.badge,
     fontWeight: typography.fontWeights.semibold,
-    color: '#854D0E',
+    fontFamily: typography.fontFamilies.sansSemiBold,
+    color: tokens.isDark ? c.primary[400] : c.primary[700],
+    letterSpacing: typography.letterSpacing.button,
   },
   footerRow: {
     flexDirection: 'row',
@@ -597,7 +630,7 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
     paddingBottom: spacing.sm,
     gap: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: c.neutral[200],
+    borderTopColor: tokens.borderSubtle,
   },
   footerSpacer: {
     flex: 1,
@@ -610,16 +643,22 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     marginRight: spacing.sm,
-    backgroundColor: c.primary[50],
+    backgroundColor: tokens.isDark
+      ? 'rgba(168,85,247,0.12)'
+      : 'rgba(168,85,247,0.08)',
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: c.primary[200],
+    borderColor: tokens.isDark
+      ? 'rgba(168,85,247,0.25)'
+      : 'rgba(168,85,247,0.20)',
     gap: 4,
   },
   primaryCtaText: {
-    fontSize: typography.fontSizes.md,
+    fontSize: typography.fontSizes.base,
     fontWeight: typography.fontWeights.semibold,
-    color: c.primary[700],
+    fontFamily: typography.fontFamilies.sansSemiBold,
+    color: tokens.isDark ? c.primary[400] : c.primary[700],
+    letterSpacing: typography.letterSpacing.button,
   },
   openSiteTouchable: {
     flexDirection: 'row',
@@ -631,7 +670,9 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
   openSiteText: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
-    color: c.primary[500],
+    fontFamily: typography.fontFamilies.sansSemiBold,
+    color: c.primary[tokens.isDark ? 400 : 500],
+    letterSpacing: typography.letterSpacing.button,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -649,6 +690,7 @@ function buildNewsCardStyles(tokens: ThemeTokens) {
   },
   actionText: {
     fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamilies.sansMedium,
     color: tokens.textMuted,
     marginLeft: spacing.xs,
     fontWeight: typography.fontWeights.medium,

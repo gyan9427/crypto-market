@@ -93,9 +93,9 @@ export function AnimatedSplash({ onDone }: Props) {
   const logoSource = isDark ? LOGO_LIGHT : LOGO_DARK;
 
   const lightGradientColors = [
-    tokens.colors.primary[50],
-    tokens.colors.primary[200],
-    tokens.colors.primary[300],
+    '#f3e8ff',
+    '#e9d5ff',
+    '#d8b4fe',
   ] as const;
 
   useEffect(() => {
@@ -284,11 +284,11 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   sloganText: {
-    fontSize: Platform.OS === 'web' ? 19 : 17,
-    letterSpacing: 0.55,
-    lineHeight: Platform.OS === 'web' ? 28 : 25,
+    fontSize: Platform.OS === 'web' ? 17 : 15,
+    letterSpacing: 0.12,
+    lineHeight: Platform.OS === 'web' ? 26 : 23,
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   accentHairline: {
     alignSelf: 'center',
