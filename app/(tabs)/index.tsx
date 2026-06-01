@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { HomeScreen } from '@/src/screens/HomeScreen';
 import { StatusBar } from 'expo-status-bar';
+import { HomeScreen } from '@/src/screens/HomeScreen';
 import { setPerformanceScreen } from '@/src/services/requestCache';
 
 export default function HomeTab() {
@@ -12,7 +12,7 @@ export default function HomeTab() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <HomeScreen />
     </SafeAreaView>
   );
@@ -21,6 +21,5 @@ export default function HomeTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
 });

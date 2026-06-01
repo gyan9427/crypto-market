@@ -8,7 +8,7 @@
     "scheme": "nayft",
     "userInterfaceStyle": "automatic",
     "android": {
-      "package": "com.nayft.market",
+      "package": "com.nayft.app",
       "versionCode": 2,
       "compileSdkVersion": 34,
       "targetSdkVersion": 34,
@@ -18,7 +18,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nayft.market",
+      "bundleIdentifier": "com.nayft.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -32,7 +32,8 @@
       "expo-router",
       "expo-font",
       "expo-web-browser",
-      "expo-localization"
+      "expo-localization",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true
