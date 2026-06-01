@@ -1,8 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+import {
+  GoogleSignin,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import { useTranslation } from 'react-i18next';
 import { StatusBar } from 'expo-status-bar';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -17,126 +19,10 @@ import { login, loginWithGoogle } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { trackEvent } from '@/src/utils/trackEvent';
 
-void WebBrowser.maybeCompleteAuthSession();
-
-const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID;
-const IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS;
-const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB;
-
 const PASSWORD_RESET_URL =
   process.env.EXPO_PUBLIC_PASSWORD_RESET_URL ?? 'https://nayft.com';
 
-const ANDROID_ID = ANDROID_CLIENT_ID?.trim() ?? '';
-const IOS_ID = IOS_CLIENT_ID?.trim() ?? '';
-const WEB_ID = WEB_CLIENT_ID?.trim() ?? '';
-
-/**
- * `expo-auth-session/providers/google` enforces platform-specific IDs (web requires webClientId).
- * Never call `Google.useAuthRequest` unless the current platform's client ID is configured.
- */
-function isGoogleOAuthHookSupportedOnThisPlatform(): boolean {
-  switch (Platform.OS) {
-    case 'web':
-      return WEB_ID.length > 0;
-    case 'android':
-      return ANDROID_ID.length > 0;
-    case 'ios':
-      return IOS_ID.length > 0;
-    default:
-      return WEB_ID.length > 0 || ANDROID_ID.length > 0 || IOS_ID.length > 0;
-  }
-}
-
-/** Mount only when Expo's Google invariants are satisfied — avoids crashing web without webClientId. */
-function LoginGoogleOAuthSection(props: {
-  palette: ReturnType<typeof getAuthPalette>;
-  passwordLoading: boolean;
-  googleLoading: boolean;
-  setGoogleLoading: (value: boolean) => void;
-  setError: (value: string | null) => void;
-  router: ReturnType<typeof useRouter>;
-  t: (key: string) => string;
-}) {
-  const { palette, passwordLoading, googleLoading, setGoogleLoading, setError, router, t } = props;
-
-  const googleAuthConfig =
-    Platform.OS === 'web'
-      ? { webClientId: WEB_ID, scopes: ['openid', 'profile', 'email'] as const }
-      : Platform.OS === 'android'
-        ? { androidClientId: ANDROID_ID, scopes: ['openid', 'profile', 'email'] as const }
-        : { iosClientId: IOS_ID, scopes: ['openid', 'profile', 'email'] as const };
-
-  const [, googleResponse, promptGoogle] = Google.useAuthRequest({
-    androidClientId:
-      'androidClientId' in googleAuthConfig ? googleAuthConfig.androidClientId : undefined,
-    iosClientId: 'iosClientId' in googleAuthConfig ? googleAuthConfig.iosClientId : undefined,
-    webClientId: 'webClientId' in googleAuthConfig ? googleAuthConfig.webClientId : undefined,
-    scopes: [...googleAuthConfig.scopes],
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    async function consumeGoogle(): Promise<void> {
-      const r = googleResponse;
-      if (!r || r.type !== 'success') return;
-
-      const params = r.params as Record<string, string | undefined>;
-      const idToken =
-        r.authentication?.idToken ??
-        (typeof params.id_token === 'string' ? params.id_token : undefined);
-
-      if (!idToken) {
-        const msg =
-          'Google sign-in succeeded but did not return an ID token. Add webClientId / platform client IDs in env.';
-        if (!cancelled) setError(msg);
-        return;
-      }
-
-      try {
-        if (!cancelled) {
-          setGoogleLoading(true);
-          setError(null);
-        }
-        trackEvent({ featureKey: 'auth', eventType: 'google_login_attempt', metadata: {} });
-        await loginWithGoogle(idToken);
-        if (!cancelled) router.replace('/(tabs)' as never);
-      } catch (err: unknown) {
-        const m = err instanceof Error ? err.message : t('auth.errorLoginFailed');
-        if (!cancelled) setError(m);
-      } finally {
-        if (!cancelled) setGoogleLoading(false);
-      }
-    }
-    void consumeGoogle();
-    return () => {
-      cancelled = true;
-    };
-  }, [googleResponse, router, setError, setGoogleLoading, t]);
-
-  const onGooglePress = async () => {
-    if (googleLoading || passwordLoading) return;
-    setError(null);
-    try {
-      await promptGoogle({ showInRecents: true });
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : t('auth.errorGoogleUnavailable'));
-    }
-  };
-
-  return (
-    <GoogleButton
-      palette={palette}
-      label={t('auth.continueWithGoogle')}
-      onPress={onGooglePress}
-      loading={googleLoading}
-      disabled={passwordLoading || googleLoading}
-    />
-  );
-}
-
 export default function LoginScreen() {
-  const googleConfigured = useMemo(() => isGoogleOAuthHookSupportedOnThisPlatform(), []);
-
   const { t } = useTranslation();
   const { effectiveScheme } = useAppTheme();
   const router = useRouter();
@@ -149,7 +35,6 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const devGoogleWarnedRef = useRef(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -157,15 +42,36 @@ export default function LoginScreen() {
     }
   }, [isAuthenticated, router]);
 
-  useEffect(() => {
-    if (!__DEV__ || googleConfigured || devGoogleWarnedRef.current) return;
-    devGoogleWarnedRef.current = true;
-    console.warn(
-      Platform.OS === 'web'
-        ? '[auth] Set EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB for Continue with Google on web.'
-        : '[auth] Set EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID / EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS for native Google login.'
-    );
-  }, [googleConfigured]);
+  const handleGoogleSignIn = async () => {
+    if (googleLoading || loading) return;
+    setError(null);
+    try {
+      await GoogleSignin.hasPlayServices();
+      setGoogleLoading(true);
+      trackEvent({ featureKey: 'auth', eventType: 'google_login_attempt', metadata: {} });
+      const userInfo = await GoogleSignin.signIn();
+      const idToken = userInfo.data?.idToken;
+      if (!idToken) {
+        setError(t('auth.errorGoogleUnavailable'));
+        return;
+      }
+      await loginWithGoogle(idToken);
+      router.replace('/(tabs)' as never);
+    } catch (err: unknown) {
+      const code = (err as any)?.code;
+      if (code === statusCodes.SIGN_IN_CANCELLED) {
+        // user cancelled — no error shown
+      } else if (code === statusCodes.IN_PROGRESS) {
+        // already in progress — ignore
+      } else if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setError(t('auth.googleUnavailable'));
+      } else {
+        setError(err instanceof Error ? err.message : t('auth.errorGoogleUnavailable'));
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleLogin = useCallback(async () => {
     if (!email || !password) {
@@ -266,31 +172,13 @@ export default function LoginScreen() {
             accessibilityLabel={t('auth.logInAccessibility')}
           />
 
-          {googleConfigured ? (
-            <LoginGoogleOAuthSection
-              palette={palette}
-              passwordLoading={loading}
-              googleLoading={googleLoading}
-              setGoogleLoading={setGoogleLoading}
-              setError={setError}
-              router={router}
-              t={t}
-            />
-          ) : (
-            <GoogleButton
-              palette={palette}
-              label={t('auth.continueWithGoogle')}
-              onPress={() => undefined}
-              disabled
-              loading={false}
-            />
-          )}
-
-          {!googleConfigured && !__DEV__ ? (
-            <Text style={[styles.subtleFoot, { color: palette.textSecondary }]}>
-              {Platform.OS === 'web' ? t('auth.googleUnavailableWeb') : t('auth.googleUnavailable')}
-            </Text>
-          ) : null}
+          <GoogleButton
+            palette={palette}
+            label={t('auth.continueWithGoogle')}
+            onPress={handleGoogleSignIn}
+            loading={googleLoading}
+            disabled={loading || googleLoading}
+          />
         </Animated.View>
 
         <Animated.View
@@ -357,10 +245,5 @@ const styles = StyleSheet.create({
   },
   boldLink: {
     fontWeight: '600',
-  },
-  subtleFoot: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: 4,
   },
 });
