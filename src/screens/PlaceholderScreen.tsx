@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
-
+import { AppText } from '@/src/design-system/primitives/AppText';
+import { AppSurface } from '@/src/design-system/primitives/AppSurface';
 interface PlaceholderScreenProps {
   title: string;
 }
@@ -14,10 +15,14 @@ export const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({ title }) =
   const styles = useMemo(() => buildPlaceholderScreenStyles(tokens), [tokens]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{t('common.comingSoon')}</Text>
-    </View>
+    <AppSurface variant="default" style={styles.container}>
+      <AppText variant="heading-xl" color="strong">
+        {title}
+      </AppText>
+      <AppText variant="body-m" color="muted" style={styles.subtitleSpacing}>
+        {t('common.comingSoon')}
+      </AppText>
+    </AppSurface>
   );
 };
 
@@ -29,15 +34,8 @@ function buildPlaceholderScreenStyles(tokens: ThemeTokens) {
       alignItems: 'center',
       backgroundColor: tokens.bg,
     },
-    title: {
-      fontSize: 24,
-      fontWeight: '700',
-      color: tokens.text,
-      marginBottom: 8,
-    },
-    subtitle: {
-      fontSize: 16,
-      color: tokens.textMuted,
+    subtitleSpacing: {
+      marginTop: tokens.spacing.sm,
     },
   });
 }

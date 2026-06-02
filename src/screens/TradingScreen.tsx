@@ -26,10 +26,7 @@ import type { Coin, CoinStats, NewsItem, ReactionType } from '@/src/types';
 import type { KlineInterval } from '@/src/types/kline';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
-
-const TRADE_GREEN = '#27c485';
-const TRADE_RED = '#f05252';
-const TRADE_ACCENT = '#6383ff';
+import { TradingHeader } from '@/src/screens/trading/TradingHeader';
 
 // ── Interval mapping ──────────────────────────────────────────────────────────
 type RangeTab = '1H' | '1D' | '1W' | '1M' | '3M' | '1Y';
@@ -239,7 +236,7 @@ export function TradingScreen() {
   if (loading) {
     return (
       <View style={[S.root, S.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={TRADE_ACCENT} />
+        <ActivityIndicator color={tokens.chart.line} />
       </View>
     );
   }
@@ -262,19 +259,14 @@ export function TradingScreen() {
 
   return (
     <View style={S.root}>
-      {/* Header */}
-      <View style={[S.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={S.iconBtn} onPress={() => router.back()}>
-          <ChevronLeft size={16} color={tokens.textMuted} />
-        </TouchableOpacity>
-        <View style={S.coinInfo}>
-          <Text style={S.coinName}>{coin.name}</Text>
-          <Text style={S.coinLabel}>{coin.symbol.toUpperCase()} / USDT</Text>
-        </View>
-        <View style={S.iconBtn}>
-          <Bell size={16} color={tokens.textMuted} />
-        </View>
-      </View>
+      <TradingHeader
+        coinName={coin.name}
+        coinSymbol={`${coin.symbol.toUpperCase()} / USDT`}
+        tokens={tokens}
+        styles={S}
+        topInset={insets.top}
+        onBack={() => router.back()}
+      />
 
       <ScrollView
         style={S.scroll}
@@ -286,7 +278,7 @@ export function TradingScreen() {
           <Text style={S.priceMain}>${fmtPrice(price)}</Text>
           <View style={S.priceRow}>
             <View style={[S.changeBadge, { backgroundColor: isUp ? 'rgba(39,196,133,0.12)' : 'rgba(240,82,82,0.12)' }]}>
-              <Text style={[S.changeText, { color: isUp ? TRADE_GREEN : TRADE_RED }]}>
+              <Text style={[S.changeText, { color: isUp ? tokens.chart.bull : tokens.chart.bear }]}>
                 {isUp ? '▲' : '▼'} {Math.abs(change).toFixed(2)}%
               </Text>
             </View>
@@ -342,12 +334,12 @@ export function TradingScreen() {
           <View style={S.statsRow}>
             <View style={S.statCell}>
               <Text style={S.statLabel}>24h High</Text>
-              <Text style={[S.statValue, { color: TRADE_GREEN }]}>${fmtPrice(high24h)}</Text>
+              <Text style={[S.statValue, { color: tokens.chart.bull }]}>${fmtPrice(high24h)}</Text>
             </View>
             <View style={S.statDivV} />
             <View style={S.statCell}>
               <Text style={S.statLabel}>24h Low</Text>
-              <Text style={[S.statValue, { color: TRADE_RED }]}>${fmtPrice(low24h)}</Text>
+              <Text style={[S.statValue, { color: tokens.chart.bear }]}>${fmtPrice(low24h)}</Text>
             </View>
           </View>
           <View style={S.statDivH} />
@@ -427,6 +419,7 @@ export function TradingScreen() {
 }
 
 function buildTradingStyles(tokens: ThemeTokens) {
+  const accent = tokens.chart.line;
   const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
   const chipOnBorder = tokens.isDark ? 'rgba(99,131,255,0.4)' : 'rgba(99,131,255,0.45)';
   const chipOnBg = tokens.isDark ? 'rgba(99,131,255,0.1)' : 'rgba(99,131,255,0.08)';
@@ -472,7 +465,7 @@ function buildTradingStyles(tokens: ThemeTokens) {
   tab: { flex: 1, alignItems: 'center', paddingVertical: 5, borderRadius: 8 },
   tabActive: { backgroundColor: accentBg },
   tabText: { fontSize: 12, fontWeight: '500', color: tokens.textMuted },
-  tabTextActive: { color: TRADE_ACCENT },
+  tabTextActive: { color: accent },
 
   // Indicator chips
   indicatorRow: {
@@ -491,7 +484,7 @@ function buildTradingStyles(tokens: ThemeTokens) {
   },
   chipOn: { borderColor: chipOnBorder, backgroundColor: chipOnBg },
   chipText: { fontSize: 10, color: tokens.textMuted },
-  chipTextOn: { color: TRADE_ACCENT },
+  chipTextOn: { color: accent },
   spacer: { flex: 1 },
   typeBtn: {
     paddingHorizontal: 8,
@@ -501,7 +494,7 @@ function buildTradingStyles(tokens: ThemeTokens) {
   },
   typeBtnActive: { backgroundColor: accentBg },
   typeText: { fontSize: 11, color: tokens.textMuted },
-  typeTextActive: { color: TRADE_ACCENT },
+  typeTextActive: { color: accent },
 
   // Chart
   chartWrapper: {
@@ -553,6 +546,6 @@ function buildTradingStyles(tokens: ThemeTokens) {
   // Error state
   errorText: { color: tokens.colors.error[500], fontSize: 14, textAlign: 'center', marginBottom: 12 },
   retryBtn: { paddingHorizontal: 16, paddingVertical: 8 },
-  retryText: { color: TRADE_ACCENT, fontSize: 14 },
+  retryText: { color: accent, fontSize: 14 },
   });
 }

@@ -1,4 +1,11 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -10,16 +17,34 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Bell, PlusCircle, FileText, Gift } from 'lucide-react-native';
+import { Bell, PlusCircle, FileText, Gift } from 'lucide-react-native';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useHasFeature } from '../utils/features';
 
-interface FABProps {
+interface QuickActionsContextValue {
+  open: () => void;
+}
+
+const QuickActionsContext = createContext<QuickActionsContextValue | null>(null);
+
+export function useQuickActions(): QuickActionsContextValue {
+  const ctx = useContext(QuickActionsContext);
+  if (!ctx) {
+    throw new Error('useQuickActions must be used within QuickActionsProvider');
+  }
+  return ctx;
+}
+
+interface QuickActionsProviderProps {
+  children: React.ReactNode;
   onPress?: () => void;
 }
 
-export const FAB: React.FC<FABProps> = ({ onPress }) => {
+export const QuickActionsProvider: React.FC<QuickActionsProviderProps> = ({
+  children,
+  onPress,
+}) => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildStyles(tokens), [tokens]);
@@ -31,24 +56,27 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
   const router = useRouter();
   const c = tokens.colors;
 
-  const openSheet = () => {
+  const openSheet = useCallback(() => {
     setVisible(true);
     onPress?.();
     Animated.parallel([
       Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, bounciness: 4 }),
       Animated.timing(backdropAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
-  };
+  }, [onPress, slideAnim, backdropAnim]);
 
-  const closeSheet = (callback?: () => void) => {
-    Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 400, duration: 220, useNativeDriver: true }),
-      Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-    ]).start(() => {
-      setVisible(false);
-      callback?.();
-    });
-  };
+  const closeSheet = useCallback(
+    (callback?: () => void) => {
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: 400, duration: 220, useNativeDriver: true }),
+        Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start(() => {
+        setVisible(false);
+        callback?.();
+      });
+    },
+    [slideAnim, backdropAnim]
+  );
 
   const handleAction = (action: string) => {
     closeSheet(() => {
@@ -58,19 +86,11 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
     });
   };
 
+  const contextValue = useMemo(() => ({ open: openSheet }), [openSheet]);
+
   return (
-    <>
-      <View style={styles.fabContainer}>
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={openSheet}
-          accessibilityRole="button"
-          accessibilityLabel={t('fab.addAction')}
-          activeOpacity={0.9}
-        >
-          <Plus size={28} color={c.white} strokeWidth={2.5} />
-        </TouchableOpacity>
-      </View>
+    <QuickActionsContext.Provider value={contextValue}>
+      {children}
 
       <Modal transparent visible={visible} animationType="none" onRequestClose={() => closeSheet()}>
         <TouchableWithoutFeedback onPress={() => closeSheet()}>
@@ -150,28 +170,16 @@ export const FAB: React.FC<FABProps> = ({ onPress }) => {
           </View>
         </Animated.View>
       </Modal>
-    </>
+    </QuickActionsContext.Provider>
   );
 };
 
+/** @deprecated Use QuickActionsProvider */
+export const FAB = QuickActionsProvider;
+
 function buildStyles(tokens: ThemeTokens) {
-  const { spacing, typography, borderRadius, semantic, shadows } = tokens;
+  const { spacing, typography, semantic, shadows } = tokens;
   return StyleSheet.create({
-    fabContainer: {
-      position: 'absolute',
-      bottom: 42,
-      alignSelf: 'center',
-      zIndex: 1000,
-    },
-    fab: {
-      width: 56,
-      height: 56,
-      borderRadius: borderRadius.fab,
-      backgroundColor: tokens.colors.primary[500],
-      justifyContent: 'center',
-      alignItems: 'center',
-      ...shadows.lg,
-    },
     backdrop: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: semantic.backdrop,

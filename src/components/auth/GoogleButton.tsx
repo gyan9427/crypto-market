@@ -107,7 +107,7 @@ export function GoogleButton({ palette, label, onPress, disabled, loading }: Pro
 const styles = StyleSheet.create({
   btn: {
     minHeight: 48,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

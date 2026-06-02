@@ -13,9 +13,12 @@ import { useAuthStore } from '@/src/state/useAuthStore';
 import { useNotificationStore } from '@/src/state/useNotificationStore';
 import { notificationsApi, type NotificationItem } from '@/src/services/notificationsApi';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { AppText } from '@/src/design-system/primitives/AppText';
+import { useDesignSystem } from '@/src/design-system/hooks/useDesignSystem';
 
 export default function NotificationsScreen() {
   const { tokens } = useAppTheme();
+  const { enabled: dsV2 } = useDesignSystem();
   const authed = useAuthStore((s) => s.isAuthenticated);
   const { items, mergeFromFetch, hasMore, nextCursor, loading } = useNotificationStore();
   const [refreshing, setRefreshing] = useState(false);
@@ -57,18 +60,35 @@ export default function NotificationsScreen() {
 
   const renderItem = ({ item }: { item: NotificationItem }) => (
     <TouchableOpacity
-      style={[styles.row, { borderBottomColor: tokens.colors.neutral[800] }]}
+      style={[styles.row, { borderBottomColor: tokens.border }]}
       onPress={() => item.status === 'unread' && void markRead(item.id)}
       activeOpacity={0.7}
     >
-      <Text style={[styles.title, { color: tokens.text }]}>{item.title}</Text>
-      <Text style={[styles.body, { color: tokens.textMuted }]} numberOfLines={3}>
-        {item.body}
-      </Text>
-      <Text style={[styles.meta, { color: tokens.textMuted }]}>
-        {item.category} · {item.priority}
-        {item.status === 'unread' ? ' · unread' : ''}
-      </Text>
+      {dsV2 ? (
+        <>
+          <AppText variant="heading-s" color="strong">
+            {item.title}
+          </AppText>
+          <AppText variant="body-m" color="muted" numberOfLines={3}>
+            {item.body}
+          </AppText>
+          <AppText variant="caption" color="muted" style={styles.metaSpacing}>
+            {item.category} · {item.priority}
+            {item.status === 'unread' ? ' · unread' : ''}
+          </AppText>
+        </>
+      ) : (
+        <>
+          <Text style={[styles.title, { color: tokens.text }]}>{item.title}</Text>
+          <Text style={[styles.body, { color: tokens.textMuted }]} numberOfLines={3}>
+            {item.body}
+          </Text>
+          <Text style={[styles.meta, { color: tokens.textMuted }]}>
+            {item.category} · {item.priority}
+            {item.status === 'unread' ? ' · unread' : ''}
+          </Text>
+        </>
+      )}
     </TouchableOpacity>
   );
 
@@ -110,5 +130,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
   body: { fontSize: 14 },
   meta: { fontSize: 11, marginTop: 6 },
+  metaSpacing: { marginTop: 6 },
   empty: { textAlign: 'center', marginTop: 48 },
 });

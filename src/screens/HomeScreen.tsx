@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Text, Modal } from 'react-native';
+import { View, StyleSheet, RefreshControl, Text, Modal } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SegmentToggle } from '../components/SegmentToggle';
@@ -53,6 +55,7 @@ export const HomeScreen: React.FC = () => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildHomeStyles(tokens), [tokens]);
+  const collapsibleScrollHandlers = useCollapsibleNavHeaderScrollHandlers();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -369,11 +372,12 @@ export const HomeScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <Animated.FlatList
         data={feedRows}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         ListHeaderComponent={listHeaderComponent}
+        {...collapsibleScrollHandlers}
         ListEmptyComponent={
           !loading && newsData.length === 0 ? (
             <View style={styles.emptyContainer}>

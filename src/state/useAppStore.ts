@@ -48,6 +48,9 @@ export const useAppStore = create<AppState>((set, get) => {
     newsReactions: {},
     marketSnapshot: null,
     marketSnapshotError: null,
+    designSystemV2Dev: false,
+
+    setDesignSystemV2Dev: (enabled: boolean) => set({ designSystemV2Dev: enabled }),
 
     setMarketSnapshot: (snapshot, error = null) =>
       set({

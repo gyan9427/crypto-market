@@ -5,8 +5,9 @@ import {
   RefreshControl,
   Text,
   TouchableOpacity,
-  ScrollView,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
 import { useTranslation } from 'react-i18next';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { MonitorWalletSheet } from '../components/MonitorWalletSheet';
@@ -41,6 +42,7 @@ export const PortfolioScreen: React.FC = () => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildPortfolioScreenStyles(tokens), [tokens]);
+  const collapsibleScrollHandlers = useCollapsibleNavHeaderScrollHandlers();
 
   const wallets = usePortfolioStore((state) => state.wallets);
   const loadWallets = usePortfolioStore((state) => state.loadWallets);
@@ -122,12 +124,13 @@ export const PortfolioScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
+        {...collapsibleScrollHandlers}
       >
         <TouchableOpacity
           style={styles.accountCard}
@@ -140,7 +143,7 @@ export const PortfolioScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
         <HoldingsSegment onHoldingPress={handleHoldingPress} />
-      </ScrollView>
+      </Animated.ScrollView>
       <MonitorWalletSheet
         visible={monitorSheetOpen}
         onClose={closeMonitorSheet}

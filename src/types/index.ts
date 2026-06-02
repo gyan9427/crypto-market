@@ -302,6 +302,9 @@ export interface AppState {
   /** Phase 2: last successful GET /api/market/snapshot (parallel with trending for A/B). */
   marketSnapshot: MarketSnapshotV2 | null;
   marketSnapshotError: string | null;
+  /** Dev/QA override for design_system_v2 feature flag */
+  designSystemV2Dev: boolean;
+  setDesignSystemV2Dev: (enabled: boolean) => void;
   setMarketSnapshot: (snapshot: MarketSnapshotV2 | null, error?: string | null) => void;
   setFeedFilter: (filter: FeedFilter) => void;
   setExploreCategory: (category: ExploreCategory) => void;

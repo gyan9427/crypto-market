@@ -20,6 +20,11 @@ import Svg, {
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useLiveMarketOverview } from '../hooks/useLiveMarketOverview';
+import { getMarketCapChartColors } from './market/marketCapChartColors';
+import {
+  buildMarketCapStyles,
+  MARKET_CAP_Y_AXIS_W,
+} from './market/marketCapStyles';
 
 // ─── SVG coordinate space ────────────────────────────────────────────────────
 const SVG_W      = 400;
@@ -27,13 +32,8 @@ const SVG_H      = 120;
 const PAD        = 6;
 const INNER_W    = SVG_W - PAD * 2;
 const INNER_H    = SVG_H - PAD * 2;
-const Y_AXIS_W   = 52;   // pixel width of the y-axis label column
+const Y_AXIS_W = MARKET_CAP_Y_AXIS_W;
 const Y_TICK_COUNT = 5;  // number of y-axis price levels
-
-// ─── Colours ─────────────────────────────────────────────────────────────────
-const LINE_COLOR = '#6383ff';
-const GREEN      = '#27c485';
-const RED        = '#f05252';
 
 // ─── Range tabs ───────────────────────────────────────────────────────────────
 const RANGE_TABS = ['1H', '1D', '1W', '1M', '3M', '1Y'] as const;
@@ -117,6 +117,7 @@ interface ChartSvgProps {
   view: ChartView;
   gradientId: string;
   isDark: boolean;
+  lineColor: string;
   activePoint: { x: number; y: number } | null;
   crosshairStroke: string;
   markerStroke: string;
@@ -127,6 +128,7 @@ const ChartSvg = memo<ChartSvgProps>(({
   view,
   gradientId,
   isDark,
+  lineColor,
   activePoint,
   crosshairStroke,
   markerStroke,
@@ -139,9 +141,9 @@ const ChartSvg = memo<ChartSvgProps>(({
   >
     <Defs>
       <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-        <Stop offset="0"   stopColor={LINE_COLOR} stopOpacity={isDark ? 0.45 : 0.25} />
-        <Stop offset="0.6" stopColor={LINE_COLOR} stopOpacity={isDark ? 0.12 : 0.05} />
-        <Stop offset="1"   stopColor={LINE_COLOR} stopOpacity="0" />
+        <Stop offset="0"   stopColor={lineColor} stopOpacity={isDark ? 0.45 : 0.25} />
+        <Stop offset="0.6" stopColor={lineColor} stopOpacity={isDark ? 0.12 : 0.05} />
+        <Stop offset="1"   stopColor={lineColor} stopOpacity="0" />
       </LinearGradient>
     </Defs>
 
@@ -164,7 +166,7 @@ const ChartSvg = memo<ChartSvgProps>(({
     <Path
       d={view.linePath}
       fill="none"
-      stroke={LINE_COLOR}
+      stroke={lineColor}
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth="2"
@@ -175,7 +177,7 @@ const ChartSvg = memo<ChartSvgProps>(({
       cx={view.lastPoint.x}
       cy={view.lastPoint.y}
       r={3.5}
-      fill={LINE_COLOR}
+      fill={lineColor}
       stroke={markerStroke}
       strokeWidth="1.5"
     />
@@ -194,7 +196,7 @@ const ChartSvg = memo<ChartSvgProps>(({
           cx={activePoint.x}
           cy={activePoint.y}
           r={4}
-          fill={LINE_COLOR}
+          fill={lineColor}
           stroke={markerStroke}
           strokeWidth="2"
         />
@@ -219,18 +221,22 @@ const LineIcon = memo(({ color }: { color: string }) => (
   </Svg>
 ));
 
-const CandleIcon = memo(({ color }: { color: string }) => (
-  <Svg width={16} height={16} viewBox="0 0 16 16">
-    <Line x1="5" y1="2"  x2="5"  y2="14" stroke={color} strokeWidth="1.2" />
-    <Rect x="3" y="5"   width="4" height="5" fill={RED}   rx="0.5" />
-    <Line x1="11" y1="3" x2="11" y2="13" stroke={color} strokeWidth="1.2" />
-    <Rect x="9"  y="6"  width="4" height="5" fill={GREEN} rx="0.5" />
-  </Svg>
-));
+const CandleIcon = memo(
+  ({ color, green, red }: { color: string; green: string; red: string }) => (
+    <Svg width={16} height={16} viewBox="0 0 16 16">
+      <Line x1="5" y1="2" x2="5" y2="14" stroke={color} strokeWidth="1.2" />
+      <Rect x="3" y="5" width="4" height="5" fill={red} rx="0.5" />
+      <Line x1="11" y1="3" x2="11" y2="13" stroke={color} strokeWidth="1.2" />
+      <Rect x="9" y="6" width="4" height="5" fill={green} rx="0.5" />
+    </Svg>
+  )
+);
 
 // ─── Candlestick SVG ──────────────────────────────────────────────────────────
 interface CandleSvgProps {
   klines: KlineRecord[];
+  green: string;
+  red: string;
   gridStroke: string;
   activeIndex: number | null;
   crosshairStroke: string;
@@ -239,6 +245,8 @@ interface CandleSvgProps {
 
 const CandleSvg = memo<CandleSvgProps>(({
   klines,
+  green,
+  red,
   gridStroke,
   activeIndex,
   crosshairStroke,
@@ -281,7 +289,7 @@ const CandleSvg = memo<CandleSvgProps>(({
         const lowY    = mapY(k.low);
         const openY   = mapY(k.open);
         const closeY  = mapY(k.close);
-        const color   = k.close >= k.open ? GREEN : RED;
+        const color   = k.close >= k.open ? green : red;
         const bodyTop = Math.min(openY, closeY);
         const bodyH   = Math.max(1.5, Math.abs(closeY - openY));
         return (
@@ -313,7 +321,11 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const isDark = tokens.isDark;
-  const styles = useMemo(() => buildStyles(tokens), [tokens]);
+  const chartColors = useMemo(() => getMarketCapChartColors(tokens), [tokens]);
+  const styles = useMemo(
+    () => buildMarketCapStyles(tokens, chartColors),
+    [tokens, chartColors]
+  );
   const chartCrosshairStroke = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
   const chartMarkerStroke    = isDark ? '#ffffff' : tokens.surface;
   const chartGridStroke      = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
@@ -543,14 +555,18 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
               onPress={() => setChartType('line')}
               activeOpacity={0.7}
             >
-              <LineIcon color={chartType === 'line' ? LINE_COLOR : tokens.textMuted} />
+              <LineIcon color={chartType === 'line' ? chartColors.line : tokens.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.viewToggleBtn, chartType === 'candle' && styles.viewToggleBtnActive]}
               onPress={() => setChartType('candle')}
               activeOpacity={0.7}
             >
-              <CandleIcon color={chartType === 'candle' ? LINE_COLOR : tokens.textMuted} />
+              <CandleIcon
+                color={chartType === 'candle' ? chartColors.line : tokens.textMuted}
+                green={chartColors.green}
+                red={chartColors.red}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -583,6 +599,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                     view={chartView}
                     gradientId={gradientId}
                     isDark={isDark}
+                    lineColor={chartColors.line}
                     activePoint={activePoint}
                     crosshairStroke={chartCrosshairStroke}
                     markerStroke={chartMarkerStroke}
@@ -599,6 +616,8 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                   >
                     <CandleSvg
                       klines={klines}
+                      green={chartColors.green}
+                      red={chartColors.red}
                       gridStroke={chartGridStroke}
                       activeIndex={hoverIndex}
                       crosshairStroke={chartCrosshairStroke}
@@ -608,6 +627,8 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                 ) : (
                   <CandleSvg
                     klines={klines}
+                    green={chartColors.green}
+                    red={chartColors.red}
                     gridStroke={chartGridStroke}
                     activeIndex={hoverIndex}
                     crosshairStroke={chartCrosshairStroke}
@@ -645,13 +666,13 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                       </View>
                       <View style={styles.ohlcItem}>
                         <Text style={styles.ohlcLabel}>H</Text>
-                        <Text style={[styles.ohlcValue, { color: GREEN }]}>{fmtMarketShort(activeKline.high)}</Text>
+                        <Text style={[styles.ohlcValue, { color: chartColors.green }]}>{fmtMarketShort(activeKline.high)}</Text>
                       </View>
                     </View>
                     <View style={styles.ohlcRow}>
                       <View style={styles.ohlcItem}>
                         <Text style={styles.ohlcLabel}>L</Text>
-                        <Text style={[styles.ohlcValue, { color: RED }]}>{fmtMarketShort(activeKline.low)}</Text>
+                        <Text style={[styles.ohlcValue, { color: chartColors.red }]}>{fmtMarketShort(activeKline.low)}</Text>
                       </View>
                       <View style={styles.ohlcItem}>
                         <Text style={styles.ohlcLabel}>C</Text>
@@ -695,19 +716,19 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
           <View style={styles.statsGridRow}>
             <View style={styles.statCell}>
               <Text style={styles.statLabel}>{rangeConfig.statPrefix} High</Text>
-              <Text style={[styles.statValue, { color: GREEN }]}>{fmtMarketShort(data.high24h)}</Text>
+              <Text style={[styles.statValue, { color: chartColors.green }]}>{fmtMarketShort(data.high24h)}</Text>
             </View>
             <View style={styles.statDividerV} />
             <View style={styles.statCell}>
               <Text style={styles.statLabel}>{rangeConfig.statPrefix} Low</Text>
-              <Text style={[styles.statValue, { color: RED }]}>{fmtMarketShort(data.low24h)}</Text>
+              <Text style={[styles.statValue, { color: chartColors.red }]}>{fmtMarketShort(data.low24h)}</Text>
             </View>
           </View>
           <View style={styles.statDividerH} />
           <View style={styles.statsGridRow}>
             <View style={styles.statCell}>
               <Text style={styles.statLabel}>{rangeConfig.statPrefix} Change</Text>
-              <Text style={[styles.statValue, { color: isPositive ? GREEN : RED }]}>{displayAbsChange}</Text>
+              <Text style={[styles.statValue, { color: isPositive ? chartColors.green : chartColors.red }]}>{displayAbsChange}</Text>
             </View>
             <View style={styles.statDividerV} />
             <View style={styles.statCell}>
@@ -721,218 +742,3 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     </View>
   );
 };
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-function buildStyles(tokens: ThemeTokens) {
-  const { spacing: s, borderRadius: br, typography: typo } = tokens;
-  const accentTabBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
-  const chartSkeletonFill = tokens.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
-  const skeletonFill = tokens.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-
-  return StyleSheet.create({
-    container: { marginBottom: 0 },
-    card: {
-      backgroundColor: tokens.bg,
-      borderBottomLeftRadius: 0,
-      borderBottomRightRadius: 0,
-      paddingTop: s.lg,
-      paddingHorizontal: s.lg,
-      paddingBottom: s.md,
-      overflow: 'hidden',
-    },
-
-    // Header
-    headerRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      marginBottom: s.sm,
-    },
-    title: {
-      fontSize: typo.fontSizes.xxxl,
-      fontWeight: typo.fontWeights.light,
-      fontFamily: typo.fontFamilies.sans,
-      color: tokens.textStrong,
-      letterSpacing: typo.letterSpacing.section,
-      fontVariant: ['tabular-nums'],
-    },
-    statsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s.sm,
-      marginTop: s.xs,
-    },
-    changeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-    changeBadgeUp: { backgroundColor: 'rgba(39,196,133,0.13)' },
-    changeBadgeDn: { backgroundColor: 'rgba(240,82,82,0.13)'  },
-    changeBadgeText: {
-      fontSize: typo.fontSizes.sm,
-      fontWeight: typo.fontWeights.medium,
-      fontFamily: typo.fontFamilies.sansMedium,
-      fontVariant: ['tabular-nums'],
-    },
-    statsText: {
-      fontSize: typo.fontSizes.sm,
-      fontWeight: typo.fontWeights.medium,
-      fontFamily: typo.fontFamilies.sansMedium,
-      fontVariant: ['tabular-nums'],
-    },
-    changeUp: { color: GREEN },
-    changeDn: { color: RED   },
-    periodLabel: {
-      fontSize: typo.fontSizes.badge,
-      fontWeight: typo.fontWeights.semibold,
-      fontFamily: typo.fontFamilies.sansSemiBold,
-      color: tokens.textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: typo.letterSpacing.eyebrow,
-      alignSelf: 'flex-start',
-      marginTop: 4,
-    },
-
-    // Range tabs
-    rangeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: s.sm },
-    rangeTabsScroll: { flex: 1, marginHorizontal: -s.lg },
-    rangeTabs: { flexDirection: 'row', gap: 4, paddingHorizontal: s.lg },
-    rangeTab: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
-    rangeTabActive: { backgroundColor: accentTabBg },
-    rangeTabText: {
-      fontSize: 12,
-      fontWeight: typo.fontWeights.medium,
-      fontFamily: typo.fontFamilies.sansMedium,
-      color: tokens.textMuted,
-    },
-    rangeTabTextActive: { color: LINE_COLOR },
-    viewToggleGroup: { flexDirection: 'row', gap: 2, paddingLeft: 6 },
-    viewToggleBtn: { padding: 5, borderRadius: 6 },
-    viewToggleBtnActive: { backgroundColor: accentTabBg },
-
-    // Chart
-    chartRow: { flexDirection: 'row', marginTop: s.xs, alignItems: 'flex-start' },
-    yAxisColumn: {
-      width: Y_AXIS_W,
-      position: 'relative',
-      flexShrink: 0,
-    },
-    yAxisLabel: {
-      position: 'absolute',
-      right: 6,
-      fontSize: typo.fontSizes.badge,
-      color: tokens.textMuted,
-      fontFamily: typo.fontFamilies.sansMedium,
-      fontVariant: ['tabular-nums'],
-    },
-    chartWrapper:  { flex: 1, position: 'relative' },
-    chartSkeleton: {
-      width: '100%',
-      borderRadius: br.md,
-      backgroundColor: chartSkeletonFill,
-    },
-    hoverLabel: {
-      position: 'absolute',
-      paddingHorizontal: 8,
-      paddingVertical: 5,
-      borderRadius: br.sm,
-      backgroundColor: tokens.isDark ? 'rgba(22,22,28,0.92)' : 'rgba(250,250,252,0.96)',
-      borderWidth: 0.5,
-      borderColor: tokens.isDark ? 'rgba(99,131,255,0.28)' : 'rgba(99,131,255,0.35)',
-      alignItems: 'center',
-    },
-    hoverLabelTime: {
-      fontSize: typo.fontSizes.badge,
-      color: tokens.textMuted,
-      fontFamily: typo.fontFamilies.sans,
-    },
-    hoverLabelPrice: {
-      fontSize: typo.fontSizes.sm,
-      fontWeight: typo.fontWeights.semibold,
-      fontFamily: typo.fontFamilies.sansSemiBold,
-      color: tokens.textStrong,
-      fontVariant: ['tabular-nums'],
-      marginTop: 1,
-    },
-    interactionLayer: { position: 'absolute', left: 0, right: 0, top: 0 },
-    xAxisLabels: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      paddingTop: s.sm,
-    },
-    xLabel: {
-      fontSize: typo.fontSizes.badge,
-      fontFamily: typo.fontFamilies.sans,
-      color: tokens.textMuted,
-      letterSpacing: typo.letterSpacing.caption,
-    },
-    noDataText: {
-      color: tokens.textMuted,
-      fontSize: typo.fontSizes.xs,
-      fontFamily: typo.fontFamilies.sans,
-      textAlign: 'center',
-      marginTop: 50,
-    },
-
-    // Stats grid
-    statsGrid: {
-      marginTop: s.md,
-      borderRadius: br.md,
-      overflow: 'hidden',
-      borderWidth: 0.5,
-      borderColor: tokens.borderSubtle,
-    },
-    statsGridRow: {
-      flexDirection: 'row',
-    },
-    statDividerV: {
-      width: 0.5,
-      backgroundColor: tokens.borderSubtle,
-    },
-    statDividerH: {
-      height: 0.5,
-      backgroundColor: tokens.borderSubtle,
-    },
-    statCell: {
-      flex: 1,
-      backgroundColor: tokens.surfaceMuted,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-    },
-    statLabel: {
-      fontSize: 10,
-      color: tokens.textMuted,
-      fontFamily: typo.fontFamilies.sans,
-      marginBottom: 3,
-    },
-    statValue: {
-      fontSize: 14,
-      fontWeight: typo.fontWeights.medium,
-      fontFamily: typo.fontFamilies.sansMedium,
-      color: tokens.text,
-      fontVariant: ['tabular-nums'],
-    },
-
-    // OHLC tooltip
-    ohlcRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 },
-    ohlcItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-    ohlcLabel: {
-      fontSize: 9,
-      color: tokens.textMuted,
-      fontFamily: typo.fontFamilies.sans,
-    },
-    ohlcValue: {
-      fontSize: 10,
-      fontWeight: typo.fontWeights.medium,
-      fontFamily: typo.fontFamilies.sansMedium,
-      color: tokens.textStrong,
-      fontVariant: ['tabular-nums'],
-    },
-
-    // Skeleton
-    skeletonBlock: { backgroundColor: skeletonFill, borderRadius: br.sm },
-    titleSkeleton: { width: 140, height: 34, marginBottom: 6 },
-    statSkeleton:  { width: 64,  height: 14 },
-  });
-}

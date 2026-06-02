@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NewsItem } from '../types';
 import { formatTimeAgo } from '../utils/format';
+import { coinsHeaderPrimaryLine } from './news/newsCardUtils';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 
@@ -46,11 +47,13 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
         pointerEvents="none"
       />
       <View style={styles.content}>
-        <View style={styles.sourceBadge}>
-          <Text style={styles.sourceBadgeText} numberOfLines={1}>
-            {item.source}
-          </Text>
-        </View>
+        {item.coins.length > 0 && (
+          <View style={styles.sourceBadge}>
+            <Text style={styles.sourceBadgeText} numberOfLines={1}>
+              {coinsHeaderPrimaryLine(item.coins)}
+            </Text>
+          </View>
+        )}
         <Text style={styles.cardTitle} numberOfLines={2}>
           {item.title}
         </Text>
