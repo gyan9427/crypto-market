@@ -2,15 +2,16 @@ import React, { useState, useCallback, useEffect, useRef, useLayoutEffect, useMe
 import { setPerformanceScreen } from '../services/requestCache';
 import {
   View,
-  FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
   LayoutChangeEvent,
-  Animated,
+  Animated as RNAnimated,
   Easing,
   ActivityIndicator,
 } from 'react-native';
+import Reanimated from 'react-native-reanimated';
+import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
@@ -77,6 +78,7 @@ export const ExploreScreen: React.FC = () => {
   const isFocused = useIsFocused();
   const { tokens } = useAppTheme();
   const S = useMemo(() => buildExploreStyles(tokens), [tokens]);
+  const collapsibleScrollHandlers = useCollapsibleNavHeaderScrollHandlers();
 
   useEffect(() => {
     if (isFocused) setPerformanceScreen('Explore');
@@ -89,7 +91,7 @@ export const ExploreScreen: React.FC = () => {
   const [nextCursor, setNextCursor] = useState<number | null | undefined>(undefined);
   const [marketGraphExpanded, setMarketGraphExpanded] = useState(true);
   const [measuredGraphHeight, setMeasuredGraphHeight] = useState(0);
-  const graphHeightAnim = useRef(new Animated.Value(0)).current;
+  const graphHeightAnim = useRef(new RNAnimated.Value(0)).current;
   const graphMeasureReadyRef = useRef(false);
   const recordedGraphFullHeightRef = useRef(0);
   const lastSyncedGraphHeightRef = useRef(0);
@@ -223,7 +225,7 @@ export const ExploreScreen: React.FC = () => {
       return;
     }
     const target = marketGraphExpanded ? expandedGraphTargetHeight() : 0;
-    Animated.timing(graphHeightAnim, {
+    RNAnimated.timing(graphHeightAnim, {
       toValue: target,
       duration: GRAPH_ANIM_MS,
       easing: Easing.out(Easing.cubic),
@@ -266,11 +268,11 @@ export const ExploreScreen: React.FC = () => {
         )}
       </TouchableOpacity>
 
-      <Animated.View style={[S.graphClip, graphClipStyle]}>
+      <RNAnimated.View style={[S.graphClip, graphClipStyle]}>
         <View onLayout={onMarketGraphLayout} collapsable={false}>
           <MarketCapPlaceholder liveUpdatesEnabled={isFocused && marketGraphExpanded} />
         </View>
-      </Animated.View>
+      </RNAnimated.View>
 
       {/* Category tabs — same pattern as TradingScreen range tabs */}
       <View style={S.categoryRow}>
@@ -312,10 +314,11 @@ export const ExploreScreen: React.FC = () => {
 
   return (
     <View style={S.root}>
-      <FlatList
+      <Reanimated.FlatList
         data={loading && coins.length === 0 ? Array(5).fill(null) : coins}
         keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
         ListHeaderComponent={headerElement}
+        {...collapsibleScrollHandlers}
         renderItem={({ item, index }) => {
           if (loading && coins.length === 0) {
             return <TrendingCoinCardSkeleton key={`skeleton-${index}`} />;

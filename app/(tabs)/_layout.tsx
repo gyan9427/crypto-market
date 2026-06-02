@@ -5,7 +5,8 @@ import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { FAB } from '@/src/components/FAB';
-import { NavHeaderSearch } from '@/src/components/NavHeaderSearch';
+import { CollapsibleNavHeader } from '@/src/components/CollapsibleNavHeader';
+import { CollapsibleNavHeaderProvider } from '@/src/hooks/useCollapsibleNavHeader';
 import { View, Image, StyleSheet } from 'react-native';
 import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
 import { useAuthStore } from '@/src/state/useAuthStore';
@@ -57,16 +58,16 @@ export default function TabsLayout() {
         borderTopColor: tokens.tabBarBorder,
         paddingBottom: tokens.spacing.sm,
         paddingTop: tokens.spacing.xs,
-        height: 68,
+        height: tokens.tabBarHeight,
         paddingRight: 0,
       },
       tabBarItemStyle: {
         flex: 1,
       },
       tabBarLabelStyle: {
-        fontSize: 11,
-        fontWeight: '600' as const,
-        letterSpacing: 0.08,
+        fontSize: tokens.typography.fontSizes.badge,
+        fontWeight: tokens.typography.fontWeights.semibold,
+        letterSpacing: tokens.typography.letterSpacing.tabLabel,
         textTransform: 'uppercase' as const,
         fontFamily: tokens.typography.fontFamilies.sansSemiBold,
       },
@@ -142,14 +143,13 @@ export default function TabsLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
       <StatusBar style={effectiveScheme === 'dark' ? 'light' : 'dark'} />
+      <CollapsibleNavHeaderProvider>
       <Tabs screenOptions={mergedScreenOptions as never}>
         <Tabs.Screen
           name="index"
           options={{
             title: t('nav.home'),
-            headerTitle: () => <NavHeaderSearch />,
-            headerTitleAlign: 'center',
-            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
+            header: () => <CollapsibleNavHeader />,
             tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
             href: hasNewsFeed ? undefined : null,
           }}
@@ -158,9 +158,7 @@ export default function TabsLayout() {
           name="portfolio"
           options={{
             title: t('nav.portfolio'),
-            headerTitle: () => <NavHeaderSearch />,
-            headerTitleAlign: 'center',
-            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
+            header: () => <CollapsibleNavHeader />,
             tabBarIcon: ({ color, size }) => <Briefcase size={size} color={color} />,
             href: hasPortfolioTracking ? undefined : null,
           }}
@@ -177,9 +175,7 @@ export default function TabsLayout() {
           name="market"
           options={{
             title: t('nav.market'),
-            headerTitle: () => <NavHeaderSearch segment="all" />,
-            headerTitleAlign: 'center',
-            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
+            header: () => <CollapsibleNavHeader segment="all" />,
             tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
             href: hasMarketData ? undefined : null,
           }}
@@ -188,9 +184,7 @@ export default function TabsLayout() {
           name="profile"
           options={{
             title: t('nav.profile'),
-            headerTitle: () => <NavHeaderSearch segment="users" />,
-            headerTitleAlign: 'center',
-            headerTitleContainerStyle: { left: 0, right: 0, marginHorizontal: 0, paddingHorizontal: 0 },
+            header: () => <CollapsibleNavHeader segment="users" />,
             tabBarIcon: ({ color, size }) => <ProfileTabIcon color={color} size={size} />,
           }}
         />
@@ -237,6 +231,7 @@ export default function TabsLayout() {
           }}
         />
       </Tabs>
+      </CollapsibleNavHeaderProvider>
       <FAB />
     </View>
   );

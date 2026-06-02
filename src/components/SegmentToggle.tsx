@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Animated, LayoutChangeEvent } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Animated, LayoutChangeEvent } from 'react-native';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
+import { AppText } from '@/src/design-system/primitives/AppText';
 
 interface SegmentToggleProps {
   options: string[];
@@ -29,10 +30,10 @@ export const SegmentToggle: React.FC<SegmentToggleProps> = ({
 
     Animated.timing(translateX, {
       toValue: selectedIndex * segmentWidthPx,
-      duration: 200,
+      duration: tokens.motion.duration.normal,
       useNativeDriver: false,
     }).start();
-  }, [selectedIndex, containerWidth, options.length, translateX]);
+  }, [selectedIndex, containerWidth, options.length, translateX, tokens.motion.duration.normal]);
 
   const handleLayout = (event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
@@ -61,14 +62,16 @@ export const SegmentToggle: React.FC<SegmentToggleProps> = ({
           accessibilityLabel={option}
           accessibilityState={{ selected: selectedIndex === index }}
         >
-          <Text
+          <AppText
+            variant="body-s"
+            color={selectedIndex === index ? 'link' : 'muted'}
             style={[
               styles.segmentText,
               selectedIndex === index && styles.segmentTextActive,
             ]}
           >
             {option}
-          </Text>
+          </AppText>
         </TouchableOpacity>
       ))}
     </View>
@@ -79,10 +82,7 @@ function buildStyles(tokens: ThemeTokens, flush: boolean) {
   return StyleSheet.create({
     container: {
       flexDirection: 'row',
-      direction: 'ltr',
-      backgroundColor: tokens.isDark
-        ? tokens.colors.neutral[200]
-        : tokens.colors.neutral[100],
+      backgroundColor: tokens.surfaceMuted,
       borderRadius: tokens.borderRadius.button,
       borderWidth: 1,
       borderColor: tokens.borderSubtle,

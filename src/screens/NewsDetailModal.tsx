@@ -16,6 +16,7 @@ import { CoinChip } from '../components/CoinChip';
 import { ReactionPicker } from '../components/ReactionPicker';
 import { SaveToBoardModal } from '../components/SaveToBoardModal';
 import { formatDateTime } from '../utils/format';
+import { coinsHeaderPrimaryLine } from '../components/news/newsCardUtils';
 import { toggleReaction } from '../services/api';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
@@ -101,7 +102,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
         ) : (
           <View style={styles.heroPlaceholder} accessibilityLabel="No article image">
             <Text style={styles.heroPlaceholderText}>
-              {(newsItem.source?.[0] ?? 'N').toUpperCase()}
+              {(newsItem.coins[0]?.symbol?.[0] ?? newsItem.coins[0]?.name?.[0] ?? 'N').toUpperCase()}
             </Text>
           </View>
         )}
@@ -143,7 +144,10 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
 
           <View style={styles.meta}>
             <Text style={styles.metaText}>
-              {newsItem.source} • {formatDateTime(newsItem.publishedAt)}
+              {newsItem.coins.length > 0
+                ? coinsHeaderPrimaryLine(newsItem.coins)
+                : formatDateTime(newsItem.publishedAt)}
+              {newsItem.coins.length > 0 ? ` • ${formatDateTime(newsItem.publishedAt)}` : ''}
             </Text>
             {newsItem.author && (
               <Text style={styles.metaText}>{t('news.byAuthor', { author: newsItem.author })}</Text>

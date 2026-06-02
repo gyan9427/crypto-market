@@ -17,7 +17,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { AuthInput } from '@/src/components/auth/AuthInput';
-import { getAuthPalette } from '@/src/components/auth/authPalette';
+import { getAuthPaletteFromTokens } from '@/src/design-system/theme/authPaletteFromTokens';
 import { AuthHeader } from '@/src/components/auth/AuthHeader';
 import { signup } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
@@ -29,7 +29,7 @@ export default function RegisterScreen() {
   const router = useRouter();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isDark = effectiveScheme === 'dark';
-  const palette = useMemo(() => getAuthPalette(isDark), [isDark]);
+  const palette = useMemo(() => getAuthPaletteFromTokens(tokens), [tokens]);
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');

@@ -16,7 +16,7 @@ import type { AuthPalette } from '@/src/components/auth/authPalette';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const BTN_RADIUS = 8;
+const BTN_RADIUS = 12;
 
 const btnGlow =
   Platform.OS === 'web'

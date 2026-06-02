@@ -96,7 +96,7 @@ function buildStyles(tokens: ThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: tokens.inputBg,
-      borderRadius: 9999,
+      borderRadius: 10,
       paddingHorizontal: 16,
       paddingVertical: 12,
       borderWidth: StyleSheet.hairlineWidth,
@@ -125,7 +125,7 @@ function buildStyles(tokens: ThemeTokens) {
     containerHeader: {
       marginHorizontal: 0,
       marginBottom: 0,
-      paddingVertical: 10,
+      paddingVertical: 8,
       paddingHorizontal: 14,
       ...Platform.select({
         ios: {},

@@ -10,65 +10,26 @@ import { Image } from 'expo-image';
 import { openInAppBrowser } from '../utils/browser';
 import { useTranslation } from 'react-i18next';
 import { trackEvent } from '../utils/trackEvent';
-import { MessageCircle, Share2, Bookmark, ChevronRight, ExternalLink } from 'lucide-react-native';
+import { ChevronRight, ExternalLink } from 'lucide-react-native';
 import { FeedCardProps } from '../types';
 import { CoinChip } from './CoinChip';
-import { ReactionPicker } from './ReactionPicker';
-import { formatTimeAgo, abbreviateNumber } from '../utils/format';
+import { formatTimeAgo } from '../utils/format';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useHasFeature } from '../utils/features';
 import { useAppStore } from '../state/useAppStore';
-
-const TITLE_LINES_FEED = 2;
-const SNIPPET_LINES_FEED = 2;
-
-function normalizeText(s: string): string {
-  return s.trim().toLowerCase();
-}
-
-/** True if body text duplicates the headline for feed display. */
-function isDuplicateOfTitle(title: string, body: string): boolean {
-  const t = normalizeText(title);
-  const b = normalizeText(body);
-  if (!b.length) return true;
-  if (b === t) return true;
-  if (b.startsWith(t) && b.length <= t.length + 3) return true;
-  return b.startsWith(t + ' ') || b.startsWith(t + '—') || b.startsWith(t + '–');
-}
-
-function rawSnippetFields(item: { subtitle?: string; content?: string; snippet: string }): string {
-  return item.subtitle || item.content || item.snippet || '';
-}
-
-function coinHeaderTitle(coin: { name: string; symbol: string }): string {
-  return `${coin.name}${coin.symbol ? ` · ${coin.symbol}` : ''}`;
-}
-
-function areNewsCardPropsEqual(prev: FeedCardProps, next: FeedCardProps): boolean {
-  if (prev.variant !== next.variant) return false;
-  if (prev.onPress !== next.onPress) return false;
-  const a = prev.item;
-  const b = next.item;
-  if (a.id !== b.id) return false;
-  if (a.userReaction !== b.userReaction) return false;
-  if (a.isSaved !== b.isSaved) return false;
-  if (a.comments !== b.comments) return false;
-  if (a.shares !== b.shares) return false;
-  if ((a.saveCount ?? 0) !== (b.saveCount ?? 0)) return false;
-  if ((a.reactions?.total ?? 0) !== (b.reactions?.total ?? 0)) return false;
-  if (a.title !== b.title) return false;
-  if (a.snippet !== b.snippet) return false;
-  if (a.subtitle !== b.subtitle) return false;
-  if (a.imageUrl !== b.imageUrl) return false;
-  if (a.source !== b.source) return false;
-  const ac = a.coins[0];
-  const bc = b.coins[0];
-  if ((ac?.id ?? '') !== (bc?.id ?? '')) return false;
-  if ((ac?.name ?? '') !== (bc?.name ?? '')) return false;
-  if ((ac?.isFollowing ?? false) !== (bc?.isFollowing ?? false)) return false;
-  return true;
-}
+import { NewsCardGrid } from './news/NewsCardGrid';
+import { NewsCardActions } from './news/NewsCardActions';
+import { CoinStackAvatars } from './news/CoinStackAvatars';
+import {
+  TITLE_LINES_FEED,
+  SNIPPET_LINES_FEED,
+  areNewsCardPropsEqual,
+  coinAvatarInitial,
+  isDuplicateOfTitle,
+  rawSnippetFields,
+} from './news/newsCardUtils';
+import { buildNewsCardStyles } from './news/newsCardStyles';
 
 export const NewsCard = React.memo<FeedCardProps>(({
   item,
@@ -85,7 +46,6 @@ export const NewsCard = React.memo<FeedCardProps>(({
   const styles = useMemo(() => buildNewsCardStyles(tokens), [tokens]);
   const c = tokens.colors;
   const hasFollow = useHasFeature('follow');
-  const hasComments = useHasFeature('comments');
   const isSaved = item.isSaved || false;
   const isGrid = variant === 'grid';
   const isExpandedLayout = variant === 'expanded';
@@ -114,22 +74,11 @@ export const NewsCard = React.memo<FeedCardProps>(({
   }, [item.coins, toggleFollowCoin]);
 
   if (isGrid) {
-    const gCoin = item.coins[0];
-    const gridAttribution = gCoin ? coinHeaderTitle(gCoin) : item.source;
-    return (
-      <View style={[styles.container, styles.gridContainer]}>
-        <Text style={styles.gridSource}>{gridAttribution}</Text>
-        <Text style={styles.gridTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <Text style={styles.gridSnippet} numberOfLines={3}>
-          {item.subtitle || item.snippet || item.content || ''}
-        </Text>
-      </View>
-    );
+    return <NewsCardGrid item={item} styles={styles} />;
   }
 
-  const primaryCoin = item.coins[0];
+  const displayCoins = item.coins;
+  const primaryCoin = displayCoins[0];
   const showRelatedInCard = isExpandedLayout && item.relatedCoins && item.relatedCoins.length > 0;
 
   const isFollowingCoin =
@@ -145,73 +94,22 @@ export const NewsCard = React.memo<FeedCardProps>(({
     openInAppBrowser(item.url || item.sourceUrl!);
   };
 
-  const avatarInitial = primaryCoin
-    ? (primaryCoin.symbol?.[0] || primaryCoin.name?.[0] || 'C').toUpperCase()
-    : (item.source?.[0] ?? 'C').toUpperCase();
-
-  const headerPrimaryLine = primaryCoin
-    ? coinHeaderTitle(primaryCoin)
-    : item.source || t('news.defaultAttribution');
-
-  const headerAvatar = primaryCoin?.logo ? (
-    <Image
-      source={{ uri: primaryCoin.logo }}
-      style={styles.coinAvatarImage}
-      contentFit="cover"
-      accessibilityLabel={t('accessibility.coinLogo', { name: primaryCoin.name })}
-    />
-  ) : (
-    <View style={styles.coinAvatarPlaceholder}>
-      <Text style={styles.coinAvatarText}>{avatarInitial}</Text>
-    </View>
-  );
-
-  const attributionBlock = (
-    <View style={styles.headerLeft}>
-      {headerAvatar}
-      <View style={styles.headerTitles}>
-        <Text style={styles.sourceAttribution} numberOfLines={1}>
-          {headerPrimaryLine}
-        </Text>
-        <Text style={styles.timeAgo}>{formatTimeAgo(item.publishedAt)}</Text>
-      </View>
-    </View>
-  );
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        {primaryCoin != null ? (
-          <TouchableOpacity
-            style={styles.headerLeft}
-            onPress={() => onCoinPress?.(primaryCoin.id)}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={t('news.openCoinProfile', { name: primaryCoin.name })}
-          >
-            {headerAvatar}
-            <View style={styles.headerTitles}>
-              <Text style={styles.sourceAttribution} numberOfLines={1}>
-                {headerPrimaryLine}
-              </Text>
-              <Text style={styles.timeAgo}>{formatTimeAgo(item.publishedAt)}</Text>
+        {displayCoins.length > 0 ? (
+          <>
+            <CoinStackAvatars coins={displayCoins} onPress={onCoinPress} />
+            <View style={styles.coinsRow}>
+              {displayCoins.map((coin) => (
+                <CoinChip key={coin.id} coin={coin} onPress={onCoinPress} />
+              ))}
             </View>
-          </TouchableOpacity>
+          </>
         ) : (
-          attributionBlock
+          <Text style={styles.sourceAttribution}>{t('news.defaultAttribution')}</Text>
         )}
       </View>
-
-      {item.coins.length > 0 && (
-        <View style={styles.coinsRow}>
-          {item.coins.slice(0, 3).map((coin) => (
-            <CoinChip key={coin.id} coin={coin} onPress={onCoinPress} />
-          ))}
-          {item.coins.length > 3 && (
-            <Text style={styles.moreCoins}>+{item.coins.length - 3}</Text>
-          )}
-        </View>
-      )}
 
       <View style={styles.heroOuter}>
         <Pressable
@@ -236,7 +134,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
             ) : (
               <View style={styles.heroPlaceholder} accessibilityLabel={t('accessibility.noArticleImage')}>
                 <Text style={styles.heroPlaceholderText}>
-                  {(item.source?.[0] ?? 'N').toUpperCase()}
+                  {coinAvatarInitial(displayCoins, 'N')}
                 </Text>
               </View>
             )}
@@ -266,6 +164,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
         accessibilityLabel={onPress ? t('news.openArticleTitle', { title: item.title }) : undefined}
       >
         <View style={styles.content}>
+          <Text style={styles.timeAgo}>{formatTimeAgo(item.publishedAt)}</Text>
           <Text style={styles.title} numberOfLines={TITLE_LINES_FEED}>
             {item.title}
           </Text>
@@ -291,9 +190,6 @@ export const NewsCard = React.memo<FeedCardProps>(({
               {feedSnippet}
             </Text>
           )}
-          <Text style={styles.sourceMeta} numberOfLines={1}>
-            @{item.source}
-          </Text>
         </View>
       </Pressable>
 
@@ -326,380 +222,19 @@ export const NewsCard = React.memo<FeedCardProps>(({
         )}
       </View>
 
-      <View style={styles.actionsRow}>
-        <ReactionPicker
-          reactions={item.reactions}
-          userReaction={item.userReaction}
-          onReact={(type) => onReact?.(item.id, type)}
-        />
-
-        {hasComments && (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => onComment?.(item.id)}
-            accessibilityRole="button"
-            accessibilityLabel={t('accessibility.comment')}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MessageCircle size={20} color={tokens.textMuted} />
-            {item.comments > 0 && (
-              <Text style={styles.actionText}>{abbreviateNumber(item.comments)}</Text>
-            )}
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => onShare?.(item.id)}
-          accessibilityRole="button"
-          accessibilityLabel={t('accessibility.share')}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Share2 size={20} color={tokens.textMuted} />
-          {item.shares > 0 && (
-            <Text style={styles.actionText}>{abbreviateNumber(item.shares)}</Text>
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.spacer} />
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => onSave?.(item.id)}
-          accessibilityRole="button"
-          accessibilityLabel={isSaved ? t('accessibility.unsaveArticle') : t('accessibility.saveArticle')}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Bookmark
-            size={20}
-            color={isSaved ? c.primary[500] : tokens.textMuted}
-            fill={isSaved ? c.primary[500] : 'none'}
-          />
-          {(isSaved || articleSaveCount > 0) && (
-            <Text style={[styles.actionText, isSaved && styles.actionTextSaved]}>
-              {abbreviateNumber(articleSaveCount)}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      <NewsCardActions
+        item={item}
+        tokens={tokens}
+        styles={styles}
+        isSaved={isSaved}
+        articleSaveCount={articleSaveCount}
+        onReact={onReact}
+        onComment={onComment}
+        onShare={onShare}
+        onSave={onSave}
+      />
     </View>
   );
 }, areNewsCardPropsEqual);
 
 NewsCard.displayName = 'NewsCard';
-
-function buildNewsCardStyles(tokens: ThemeTokens) {
-  const c = tokens.colors;
-  const { semantic, spacing, typography, borderRadius } = tokens;
-  return StyleSheet.create({
-  container: {
-    backgroundColor: tokens.surface,
-    borderRadius: semantic.cardRadius,
-    borderWidth: 1,
-    borderColor: tokens.border,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    ...semantic.cardShadow,
-    overflow: 'hidden',
-  },
-  cardPressable: {
-    width: '100%',
-  },
-  cardPressablePressed: {
-    opacity: 0.96,
-  },
-  gridContainer: {
-    marginHorizontal: 0,
-    marginBottom: 0,
-    padding: spacing.sm,
-    ...semantic.cardShadow,
-  },
-  gridSource: {
-    fontSize: typography.fontSizes.badge,
-    color: tokens.textMuted,
-    fontWeight: typography.fontWeights.semibold,
-    fontFamily: typography.fontFamilies.sansSemiBold,
-    marginBottom: spacing.xs,
-    letterSpacing: typography.letterSpacing.eyebrow * 0.5,
-    textTransform: 'uppercase',
-  },
-  gridTitle: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-    fontFamily: typography.fontFamilies.sansSemiBold,
-    color: tokens.text,
-    lineHeight: 18,
-    letterSpacing: typography.letterSpacing.caption,
-    marginBottom: spacing.xs,
-  },
-  gridSnippet: {
-    fontSize: typography.fontSizes.xs,
-    fontFamily: typography.fontFamilies.sans,
-    color: tokens.textMuted,
-    lineHeight: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  headerTitles: {
-    flex: 1,
-    minWidth: 0,
-  },
-  sourceAttribution: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-    fontFamily: typography.fontFamilies.sansSemiBold,
-    color: tokens.text,
-    letterSpacing: typography.letterSpacing.caption,
-  },
-  coinAvatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: spacing.sm,
-    backgroundColor: tokens.border,
-  },
-  coinAvatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: c.primary[500],
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  coinAvatarText: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.bold,
-    fontFamily: typography.fontFamilies.sansBold,
-    color: c.white,
-  },
-  timeAgo: {
-    fontSize: typography.fontSizes.xs,
-    fontFamily: typography.fontFamilies.sans,
-    color: tokens.textMuted,
-    marginTop: 2,
-  },
-  coinsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  moreCoins: {
-    fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamilies.sans,
-    color: tokens.textMuted,
-    alignSelf: 'center',
-    marginLeft: spacing.xs,
-  },
-  heroOuter: {
-    position: 'relative',
-    width: '100%',
-  },
-  heroPressable: {
-    width: '100%',
-  },
-  heroWrap: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-    backgroundColor: tokens.isDark ? c.neutral[800] : c.neutral[200],
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: tokens.isDark ? c.neutral[800] : c.neutral[200],
-  },
-  heroPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: tokens.isDark
-      ? 'rgba(168,85,247,0.08)'
-      : 'rgba(168,85,247,0.04)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heroPlaceholderText: {
-    fontSize: 32,
-    fontWeight: typography.fontWeights.bold,
-    fontFamily: typography.fontFamilies.sansBold,
-    color: tokens.isDark ? c.primary[700] : c.primary[200],
-  },
-  heroFollowButton: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    zIndex: 2,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.button,
-    backgroundColor: c.primary[500],
-    borderWidth: 1,
-    borderColor: c.primary[500],
-  },
-  heroFollowButtonFollowing: {
-    backgroundColor: tokens.surface,
-    borderColor: tokens.borderStrong,
-  },
-  heroFollowText: {
-    fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.semibold,
-    fontFamily: typography.fontFamilies.sansSemiBold,
-    color: c.white,
-    letterSpacing: typography.letterSpacing.button,
-  },
-  heroFollowTextFollowing: {
-    color: tokens.text,
-  },
-  content: {
-    padding: spacing.md,
-  },
-  title: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.semibold,
-    fontFamily: typography.fontFamilies.sansSemiBold,
-    color: tokens.text,
-    lineHeight: 24,
-    letterSpacing: typography.letterSpacing.subheading * 0.5,
-    marginBottom: spacing.sm,
-  },
-  snippet: {
-    fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamilies.sans,
-    color: tokens.textMuted,
-    lineHeight: 18,
-    marginTop: spacing.xs,
-  },
-  sourceMeta: {
-    marginTop: spacing.sm,
-    fontSize: typography.fontSizes.xs,
-    fontFamily: typography.fontFamilies.sansMedium,
-    color: tokens.textMuted,
-    fontWeight: typography.fontWeights.medium,
-  },
-  relatedCoinsSection: {
-    marginBottom: spacing.sm,
-  },
-  relatedCoinsHeader: {
-    fontSize: typography.fontSizes.badge,
-    fontWeight: typography.fontWeights.semibold,
-    fontFamily: typography.fontFamilies.sansSemiBold,
-    color: tokens.textMuted,
-    marginBottom: spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: typography.letterSpacing.eyebrow * 0.5,
-  },
-  relatedCoinsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  relatedCoinBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.xs,
-    backgroundColor: tokens.isDark
-      ? 'rgba(168,85,247,0.15)'
-      : 'rgba(168,85,247,0.10)',
-    borderWidth: 1,
-    borderColor: tokens.isDark
-      ? 'rgba(168,85,247,0.30)'
-      : 'rgba(168,85,247,0.25)',
-  },
-  relatedCoinBadgeText: {
-    fontSize: typography.fontSizes.badge,
-    fontWeight: typography.fontWeights.semibold,
-    fontFamily: typography.fontFamilies.sansSemiBold,
-    color: tokens.isDark ? c.primary[400] : c.primary[700],
-    letterSpacing: typography.letterSpacing.button,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.borderSubtle,
-  },
-  footerSpacer: {
-    flex: 1,
-  },
-  primaryCta: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginRight: spacing.sm,
-    backgroundColor: tokens.isDark
-      ? 'rgba(168,85,247,0.12)'
-      : 'rgba(168,85,247,0.08)',
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: tokens.isDark
-      ? 'rgba(168,85,247,0.25)'
-      : 'rgba(168,85,247,0.20)',
-    gap: 4,
-  },
-  primaryCtaText: {
-    fontSize: typography.fontSizes.base,
-    fontWeight: typography.fontWeights.semibold,
-    fontFamily: typography.fontFamilies.sansSemiBold,
-    color: tokens.isDark ? c.primary[400] : c.primary[700],
-    letterSpacing: typography.letterSpacing.button,
-  },
-  openSiteTouchable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  openSiteText: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-    fontFamily: typography.fontFamilies.sansSemiBold,
-    color: c.primary[tokens.isDark ? 400 : 500],
-    letterSpacing: typography.letterSpacing.button,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    alignItems: 'center',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: spacing.md,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  actionText: {
-    fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamilies.sansMedium,
-    color: tokens.textMuted,
-    marginLeft: spacing.xs,
-    fontWeight: typography.fontWeights.medium,
-  },
-  actionTextSaved: {
-    color: c.primary[500],
-  },
-  spacer: {
-    flex: 1,
-  },
-});
-}

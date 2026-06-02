@@ -13,7 +13,7 @@ import { AuthHeader } from '@/src/components/auth/AuthHeader';
 import { AuthInput } from '@/src/components/auth/AuthInput';
 import { PrimaryButton } from '@/src/components/auth/PrimaryButton';
 import { GoogleButton } from '@/src/components/auth/GoogleButton';
-import { getAuthPalette } from '@/src/components/auth/authPalette';
+import { getAuthPaletteFromTokens } from '@/src/design-system/theme/authPaletteFromTokens';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { login, loginWithGoogle } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
@@ -24,11 +24,11 @@ const PASSWORD_RESET_URL =
 
 export default function LoginScreen() {
   const { t } = useTranslation();
-  const { effectiveScheme } = useAppTheme();
+  const { tokens, effectiveScheme } = useAppTheme();
   const router = useRouter();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isDark = effectiveScheme === 'dark';
-  const palette = useMemo(() => getAuthPalette(isDark), [isDark]);
+  const palette = useMemo(() => getAuthPaletteFromTokens(tokens), [tokens]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

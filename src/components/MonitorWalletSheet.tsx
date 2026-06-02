@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Modal,
-  Animated,
   TouchableWithoutFeedback,
   PanResponder,
   ActivityIndicator,
@@ -17,6 +16,13 @@ import { X } from 'lucide-react-native';
 import type { ExchangeConnection } from '../types';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { ChainPills } from './ChainPills';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 
@@ -127,8 +133,16 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
     supportedChainsError || t('monitorWallet.errorChainsUnavailable');
 
   const [isClosing, setIsClosing] = useState(false);
-  const slideAnim = useRef(new Animated.Value(-600)).current;
-  const backdropAnim = useRef(new Animated.Value(0)).current;
+  const slideY = useSharedValue(-600);
+  const backdropOpacity = useSharedValue(0);
+
+  const sheetAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slideY.value }],
+  }));
+
+  const backdropAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
 
   useEffect(() => {
     if (visible) {
@@ -136,13 +150,11 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
       loadSupportedChains();
       loadWallets();
       void loadExchanges();
-      Animated.parallel([
-        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, bounciness: 4 }),
-        Animated.timing(backdropAnim, { toValue: 1, duration: 200, useNativeDriver: false }),
-      ]).start();
+      slideY.value = withSpring(0, { damping: 15, stiffness: 120 });
+      backdropOpacity.value = withTiming(1, { duration: tokens.motion.duration.normal });
     } else {
-      slideAnim.setValue(-600);
-      backdropAnim.setValue(0);
+      slideY.value = -600;
+      backdropOpacity.value = 0;
       setSegment('wallet');
       setEditingExchangeId(null);
       setApiKeyInput('');
@@ -151,18 +163,22 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
       setExchangeFormError(null);
       setAddError(null);
     }
-  }, [visible]);
+  }, [visible, slideY, backdropOpacity, tokens.motion.duration.normal]);
+
+  const finishClose = useCallback(() => {
+    setIsClosing(false);
+    onClose();
+  }, [onClose]);
 
   const closeSheet = useCallback(() => {
     setIsClosing(true);
-    Animated.parallel([
-      Animated.timing(slideAnim, { toValue: -600, duration: 220, useNativeDriver: false }),
-      Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: false }),
-    ]).start(() => {
-      setIsClosing(false);
-      onClose();
+    slideY.value = withTiming(-600, { duration: tokens.motion.duration.fast }, (finished) => {
+      if (finished) {
+        runOnJS(finishClose)();
+      }
     });
-  }, [onClose, slideAnim, backdropAnim]);
+    backdropOpacity.value = withTiming(0, { duration: tokens.motion.duration.normal });
+  }, [slideY, backdropOpacity, tokens.motion.duration.fast, tokens.motion.duration.normal, finishClose]);
 
   const handleBarPan = useRef(
     PanResponder.create({
@@ -303,10 +319,10 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
   return (
     <Modal transparent visible={showModal} animationType="none" onRequestClose={closeSheet}>
       <TouchableWithoutFeedback onPress={closeSheet}>
-        <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
+        <Animated.View style={[styles.backdrop, backdropAnimatedStyle]} />
       </TouchableWithoutFeedback>
 
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+      <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
         <View style={styles.handleBarContainer} {...handleBarPan.panHandlers}>
           <View style={styles.handleBar} />
         </View>

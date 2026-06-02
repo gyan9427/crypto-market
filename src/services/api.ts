@@ -6,6 +6,7 @@ import { useAuthStore } from '../state/useAuthStore';
 import { getApiLocaleLanguage } from '@/src/services/apiLocale';
 import { resolveApiBaseUrl } from '../config/apiBaseUrl';
 import { fetchJsonCached } from './requestCache';
+import { resolveNewsItemCoins } from '../components/news/newsCardUtils';
 
 export const API_BASE_URL = resolveApiBaseUrl();
 
@@ -194,10 +195,7 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
     ? new Date(backendNews.publishedAt) 
     : backendNews.publishedAt;
 
-  // Map relatedCoins strings to full Coin objects
-  const relatedCoins: Coin[] = backendNews.relatedCoins
-    .map((coinId) => coins.find((c) => c.id === coinId))
-    .filter((coin): coin is Coin => coin !== undefined);
+  const relatedCoins: Coin[] = resolveNewsItemCoins(backendNews.relatedCoins || [], coins);
 
   const sourceUrl = backendNews.sourceUrl || backendNews.url;
   const description = backendNews.subtitle || backendNews.summary;
