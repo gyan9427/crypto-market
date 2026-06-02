@@ -2,9 +2,12 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Home, TrendingUp, Briefcase, User } from 'lucide-react-native';
+import { TabBarMenuIcon } from '@/src/components/TabBarMenuIcon';
 import { useTranslation } from 'react-i18next';
+import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import { PlatformPressable } from '@react-navigation/elements';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
-import { FAB } from '@/src/components/FAB';
+import { QuickActionsProvider, useQuickActions } from '@/src/components/FAB';
 import { CollapsibleNavHeader } from '@/src/components/CollapsibleNavHeader';
 import { CollapsibleNavHeaderProvider } from '@/src/hooks/useCollapsibleNavHeader';
 import { View, Image, StyleSheet } from 'react-native';
@@ -29,6 +32,19 @@ const tabStyles = StyleSheet.create({
     borderWidth: 1.5,
   },
 });
+
+function QuickActionsTabButton(props: BottomTabBarButtonProps) {
+  const { t } = useTranslation();
+  const { open } = useQuickActions();
+  return (
+    <PlatformPressable
+      {...props}
+      onPress={open}
+      accessibilityRole="button"
+      accessibilityLabel={t('fab.addAction')}
+    />
+  );
+}
 
 const formatSegmentTitle = (rawSegment: string) => {
   return rawSegment
@@ -143,6 +159,7 @@ export default function TabsLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
       <StatusBar style={effectiveScheme === 'dark' ? 'light' : 'dark'} />
+      <QuickActionsProvider>
       <CollapsibleNavHeaderProvider>
       <Tabs screenOptions={mergedScreenOptions as never}>
         <Tabs.Screen
@@ -164,14 +181,6 @@ export default function TabsLayout() {
           }}
         />
         <Tabs.Screen
-          name="add"
-          options={{
-            title: '',
-            tabBarIcon: () => null,
-            tabBarButton: () => <View style={{ flex: 1 }} />,
-          }}
-        />
-        <Tabs.Screen
           name="market"
           options={{
             title: t('nav.market'),
@@ -186,6 +195,19 @@ export default function TabsLayout() {
             title: t('nav.profile'),
             header: () => <CollapsibleNavHeader segment="users" />,
             tabBarIcon: ({ color, size }) => <ProfileTabIcon color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="add"
+          options={{
+            title: t('nav.menu'),
+            tabBarIcon: ({ color, size }) => <TabBarMenuIcon color={color} size={size} />,
+            tabBarButton: (props) => <QuickActionsTabButton {...props} />,
+          }}
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault();
+            },
           }}
         />
         <Tabs.Screen
@@ -232,7 +254,7 @@ export default function TabsLayout() {
         />
       </Tabs>
       </CollapsibleNavHeaderProvider>
-      <FAB />
+      </QuickActionsProvider>
     </View>
   );
 }
