@@ -13,6 +13,7 @@ import { useAppStore } from '@/src/state/useAppStore';
 import { useSplashStore } from '@/src/state/useSplashStore';
 import { useFeaturesStore } from '@/src/utils/features';
 import { NotificationsGatewayHost } from '@/src/components/NotificationsGatewayHost';
+import { RiskGatewayHost } from '@/src/components/RiskGatewayHost';
 
 const RootView = Platform.OS === 'android'
   ? View
@@ -35,6 +36,7 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
         <Stack.Screen name="+not-found" />
       </Stack>
       <NotificationsGatewayHost />
+      <RiskGatewayHost />
     </>
   );
 }

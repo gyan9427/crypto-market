@@ -17,6 +17,7 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { SignalTag } from './SignalTag';
 import { useHoldingsStatus } from '../hooks/useHoldingsStatus';
 import { useAppStore } from '../state/useAppStore';
+import { useRiskStore } from '../state/useRiskStore';
 
 export interface MarketAnalysisCardProps {
   coin: MarketAnalysisCoin;
@@ -44,6 +45,8 @@ export const MarketAnalysisCard = React.memo(function MarketAnalysisCard({
   const [followBusy, setFollowBusy] = useState(false);
 
   const { isHeld } = useHoldingsStatus(coin.symbol);
+  const riskCoin = useRiskStore((s) => s.crsBySymbol.get(coin.symbol.toUpperCase()));
+  const riskStale = useRiskStore((s) => s.meta.stale);
 
   const rawLivePrice = liveQuote?.price;
   const livePrice =
@@ -110,6 +113,13 @@ export const MarketAnalysisCard = React.memo(function MarketAnalysisCard({
         </View>
 
         <View style={styles.signalsBlock}>
+          {riskCoin && (
+            <View style={[styles.crsPill, riskStale && styles.crsPillStale]}>
+              <Text style={styles.crsPillText}>
+                CRS {(riskCoin.crs * 100).toFixed(0)}
+              </Text>
+            </View>
+          )}
           {visibleSignals.map((s) => (
             <SignalTag key={s.type} signal={s} />
           ))}
@@ -245,6 +255,21 @@ function buildStyles(tokens: ThemeTokens) {
       gap: 4,
       alignItems: 'center',
       justifyContent: 'flex-end',
+    },
+    crsPill: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+      backgroundColor: tokens.isDark ? 'rgba(239,68,68,0.15)' : c.danger[100],
+    },
+    crsPillStale: {
+      opacity: 0.55,
+    },
+    crsPillText: {
+      fontSize: typo.fontSizes.badge,
+      fontWeight: typo.fontWeights.semibold,
+      color: c.danger[600],
+      fontVariant: ['tabular-nums'],
     },
     // ── Row 2 ──
     bottomRow: {
