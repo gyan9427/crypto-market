@@ -18,6 +18,7 @@ const WEIGHTS = {
   marketRegimeElevated: 15,
   marketRegimePanic: 22,
   globalExploreThreshold: 25,
+  heldBoostMax: 80,
 } as const;
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -62,6 +63,18 @@ function searchedBoostForArticle(article: NewsItem, ctx: FeedUserContext): numbe
     }
   });
   return boost;
+}
+
+function heldBoostForArticle(article: NewsItem, ctx: FeedUserContext): number {
+  if (ctx.heldSymbols.size === 0) return 0;
+  let best = 0;
+  for (const coin of article.coins) {
+    const sym = symbolKey(coin);
+    if (!ctx.heldSymbols.has(sym)) continue;
+    const w = ctx.heldWeightBySymbol.get(sym) ?? 0;
+    best = Math.max(best, WEIGHTS.heldBoostMax * Math.min(1, w * 2));
+  }
+  return best;
 }
 
 function followBoostForArticle(article: NewsItem, ctx: FeedUserContext): number {
@@ -145,7 +158,7 @@ export function computeFollowingPriority(
 ): FeedPriorityScore {
   const primarySymbol = resolvePrimarySymbolForScoring(article, ctx);
   const breakdown: ScoreBreakdown = {
-    followBoost: followBoostForArticle(article, ctx),
+    followBoost: followBoostForArticle(article, ctx) + heldBoostForArticle(article, ctx),
     searchedBoost: searchedBoostForArticle(article, ctx) * 0.35,
     rrsWeight: coinCrsWeight(article, ctx),
     crsDeltaWeight: crsDeltaForArticle(article, ctx),
@@ -174,6 +187,7 @@ export function computeExplorePriority(
   const primarySymbol = resolvePrimarySymbolForScoring(article, ctx);
   const breakdown: ScoreBreakdown = {
     searchedBoost: searchedBoostForArticle(article, ctx),
+    followBoost: heldBoostForArticle(article, ctx),
     rrsWeight: coinCrsWeight(article, ctx),
     crsDeltaWeight: crsDeltaForArticle(article, ctx),
     sentimentShock: sentimentShockForArticle(article, ctx),

@@ -56,6 +56,9 @@ export type FeedUserContext = {
   moversTopRiskSymbols: Set<string>;
   marketRegime: string | null;
   riskStale: boolean;
+  heldSymbols: Set<string>;
+  heldWeightBySymbol: Map<string, number>;
+  portfolioAnalyticsRevision: number;
 };
 
 export type ScoredArticle = {
