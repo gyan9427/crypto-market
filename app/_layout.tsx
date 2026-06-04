@@ -7,6 +7,9 @@ import { AppState, InteractionManager, Platform, View } from 'react-native';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ThemeProvider, useAppTheme } from '@/src/theme/ThemeProvider';
 import { GlobalErrorBoundary } from '@/src/components/GlobalErrorBoundary';
+import { installGlobalErrorHandlers } from '@/src/errors/installGlobalErrorHandlers';
+
+installGlobalErrorHandlers();
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
@@ -14,6 +17,7 @@ import { useSplashStore } from '@/src/state/useSplashStore';
 import { useFeaturesStore } from '@/src/utils/features';
 import { NotificationsGatewayHost } from '@/src/components/NotificationsGatewayHost';
 import { RiskGatewayHost } from '@/src/components/RiskGatewayHost';
+import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
 
 const RootView = Platform.OS === 'android'
   ? View
@@ -90,6 +94,7 @@ export default function RootLayout() {
       useFeaturesStore.getState().loadFeatures(),
       hydrateThemePreference(),
       hydrateLanguage(),
+      useFeedIntentStore.getState().hydrate(),
     ]).then(() => {
       setIsReady(true);
       InteractionManager.runAfterInteractions(() => {
@@ -165,13 +170,13 @@ export default function RootLayout() {
 
   return (
     <RootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <GlobalErrorBoundary>
+      <GlobalErrorBoundary>
+        <ThemeProvider>
           <BottomSheetModalProvider>
             <RootLayoutContent isReady={isReady} />
           </BottomSheetModalProvider>
-        </GlobalErrorBoundary>
-      </ThemeProvider>
+        </ThemeProvider>
+      </GlobalErrorBoundary>
     </RootView>
   );
 }

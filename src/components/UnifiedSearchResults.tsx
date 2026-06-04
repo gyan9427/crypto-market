@@ -58,7 +58,7 @@ type UnifiedSearchResultsProps = {
   result: UnifiedSearchResult;
   selectedSegment: SearchSegment;
   isActive: boolean;
-  onCoinPress?: (coinId: string) => void;
+  onCoinPress?: (coinId: string, symbol?: string) => void;
   onNewsPress?: (newsId: string, url?: string) => void;
   onUserPress?: (userId: string) => void;
   renderUserAction?: (user: { id: string; username: string }) => React.ReactNode;
@@ -199,7 +199,11 @@ export const UnifiedSearchResults: React.FC<UnifiedSearchResultsProps> = ({
 
           if (item.type === 'coin') {
             return (
-              <TouchableOpacity style={styles.row} onPress={() => onCoinPress?.(item.coinId)} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.row}
+                onPress={() => onCoinPress?.(item.coinId, item.symbol)}
+                activeOpacity={0.7}
+              >
                 <ResultAvatar type="coin" logo={item.logo} symbol={item.symbol} styles={styles} iconMuted={iconMuted} />
                 <View style={styles.rowContent}>
                   <Text style={styles.primaryText}>{item.symbol}</Text>

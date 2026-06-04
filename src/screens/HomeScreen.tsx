@@ -14,11 +14,14 @@ import { CommentTray } from '../components/CommentTray';
 import { useAppStore } from '../state/useAppStore';
 import { fetchNews, toggleReaction } from '../services/api';
 import { NewsItem, ReactionType } from '../types';
+import { useFeedOrchestrator } from '../hooks/useFeedOrchestrator';
+import { useFeedIntentStore } from '../state/useFeedIntentStore';
 import { NewsDetailModal } from './NewsDetailModal';
 import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { buildAppWsUrl } from '@/src/config/wsBaseUrl';
+import { shareNewsById } from '../utils/share';
 
 /** After this many article cards, insert the Featured carousel (sixth vertical block). */
 const FEATURE_INSERT_AFTER = 5;
@@ -60,8 +63,8 @@ export const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newsData, setNewsData] = useState<NewsItem[]>([]);
-  const [featuredNews, setFeaturedNews] = useState<NewsItem[]>([]);
+  const [rawNewsData, setRawNewsData] = useState<NewsItem[]>([]);
+  const [rawFeaturedNews, setRawFeaturedNews] = useState<NewsItem[]>([]);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [isDetailVisible, setIsDetailVisible] = useState(false);
   const [savingNewsId, setSavingNewsId] = useState<string | null>(null);
@@ -71,6 +74,11 @@ export const HomeScreen: React.FC = () => {
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
   const setReaction = useAppStore((state) => state.setReaction);
   const newsReactions = useAppStore((state) => state.newsReactions);
+  const recordSearchCoin = useFeedIntentStore((s) => s.recordSearchCoin);
+  const recordArticleRead = useFeedIntentStore((s) => s.recordArticleRead);
+
+  const { articles: newsData } = useFeedOrchestrator(rawNewsData, feedFilter);
+  const { articles: featuredNews } = useFeedOrchestrator(rawFeaturedNews, 'explore');
 
   const loadNews = useCallback(async (options?: { background?: boolean }) => {
     const isBackground = options?.background === true;
@@ -88,14 +96,19 @@ export const HomeScreen: React.FC = () => {
         isSaved: savedFn(item.id),
       }));
 
-      setNewsData(newsWithState);
+      setRawNewsData(newsWithState);
 
       if (feedFilter === 'explore') {
-        setFeaturedNews(newsWithState.slice(0, 3));
+        setRawFeaturedNews(newsWithState);
       } else {
         try {
-          const exploreTop = await fetchNews('explore', 1, 3, []);
-          setFeaturedNews(exploreTop.slice(0, 3));
+          const exploreTop = await fetchNews('explore', 1, 50, []);
+          const exploreWithState = exploreTop.map((item) => ({
+            ...item,
+            userReaction: reactions[item.id] ?? item.userReaction ?? null,
+            isSaved: savedFn(item.id),
+          }));
+          setRawFeaturedNews(exploreWithState);
         } catch (err: any) {
           console.error('Error loading featured news:', err);
         }
@@ -206,7 +219,7 @@ export const HomeScreen: React.FC = () => {
       return { ...item, userReaction: newReaction, reactions: prev };
     };
 
-    setNewsData((prev) => prev.map(optimisticUpdate));
+    setRawNewsData((prev) => prev.map(optimisticUpdate));
 
     try {
       const result = await toggleReaction(newsId, type);
@@ -217,10 +230,10 @@ export const HomeScreen: React.FC = () => {
             ? { ...item, reactions: result.reactions, userReaction: result.userReaction }
             : item
         );
-      setNewsData((prev) => applyServer(prev));
+      setRawNewsData((prev) => applyServer(prev));
     } catch (error) {
       setReaction(newsId, currentReaction);
-      setNewsData((prev) =>
+      setRawNewsData((prev) =>
         prev.map((item) =>
           item.id === newsId ? { ...item, userReaction: currentReaction } : item
         )
@@ -236,7 +249,7 @@ export const HomeScreen: React.FC = () => {
   const handleSaved = useCallback((newsId: string, saveCount: number) => {
     const update = (item: NewsItem) =>
       item.id === newsId ? { ...item, isSaved: true, saveCount } : item;
-    setNewsData((prev) => prev.map(update));
+    setRawNewsData((prev) => prev.map(update));
     setSavingNewsId(null);
   }, []);
 
@@ -247,15 +260,16 @@ export const HomeScreen: React.FC = () => {
   const handleCommentCountChange = useCallback((newsId: string, count: number) => {
     const update = (item: NewsItem) =>
       item.id === newsId ? { ...item, comments: count } : item;
-    setNewsData((prev) => prev.map(update));
+    setRawNewsData((prev) => prev.map(update));
   }, []);
 
   const handleShare = useCallback((newsId: string) => {
-    console.log('Share:', newsId);
-  }, []);
+    void shareNewsById(newsId, [...newsData, ...featuredNews]);
+  }, [newsData, featuredNews]);
 
   const openNewsDetailById = useCallback((newsId: string) => {
-    const allNewsSources: NewsItem[] = [...newsData, ...featuredNews];
+    recordArticleRead(newsId);
+    const allNewsSources: NewsItem[] = [...newsData, ...featuredNews.slice(0, 3)];
 
     const newsItem = allNewsSources.find((item) => item.id === newsId);
     if (!newsItem) {
@@ -273,7 +287,7 @@ export const HomeScreen: React.FC = () => {
       content: newsItem.content || `${newsItem.snippet}\n\n${dummyBody}`,
     });
     setIsDetailVisible(true);
-  }, [newsData, featuredNews]);
+  }, [newsData, featuredNews, recordArticleRead]);
 
   const handleFeaturedNewsPress = useCallback(
     (newsId: string) => {
@@ -287,11 +301,24 @@ export const HomeScreen: React.FC = () => {
     setSelectedNews(null);
   }, []);
 
-  const handleCoinPress = useCallback((coinId: string) => {
-    router.push(`/coins/${coinId}` as never);
-  }, [router]);
+  const handleCoinPress = useCallback(
+    (coinId: string) => {
+      const fromFeed = [...newsData, ...featuredNews].find((n) =>
+        n.coins.some((c) => c.id === coinId)
+      );
+      const coin =
+        fromFeed?.coinContext?.primaryCoin.id === coinId
+          ? fromFeed.coinContext.primaryCoin
+          : fromFeed?.coins.find((c) => c.id === coinId);
+      if (coin?.symbol) recordSearchCoin(coin.symbol);
+      router.push(`/coins/${coinId}` as never);
+    },
+    [router, newsData, featuredNews, recordSearchCoin]
+  );
 
-  const hasFeaturedContent = featuredNews.length > 0;
+  const displayFeatured = useMemo(() => featuredNews.slice(0, 3), [featuredNews]);
+
+  const hasFeaturedContent = displayFeatured.length > 0;
   const feedRows = useMemo(
     () => buildFeedRows(newsData, hasFeaturedContent, loading && newsData.length === 0),
     [newsData, hasFeaturedContent, loading]
@@ -327,7 +354,7 @@ export const HomeScreen: React.FC = () => {
         return featuredNews.length === 0 ? (
           <FeaturedCarouselSkeleton />
         ) : (
-          <FeaturedCarousel items={featuredNews} onItemPress={handleFeaturedNewsPress} />
+          <FeaturedCarousel items={displayFeatured} onItemPress={handleFeaturedNewsPress} />
         );
       }
       return (
@@ -345,7 +372,7 @@ export const HomeScreen: React.FC = () => {
     [
       loading,
       newsData.length,
-      featuredNews,
+      displayFeatured,
       handleFeaturedNewsPress,
       handleReact,
       handleComment,

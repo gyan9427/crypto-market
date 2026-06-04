@@ -116,7 +116,11 @@
     "newsBoardsDesc": "Your saved article collections",
     "about": "About",
     "aboutApp": "About this app",
-    "aboutAppDesc": "Learn more about Crypto Market",
+    "aboutAppDesc": "Portfolio-aware news and signals for what you hold",
+    "aboutSheetTitle": "About NAYFT",
+    "aboutVersion": "NAYFT Beta v1.0",
+    "aboutBody": "A portfolio-aware crypto intelligence app built to cut through market noise by personalizing news, insights, and market signals around the coins you actually follow and hold.\n\nTrack portfolios, explore live market trends, follow coins, save research boards, and discover smarter crypto insights in one unified experience.",
+    "aboutTagline": "Trade the signal, not the noise.",
     "logout": "Logout",
     "logoutDesc": "Sign out of your account"
   },
@@ -130,11 +134,40 @@
     "failedToLoadCoin": "Failed to load coin profile"
   },
   "errorBoundary": {
-    "title": "Something went wrong",
-    "subtitle": "An unexpected error interrupted the app. You can try again — your session and data are safe.",
-    "tryAgain": "Try again",
-    "reloadApp": "Reload page",
-    "devDetails": "Development details"
+    "bureau": "INCIDENT CONTAINMENT · NAYFT",
+    "incidentLabel": "REFERENCE (share with support)",
+    "reassurance": "Technical internals were withheld for your security. Portfolio state and session credentials were not modified by this event.",
+    "statusContained": "CONTAINED",
+    "statusSession": "SESSION INTACT",
+    "statusNonFatal": "NON-FATAL",
+    "tryAgain": "Reinitialize viewport",
+    "reloadApp": "Cold start",
+    "copyRef": "Copy reference",
+    "copiedRef": "Incident reference copied.",
+    "devDetails": "Forensic trace (development only)",
+    "publicSummaryLabel": "Summary",
+    "sources": {
+      "react": "RENDER LAYER",
+      "promise": "ASYNC CHANNEL",
+      "global": "RUNTIME",
+      "native": "NATIVE BRIDGE"
+    },
+    "headlines": {
+      "0": "A rogue exception escaped QA custody",
+      "1": "The interface briefly forgot how to interface",
+      "2": "This screen tripped a non-fatal trap wire",
+      "3": "Our components held an unscheduled philosophy debate",
+      "4": "Chart data attempted interpretive dance — poorly",
+      "5": "Signal lost; narrative integrity restorable in one tap"
+    },
+    "quips": {
+      "0": "Markets are fine. This pixel rebellion is contained backstage.",
+      "1": "Think dramatic pause — not a liquidation event.",
+      "2": "The failure never reached your wallet; only the viewport blinked.",
+      "3": "Engineering received a polite cease-and-desist from the render pipeline.",
+      "4": "We quarantined the glitch like a suspicious altcoin listing.",
+      "5": "Your session stayed in the green room while we reset the stage."
+    }
   },
   "serviceUnavailable": {
     "title": "We're offline for a moment",

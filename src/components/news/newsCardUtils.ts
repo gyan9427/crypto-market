@@ -90,10 +90,16 @@ export function areNewsCardPropsEqual(prev: FeedCardProps, next: FeedCardProps):
   if (a.snippet !== b.snippet) return false;
   if (a.subtitle !== b.subtitle) return false;
   if (a.imageUrl !== b.imageUrl) return false;
-  if (a.coins.length !== b.coins.length) return false;
-  for (let i = 0; i < a.coins.length; i++) {
-    const ac = a.coins[i];
-    const bc = b.coins[i];
+  const aPrimary = a.coinContext?.primaryCoin?.id ?? a.coins[0]?.id ?? '';
+  const bPrimary = b.coinContext?.primaryCoin?.id ?? b.coins[0]?.id ?? '';
+  if (aPrimary !== bPrimary) return false;
+
+  const aOrdered = a.coinContext?.orderedCoins ?? a.coins;
+  const bOrdered = b.coinContext?.orderedCoins ?? b.coins;
+  if (aOrdered.length !== bOrdered.length) return false;
+  for (let i = 0; i < aOrdered.length; i++) {
+    const ac = aOrdered[i];
+    const bc = bOrdered[i];
     if ((ac?.id ?? '') !== (bc?.id ?? '')) return false;
     if ((ac?.symbol ?? '') !== (bc?.symbol ?? '')) return false;
     if ((ac?.isFollowing ?? false) !== (bc?.isFollowing ?? false)) return false;

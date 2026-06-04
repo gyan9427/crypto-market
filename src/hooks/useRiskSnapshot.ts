@@ -52,7 +52,7 @@ export function useRiskSnapshot(options?: { enabled?: boolean; pollMs?: number }
     if (enabled) void load();
   }, [enabled, load]);
 
-  usePollingEffect(load, pollMs, enabled);
+  usePollingEffect(load, [load], { enabled, intervalMs: pollMs });
 
   const onWsRevision = useCallback(
     (incomingRevision: number) => {

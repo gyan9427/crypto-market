@@ -27,6 +27,7 @@ import type { KlineInterval } from '@/src/types/kline';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { TradingHeader } from '@/src/screens/trading/TradingHeader';
+import { shareNewsById } from '@/src/utils/share';
 
 // ── Interval mapping ──────────────────────────────────────────────────────────
 type RangeTab = '1H' | '1D' | '1W' | '1M' | '3M' | '1Y';
@@ -216,7 +217,9 @@ export function TradingScreen() {
     );
   }, []);
 
-  const handleShare = useCallback((_newsId: string) => {}, []);
+  const handleShare = useCallback((newsId: string) => {
+    void shareNewsById(newsId, news);
+  }, [news]);
 
   const handleCoinPress = useCallback(
     (targetCoinId: string) => router.push(`/coin/${targetCoinId}` as never),

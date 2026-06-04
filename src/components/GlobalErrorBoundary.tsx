@@ -6,13 +6,26 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
+  Share,
+  useColorScheme,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, RefreshCw } from 'lucide-react-native';
+import { FileWarning, RefreshCw, Copy, Share2 } from 'lucide-react-native';
 import type { ThemeTokens } from '@/src/theme/theme';
-import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { getThemeTokens } from '@/src/theme/theme';
+import { useAppStore } from '@/src/state/useAppStore';
+import {
+  buildIncidentReport,
+  formatIncidentClipboard,
+  type ErrorSource,
+  type IncidentReport,
+} from '@/src/errors/incidentReport';
+import { setGlobalErrorListener } from '@/src/errors/errorBoundaryBridge';
+import { installGlobalErrorHandlers } from '@/src/errors/installGlobalErrorHandlers';
+
+const HEADLINE_COUNT = 6;
 
 type Props = {
   children: ReactNode;
@@ -21,6 +34,7 @@ type Props = {
 type State = {
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  source: ErrorSource;
 };
 
 function buildStyles(tokens: ThemeTokens) {
@@ -28,22 +42,21 @@ function buildStyles(tokens: ThemeTokens) {
   const s = tokens.spacing;
   const br = tokens.borderRadius;
   const typo = tokens.typography;
-  const iconBg = tokens.isDark ? 'rgba(168, 85, 247, 0.18)' : c.primary[50];
-  const devBg = tokens.isDark ? 'rgba(255, 255, 255, 0.06)' : c.neutral[100];
+  const panelBg = tokens.isDark ? 'rgba(10, 10, 15, 0.55)' : 'rgba(255, 255, 255, 0.72)';
 
   return StyleSheet.create({
-    safe: {
-      flex: 1,
-      backgroundColor: tokens.bg,
-    },
-    gradient: {
-      flex: 1,
-    },
-    center: {
-      flex: 1,
-      justifyContent: 'center',
-      paddingHorizontal: s.lg,
-      paddingVertical: s.xl,
+    safe: { flex: 1, backgroundColor: tokens.bg },
+    gradient: { flex: 1 },
+    scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: s.lg, paddingVertical: s.xl },
+    bureauLabel: {
+      fontFamily: typo.fontFamilies.mono,
+      fontSize: 10,
+      fontWeight: typo.fontWeights.semibold,
+      letterSpacing: 3.2,
+      color: tokens.isDark ? c.primary[300] : c.primary[700],
+      textAlign: 'center',
+      marginBottom: s.md,
+      opacity: 0.9,
     },
     card: {
       backgroundColor: tokens.surface,
@@ -52,37 +65,123 @@ function buildStyles(tokens: ThemeTokens) {
       ...tokens.shadows.lg,
       borderWidth: 1,
       borderColor: tokens.borderSubtle,
+      overflow: 'hidden',
+    },
+    cardSheen: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 3,
+      backgroundColor: c.primary[500],
+      opacity: 0.85,
+    },
+    iconRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: s.lg,
     },
     iconWrap: {
-      alignSelf: 'center',
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      backgroundColor: iconBg,
+      width: 56,
+      height: 56,
+      borderRadius: 16,
+      backgroundColor: tokens.isDark ? 'rgba(168, 85, 247, 0.2)' : c.primary[50],
       justifyContent: 'center',
       alignItems: 'center',
+      borderWidth: 1,
+      borderColor: tokens.isDark ? 'rgba(168, 85, 247, 0.35)' : c.primary[100],
+    },
+    wordmark: {
+      fontFamily: typo.fontFamilies.sansBold,
+      fontSize: typo.fontSizes.lg,
+      fontWeight: typo.fontWeights.bold,
+      color: tokens.text,
+      letterSpacing: 1.5,
+    },
+    wordmarkAccent: { color: c.primary[500] },
+    incidentPanel: {
+      backgroundColor: panelBg,
+      borderRadius: br.md,
+      padding: s.md,
       marginBottom: s.lg,
+      borderWidth: 1,
+      borderColor: tokens.borderSubtle,
+    },
+    incidentLabel: {
+      fontFamily: typo.fontFamilies.mono,
+      fontSize: 10,
+      letterSpacing: 1.6,
+      color: tokens.textMuted,
+      marginBottom: 4,
+    },
+    incidentId: {
+      fontFamily: typo.fontFamilies.mono,
+      fontSize: typo.fontSizes.md,
+      fontWeight: typo.fontWeights.semibold,
+      color: tokens.text,
+      letterSpacing: 0.5,
+    },
+    incidentMeta: {
+      fontFamily: typo.fontFamilies.mono,
+      fontSize: 10,
+      color: tokens.textMuted,
+      marginTop: 6,
     },
     title: {
       fontFamily: typo.fontFamilies.sansBold,
-      fontSize: typo.fontSizes.xxl,
+      fontSize: typo.fontSizes.xl,
       fontWeight: typo.fontWeights.bold,
       color: tokens.text,
-      textAlign: 'center',
-      letterSpacing: -0.5,
+      letterSpacing: -0.4,
+      lineHeight: 30,
       marginBottom: s.sm,
     },
-    subtitle: {
+    quip: {
       fontFamily: typo.fontFamilies.sans,
       fontSize: typo.fontSizes.md,
-      fontWeight: typo.fontWeights.regular,
+      color: tokens.isDark ? c.primary[200] : c.primary[800],
+      lineHeight: 22,
+      marginBottom: s.md,
+      fontStyle: 'italic',
+    },
+    reassurance: {
+      fontFamily: typo.fontFamilies.sans,
+      fontSize: typo.fontSizes.sm,
       color: tokens.textMuted,
-      textAlign: 'center',
-      lineHeight: 24,
-      marginBottom: s.xl,
+      lineHeight: 21,
+      marginBottom: s.lg,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: s.xs,
+      marginBottom: s.lg,
+    },
+    statusPill: {
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: br.pill,
+      backgroundColor: tokens.isDark ? 'rgba(26, 138, 90, 0.2)' : 'rgba(26, 138, 90, 0.1)',
+      borderWidth: 1,
+      borderColor: tokens.isDark ? 'rgba(26, 138, 90, 0.45)' : c.success[500] + '33',
+    },
+    statusPillMuted: {
+      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : c.neutral[100],
+      borderColor: tokens.borderSubtle,
+    },
+    statusText: {
+      fontFamily: typo.fontFamilies.mono,
+      fontSize: 9,
+      letterSpacing: 1.2,
+      color: tokens.isDark ? c.success[500] : c.success[600],
+      fontWeight: typo.fontWeights.semibold,
+    },
+    statusTextMuted: {
+      color: tokens.textMuted,
     },
     primaryBtn: {
-      backgroundColor: c.primary[500],
+      backgroundColor: c.primary[600],
       borderRadius: br.button,
       paddingVertical: s.md,
       paddingHorizontal: s.lg,
@@ -91,23 +190,29 @@ function buildStyles(tokens: ThemeTokens) {
       justifyContent: 'center',
       gap: s.sm,
     },
-    primaryBtnPressed: {
-      opacity: 0.92,
-    },
+    primaryBtnPressed: { opacity: 0.9 },
     primaryBtnText: {
       fontFamily: typo.fontFamilies.sansSemiBold,
       fontSize: typo.fontSizes.base,
       fontWeight: typo.fontWeights.semibold,
       color: '#fff',
     },
-    secondaryBtn: {
+    secondaryRow: {
+      flexDirection: 'row',
+      gap: s.sm,
       marginTop: s.md,
+    },
+    secondaryBtn: {
+      flex: 1,
       borderRadius: br.button,
       borderWidth: 1,
       borderColor: tokens.border,
       paddingVertical: s.md,
-      paddingHorizontal: s.lg,
+      paddingHorizontal: s.sm,
       alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 6,
     },
     secondaryBtnText: {
       fontFamily: typo.fontFamilies.sansMedium,
@@ -115,64 +220,81 @@ function buildStyles(tokens: ThemeTokens) {
       fontWeight: typo.fontWeights.medium,
       color: tokens.text,
     },
-    devBox: {
-      marginTop: s.lg,
-      maxHeight: 160,
-      borderRadius: br.sm,
-      backgroundColor: devBg,
-      padding: s.md,
-      borderWidth: 1,
-      borderColor: tokens.borderSubtle,
-    },
-    devLabel: {
+    copiedHint: {
+      marginTop: s.sm,
+      textAlign: 'center',
       fontFamily: typo.fontFamilies.mono,
-      fontSize: typo.fontSizes.xs,
-      fontWeight: typo.fontWeights.semibold,
-      color: c.error[600],
-      marginBottom: s.xs,
-    },
-    devText: {
-      fontFamily: typo.fontFamilies.mono,
-      fontSize: 11,
-      color: tokens.textMuted,
+      fontSize: 10,
+      color: c.success[500],
+      letterSpacing: 0.6,
     },
     accentBlob: {
       position: 'absolute',
-      width: 280,
-      height: 280,
-      borderRadius: 140,
-      opacity: 0.12,
-      top: -80,
-      right: -100,
+      width: 300,
+      height: 300,
+      borderRadius: 150,
+      opacity: 0.1,
+      top: -100,
+      right: -120,
       backgroundColor: c.primary[400],
     },
     accentBlob2: {
       position: 'absolute',
-      width: 200,
-      height: 200,
-      borderRadius: 100,
-      opacity: 0.08,
-      bottom: 40,
-      left: -60,
+      width: 220,
+      height: 220,
+      borderRadius: 110,
+      opacity: 0.07,
+      bottom: 24,
+      left: -80,
       backgroundColor: c.accent[400],
     },
   });
 }
 
+async function copyIncidentToClipboard(text: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    return false;
+  }
+  try {
+    await Share.share({ message: text });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type FallbackProps = {
-  error: Error;
-  errorInfo: ErrorInfo | null;
+  report: IncidentReport;
   onReset: () => void;
 };
 
-function ErrorFallback({ error, errorInfo, onReset }: FallbackProps) {
+function useIncidentThemeTokens(): ThemeTokens {
+  const systemScheme = useColorScheme();
+  const preference = useAppStore((s) => s.themePreference);
+  const isDark = React.useMemo(() => {
+    if (preference === 'dark') return true;
+    if (preference === 'light') return false;
+    return systemScheme === 'dark';
+  }, [preference, systemScheme]);
+  return React.useMemo(() => getThemeTokens(isDark), [isDark]);
+}
+
+function ErrorIncidentFallback({ report, onReset }: FallbackProps) {
   const { t } = useTranslation();
-  const { tokens } = useAppTheme();
+  const tokens = useIncidentThemeTokens();
   const styles = React.useMemo(() => buildStyles(tokens), [tokens]);
   const c = tokens.colors;
+  const [copied, setCopied] = React.useState(false);
+
+  const headlineKey = `errorBoundary.headlines.${report.headlineIndex}` as const;
+  const quipKey = `errorBoundary.quips.${report.headlineIndex}` as const;
 
   const gradientEnd = tokens.isDark ? tokens.bgElevated : tokens.surface;
-  const gradientMid = tokens.isDark ? '#1a0a2e' : c.primary[50];
+  const gradientMid = tokens.isDark ? '#140820' : c.primary[50];
 
   const handleHardReload = () => {
     if (Platform.OS === 'web' && typeof globalThis !== 'undefined') {
@@ -183,28 +305,76 @@ function ErrorFallback({ error, errorInfo, onReset }: FallbackProps) {
     onReset();
   };
 
+  const handleCopyRef = async () => {
+    const ok = await copyIncidentToClipboard(formatIncidentClipboard(report));
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2400);
+    }
+  };
+
+  const sourceLabel = t(`errorBoundary.sources.${report.source}`, {
+    defaultValue: report.source.toUpperCase(),
+  });
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
       <LinearGradient
-        colors={[c.primary[900], gradientMid, gradientEnd]}
-        locations={[0, 0.45, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        colors={[tokens.isDark ? '#0a0a0f' : c.primary[900], gradientMid, gradientEnd]}
+        locations={[0, 0.38, 1]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
         style={styles.gradient}
       >
         <View style={styles.accentBlob} />
         <View style={styles.accentBlob2} />
-        <View style={styles.center}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <Text style={styles.bureauLabel}>{t('errorBoundary.bureau')}</Text>
+
           <View style={styles.card}>
-            <View style={styles.iconWrap}>
-              <AlertTriangle
-                size={36}
-                color={tokens.isDark ? c.primary[400] : c.primary[600]}
-                strokeWidth={2}
-              />
+            <View style={styles.cardSheen} />
+            <View style={styles.iconRow}>
+              <View style={styles.iconWrap}>
+                <FileWarning
+                  size={28}
+                  color={tokens.isDark ? c.primary[300] : c.primary[600]}
+                  strokeWidth={1.75}
+                />
+              </View>
+              <Text style={styles.wordmark}>
+                NAY<Text style={styles.wordmarkAccent}>FT</Text>
+              </Text>
             </View>
-            <Text style={styles.title}>{t('errorBoundary.title')}</Text>
-            <Text style={styles.subtitle}>{t('errorBoundary.subtitle')}</Text>
+
+            <View style={styles.incidentPanel}>
+              <Text style={styles.incidentLabel}>{t('errorBoundary.incidentLabel')}</Text>
+              <Text style={styles.incidentId} selectable>
+                {report.id}
+              </Text>
+              <Text style={styles.incidentMeta}>
+                {sourceLabel} · {new Date(report.occurredAt).toLocaleString()}
+              </Text>
+            </View>
+
+            <Text style={styles.title}>{t(headlineKey)}</Text>
+            <Text style={styles.quip}>{t(quipKey)}</Text>
+            <Text style={styles.reassurance}>{t('errorBoundary.reassurance')}</Text>
+
+            <View style={styles.statusRow}>
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>{t('errorBoundary.statusContained')}</Text>
+              </View>
+              <View style={[styles.statusPill, styles.statusPillMuted]}>
+                <Text style={[styles.statusText, styles.statusTextMuted]}>
+                  {t('errorBoundary.statusSession')}
+                </Text>
+              </View>
+              <View style={[styles.statusPill, styles.statusPillMuted]}>
+                <Text style={[styles.statusText, styles.statusTextMuted]}>
+                  {t('errorBoundary.statusNonFatal')}
+                </Text>
+              </View>
+            </View>
 
             <Pressable
               onPress={onReset}
@@ -216,30 +386,34 @@ function ErrorFallback({ error, errorInfo, onReset }: FallbackProps) {
               <Text style={styles.primaryBtnText}>{t('errorBoundary.tryAgain')}</Text>
             </Pressable>
 
-            {Platform.OS === 'web' ? (
+            <View style={styles.secondaryRow}>
               <Pressable
-                onPress={handleHardReload}
+                onPress={handleCopyRef}
                 style={styles.secondaryBtn}
                 accessibilityRole="button"
-                accessibilityLabel={t('errorBoundary.reloadApp')}
+                accessibilityLabel={t('errorBoundary.copyRef')}
               >
-                <Text style={styles.secondaryBtnText}>{t('errorBoundary.reloadApp')}</Text>
+                <Copy size={16} color={tokens.text} />
+                <Text style={styles.secondaryBtnText}>{t('errorBoundary.copyRef')}</Text>
               </Pressable>
-            ) : null}
+              {Platform.OS === 'web' ? (
+                <Pressable
+                  onPress={handleHardReload}
+                  style={styles.secondaryBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('errorBoundary.reloadApp')}
+                >
+                  <Share2 size={16} color={tokens.text} />
+                  <Text style={styles.secondaryBtnText}>{t('errorBoundary.reloadApp')}</Text>
+                </Pressable>
+              ) : null}
+            </View>
 
-            {__DEV__ ? (
-              <ScrollView style={styles.devBox} nestedScrollEnabled>
-                <Text style={styles.devLabel}>{t('errorBoundary.devDetails')}</Text>
-                <Text style={styles.devText} selectable>
-                  {error.message}
-                  {errorInfo?.componentStack
-                    ? `\n\n${errorInfo.componentStack.slice(0, 1200)}`
-                    : ''}
-                </Text>
-              </ScrollView>
+            {copied ? (
+              <Text style={styles.copiedHint}>{t('errorBoundary.copiedRef')}</Text>
             ) : null}
           </View>
-        </View>
+        </ScrollView>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -248,30 +422,47 @@ function ErrorFallback({ error, errorInfo, onReset }: FallbackProps) {
 export class GlobalErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { error: null, errorInfo: null };
+    this.state = { error: null, errorInfo: null, source: 'react' };
   }
 
+  componentDidMount(): void {
+    installGlobalErrorHandlers();
+    setGlobalErrorListener(this.handleExternalError);
+  }
+
+  componentWillUnmount(): void {
+    setGlobalErrorListener(null);
+  }
+
+  private handleExternalError = (error: Error, source: ErrorSource): void => {
+    this.setState({ error, errorInfo: null, source });
+  };
+
   static getDerivedStateFromError(error: Error): Partial<State> {
-    return { error };
+    return { error, source: 'react' };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    this.setState({ errorInfo });
+    this.setState({ errorInfo, source: 'react' });
     if (__DEV__) {
-      console.error('[GlobalErrorBoundary]', error, errorInfo.componentStack);
+      console.error('[GlobalErrorBoundary]', error.message, error, errorInfo.componentStack);
     }
   }
 
   private handleReset = (): void => {
-    this.setState({ error: null, errorInfo: null });
+    this.setState({ error: null, errorInfo: null, source: 'react' });
   };
 
   render(): ReactNode {
-    const { error, errorInfo } = this.state;
+    const { error, errorInfo, source } = this.state;
     if (error) {
-      return (
-        <ErrorFallback error={error} errorInfo={errorInfo} onReset={this.handleReset} />
+      const report = buildIncidentReport(
+        error,
+        source,
+        errorInfo?.componentStack ?? undefined,
+        HEADLINE_COUNT
       );
+      return <ErrorIncidentFallback report={report} onReset={this.handleReset} />;
     }
     return this.props.children;
   }

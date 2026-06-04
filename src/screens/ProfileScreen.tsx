@@ -10,6 +10,7 @@ import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
 import { getLanguageOption, type SupportedLanguage } from '@/src/constants/languages';
 import { LanguagePickerSheet } from '@/src/components/LanguagePickerSheet';
+import { AboutAppModal } from '@/src/components/AboutAppModal';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import type { ThemePreference } from '@/src/types';
@@ -115,6 +116,7 @@ export default function ProfileScreen() {
   const designSystemV2Dev = useAppStore((state) => state.designSystemV2Dev);
   const setDesignSystemV2Dev = useAppStore((state) => state.setDesignSystemV2Dev);
   const languageSheetRef = useRef<BottomSheetModal>(null);
+  const [aboutVisible, setAboutVisible] = React.useState(false);
   const [followingUsers, setFollowingUsers] = React.useState<{ id: string; username: string }[]>([]);
   const [stats, setStats] = React.useState<{
     followersCount: number;
@@ -350,9 +352,7 @@ export default function ProfileScreen() {
             label={t('profile.aboutApp')}
             description={t('profile.aboutAppDesc')}
             icon={<Info size={18} color={tokens.colors.neutral[600]} />}
-            onPress={() => {
-              console.log('About pressed');
-            }}
+            onPress={() => setAboutVisible(true)}
           />
         </View>
 
@@ -367,6 +367,12 @@ export default function ProfileScreen() {
           />
         </View>
       </Animated.ScrollView>
+
+      <AboutAppModal
+        visible={aboutVisible}
+        onClose={() => setAboutVisible(false)}
+        tokens={tokens}
+      />
     </SafeAreaView>
   );
 }

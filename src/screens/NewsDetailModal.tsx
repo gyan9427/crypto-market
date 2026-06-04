@@ -21,6 +21,7 @@ import { toggleReaction } from '../services/api';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useAppStore } from '../state/useAppStore';
+import { shareNewsItem } from '../utils/share';
 
 interface NewsDetailModalProps {
   newsItem: NewsItem;
@@ -118,9 +119,9 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             <TouchableOpacity
               style={styles.actionButton}
               accessibilityRole="button"
-              accessibilityLabel="Share article"
+              accessibilityLabel={t('accessibility.shareArticle')}
               onPress={() => {
-                console.log('Share article:', newsItem.id);
+                void shareNewsItem(newsItem);
               }}
             >
               <Share2 size={20} color={c.neutral[500]} />

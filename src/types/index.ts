@@ -78,6 +78,44 @@ export const REACTIONS: ReadonlyArray<{
   { type: 'debatable', emoji: '\u{1F504}', label: 'Debatable' },
 ];
 
+export type RelevanceBadgeKey =
+  | 'high_risk_movement'
+  | 'search_match'
+  | 'sentiment_shock'
+  | 'following'
+  | 'regime_alert';
+
+export type CoinContextScoreBreakdown = {
+  searchedBoost?: number;
+  followBoost?: number;
+  rrsWeight?: number;
+  crsDeltaWeight?: number;
+  sentimentShock?: number;
+  recency?: number;
+  repetitionPenalty?: number;
+  marketRegimeWeight?: number;
+  engagementWeight?: number;
+};
+
+export type PrimaryCoinRelevanceReason =
+  | 'search_match'
+  | 'highest_rrs'
+  | 'followed_rrs'
+  | 'fallback_article_order';
+
+export type ResolvedCoinContext = {
+  primaryCoin: Coin;
+  orderedCoins: Coin[];
+  relevanceReason: PrimaryCoinRelevanceReason;
+  prioritySource: 'search' | 'rrs';
+  priorityScore?: number;
+};
+
+export type FeedPriorityScore = {
+  total: number;
+  breakdown: CoinContextScoreBreakdown;
+};
+
 export interface NewsItem {
   id: string;
   title: string;
@@ -101,6 +139,8 @@ export interface NewsItem {
   url?: string;
   reactions?: ReactionCounts;
   userReaction?: ReactionType | null;
+  coinContext?: ResolvedCoinContext;
+  feedScore?: FeedPriorityScore;
 }
 
 export interface NewsBoard {

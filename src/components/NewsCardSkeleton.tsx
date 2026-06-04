@@ -4,7 +4,7 @@ import { Skeleton } from './Skeleton';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 
-/** Mirrors NewsCard layout: header, optional coin chips, hero + follow overlay, title, source meta, footer, actions. */
+/** Mirrors NewsCard layout: hero, coin tag pills, title, meta, footer, actions. */
 export const NewsCardSkeleton: React.FC = () => {
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildNewsCardSkeletonStyles(tokens), [tokens]);
@@ -12,22 +12,6 @@ export const NewsCardSkeleton: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Skeleton width={40} height={40} borderRadius={20} />
-          <View style={styles.headerText}>
-            <Skeleton width={120} height={14} style={styles.marginBottom} />
-            <Skeleton width={64} height={12} />
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.coinsRow}>
-        <Skeleton width={56} height={28} borderRadius={14} style={styles.marginRight} />
-        <Skeleton width={56} height={28} borderRadius={14} style={styles.marginRight} />
-        <Skeleton width={56} height={28} borderRadius={14} />
-      </View>
-
       <View style={styles.heroOuter}>
         <View style={styles.heroWrap}>
           <Skeleton width="100%" height={200} borderRadius={0} />
@@ -38,6 +22,11 @@ export const NewsCardSkeleton: React.FC = () => {
       </View>
 
       <View style={styles.content}>
+        <View style={styles.coinTagsRow}>
+          <Skeleton width={44} height={22} borderRadius={11} style={styles.marginRight} />
+          <Skeleton width={40} height={22} borderRadius={11} style={styles.marginRight} />
+          <Skeleton width={48} height={22} borderRadius={11} />
+        </View>
         <Skeleton width="100%" height={20} style={styles.marginBottom} />
         <Skeleton width="92%" height={20} style={styles.marginBottom} />
         <Skeleton width={140} height={12} style={styles.sourceMetaSkel} />
@@ -72,31 +61,15 @@ function buildNewsCardSkeletonStyles(tokens: ThemeTokens) {
       ...sem.cardShadow,
       overflow: 'hidden',
     },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: s.md,
-    },
-    headerLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    },
-    headerText: {
-      marginLeft: s.sm,
-      flex: 1,
-    },
     marginBottom: {
       marginBottom: 6,
     },
     marginRight: {
       marginRight: s.xs,
     },
-    coinsRow: {
+    coinTagsRow: {
       flexDirection: 'row',
-      paddingHorizontal: s.md,
-      paddingBottom: s.sm,
+      marginBottom: s.xs,
     },
     heroOuter: {
       position: 'relative',
