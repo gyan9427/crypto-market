@@ -18,6 +18,8 @@ export {
   computeFollowingPriority,
   computeRepetitionPenalty,
   passesFollowingSoftFilter,
+  passesExploreFilter,
+  articleTouchesFollowedCoins,
   resolvePrimarySymbolForScoring,
   scoreArticle,
 } from './feedPriority.service';

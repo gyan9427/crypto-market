@@ -243,14 +243,24 @@ export function computeExplorePriority(
   return { total, breakdown };
 }
 
-export function passesFollowingSoftFilter(article: NewsItem, ctx: FeedUserContext): boolean {
-  const hasFollowed = article.coins.some(
+/** True when any tagged coin matches the user's follows (by coin id or ticker). */
+export function articleTouchesFollowedCoins(article: NewsItem, ctx: FeedUserContext): boolean {
+  if (ctx.followingCoinIds.size === 0 && ctx.followingSymbols.size === 0) {
+    return false;
+  }
+  return article.coins.some(
     (c) => ctx.followingCoinIds.has(c.id) || ctx.followingSymbols.has(symbolKey(c))
   );
-  if (hasFollowed) return true;
+}
 
-  const exploreScore = computeExplorePriority(article, ctx, []);
-  return exploreScore.total >= WEIGHTS.globalExploreThreshold;
+/** Following tab: only articles related to followed coins. */
+export function passesFollowingSoftFilter(article: NewsItem, ctx: FeedUserContext): boolean {
+  return articleTouchesFollowedCoins(article, ctx);
+}
+
+/** Explore tab: hide articles that mention any followed coin. */
+export function passesExploreFilter(article: NewsItem, ctx: FeedUserContext): boolean {
+  return !articleTouchesFollowedCoins(article, ctx);
 }
 
 export function scoreArticle(

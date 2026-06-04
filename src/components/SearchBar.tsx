@@ -5,7 +5,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  type StyleProp,
   type TextInputProps,
+  type ViewStyle,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
@@ -22,8 +24,9 @@ interface SearchBarProps {
   onPressIn?: TextInputProps['onPressIn'];
   /** When provided with editable=false, the whole bar acts as a button (navigates to search). Prevents focus on the input so user doesn't think they can type. */
   onPress?: () => void;
-  /** `header`: tighter margins for use inside navigation headerTitle */
-  variant?: 'default' | 'header';
+  /** `header`: tighter margins for use inside navigation headerTitle; `embedded`: no outer margins (modals, sheets) */
+  variant?: 'default' | 'header' | 'embedded';
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({
@@ -36,6 +39,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onPressIn,
   onPress,
   variant = 'default',
+  containerStyle,
 }) => {
   const { t } = useTranslation();
   const placeholder = placeholderProp ?? t('search.placeholderShort');
@@ -43,7 +47,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const styles = useMemo(() => buildStyles(tokens), [tokens]);
   const isFakeBar = !editable && onPress != null;
   const content = (
-    <View style={[styles.container, variant === 'header' ? styles.containerHeader : undefined]}>
+    <View
+      style={[
+        styles.container,
+        variant === 'header' ? styles.containerHeader : undefined,
+        variant === 'embedded' ? styles.containerEmbedded : undefined,
+        containerStyle,
+      ]}
+    >
       <Search size={20} color={tokens.textMuted} style={styles.icon} />
       <TextInput
         style={styles.input}
@@ -126,6 +137,17 @@ function buildStyles(tokens: ThemeTokens) {
       marginHorizontal: 0,
       marginBottom: 0,
       paddingVertical: 8,
+      paddingHorizontal: 14,
+      ...Platform.select({
+        ios: {},
+        android: { elevation: 0 },
+        default: {},
+      }),
+    },
+    containerEmbedded: {
+      marginHorizontal: 0,
+      marginBottom: tokens.spacing.sm,
+      paddingVertical: 10,
       paddingHorizontal: 14,
       ...Platform.select({
         ios: {},

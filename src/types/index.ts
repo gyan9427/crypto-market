@@ -8,6 +8,7 @@ export interface User {
   avatar?: string;
   verified?: boolean;
   preferredLanguage?: SupportedLanguage | null;
+  coinOnboardingCompleted?: boolean;
 }
 
 export interface Coin {
@@ -337,6 +338,8 @@ export interface AppState {
   likedNews: string[];
   savedNews: string[];
   followingCoins: string[];
+  /** Uppercase ticker symbols synced from GET /follow/coins (for feed matching). */
+  followingSymbols: string[];
   boards: NewsBoard[];
   newsReactions: Record<string, ReactionType>;
   /** Phase 2: last successful GET /api/market/snapshot (parallel with trending for A/B). */

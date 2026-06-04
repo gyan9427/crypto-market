@@ -22,6 +22,7 @@ export function useFeedOrchestrator(
   mode: FeedFilter
 ): FeedRankingResult & { articles: OrchestratedArticle[] } {
   const followingCoins = useAppStore((s) => s.followingCoins);
+  const followingSymbolsFromStore = useAppStore((s) => s.followingSymbols);
   const recentSearchSymbols = useFeedIntentStore((s) => s.recentSearchSymbols);
   const recentReadArticleIds = useFeedIntentStore((s) => s.recentReadArticleIds);
   const riskContext = useFeedRiskContext();
@@ -58,11 +59,14 @@ export function useFeedOrchestrator(
 
   const followingSymbols = useMemo(() => {
     const symbols = new Set<string>();
+    for (const sym of followingSymbolsFromStore) {
+      if (sym) symbols.add(sym.toUpperCase());
+    }
     for (const id of followingCoins) {
       symbols.add(id.toUpperCase());
     }
     return symbols;
-  }, [followingCoins]);
+  }, [followingCoins, followingSymbolsFromStore]);
 
   const revisionKey = activeRiskRevision || riskContext.activeRiskRevision;
 

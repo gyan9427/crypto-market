@@ -397,6 +397,16 @@
   "onboarding": {
     "skip": "Skip",
     "next": "Next",
-    "getStarted": "Get Started"
+    "getStarted": "Get Started",
+    "coinPickerTitle": "Choose coins to follow",
+    "coinPickerSubtitle": "Select at least 5 coins to personalize your feed. You can change these anytime.",
+    "selectedCount": "{{count}} / 5 selected",
+    "continue": "Continue",
+    "continuing": "Saving…",
+    "loadError": "Could not load coins. Please try again.",
+    "submitError": "Could not save your choices. Please try again.",
+    "retry": "Retry",
+    "searchPlaceholder": "Search coins",
+    "noSearchResults": "No coins match your search"
   }
 }

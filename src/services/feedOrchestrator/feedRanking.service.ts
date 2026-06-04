@@ -2,6 +2,7 @@ import type { FeedFilter, NewsItem } from '@/src/types';
 import { applyAttentionBudget } from './attentionBudget.service';
 import { dedupeArticles } from './dedupe.service';
 import {
+  passesExploreFilter,
   passesFollowingSoftFilter,
   resolvePrimarySymbolForScoring,
   scoreArticle,
@@ -15,10 +16,11 @@ import type {
 } from './relevance.types';
 
 function scoreAndSort(articles: NewsItem[], ctx: FeedUserContext): ScoredArticle[] {
-  const filtered =
+  const filtered = articles.filter((a) =>
     ctx.mode === 'following'
-      ? articles.filter((a) => passesFollowingSoftFilter(a, ctx))
-      : articles;
+      ? passesFollowingSoftFilter(a, ctx)
+      : passesExploreFilter(a, ctx)
+  );
 
   const recentSymbols: string[] = [];
   const scored: ScoredArticle[] = filtered.map((article) => {

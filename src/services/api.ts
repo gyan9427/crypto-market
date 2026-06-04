@@ -60,6 +60,7 @@ interface BackendUser {
   followingCoins?: string[];
   rewardPoints?: number;
   preferredLanguage?: string | null;
+  coinOnboardingCompleted?: boolean;
   createdAt?: string;
 }
 
@@ -268,6 +269,9 @@ function transformBackendUser(backendUser: BackendUser): User {
   if (pl != null && pl !== '' && isSupportedLanguage(pl)) {
     user.preferredLanguage = pl;
   }
+  if (backendUser.coinOnboardingCompleted === true) {
+    user.coinOnboardingCompleted = true;
+  }
   return user;
 }
 
@@ -466,6 +470,33 @@ export async function fetchActiveCoinsPage(
     ),
     nextCursor: response.nextCursor ?? null,
   };
+}
+
+/**
+ * Load all labeled active coins (paginates until exhausted).
+ */
+export async function fetchAllActiveCoins(): Promise<TrendingCoin[]> {
+  const all: TrendingCoin[] = [];
+  let cursor: number | null | undefined = undefined;
+  do {
+    const { coins, nextCursor } = await fetchActiveCoinsPage(cursor, 50, 'trending');
+    all.push(...coins);
+    cursor = nextCursor;
+  } while (cursor != null);
+  return all;
+}
+
+/**
+ * POST /api/onboarding/complete — follow selected coins and mark onboarding done.
+ */
+export async function completeCoinOnboarding(coinIds: string[]): Promise<User> {
+  const response = await apiRequest<{ user: BackendUser }>('/onboarding/complete', {
+    method: 'POST',
+    body: JSON.stringify({ coinIds }),
+  });
+  const user = transformBackendUser(response.user);
+  useAuthStore.getState().setUser(user);
+  return user;
 }
 
 /**

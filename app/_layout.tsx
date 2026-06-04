@@ -17,6 +17,7 @@ import { useSplashStore } from '@/src/state/useSplashStore';
 import { useFeaturesStore } from '@/src/utils/features';
 import { NotificationsGatewayHost } from '@/src/components/NotificationsGatewayHost';
 import { RiskGatewayHost } from '@/src/components/RiskGatewayHost';
+import { CoinOnboardingGate } from '@/src/components/CoinOnboardingGate';
 import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
 
 const RootView = Platform.OS === 'android'
@@ -41,6 +42,7 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
       </Stack>
       <NotificationsGatewayHost />
       <RiskGatewayHost />
+      <CoinOnboardingGate />
     </>
   );
 }
