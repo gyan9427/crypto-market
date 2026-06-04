@@ -51,5 +51,8 @@ export function buildFeedUserContext(partial: Omit<FeedUserContext, 'mode'> & { 
     heldSymbols: partial.heldSymbols ?? new Set<string>(),
     heldWeightBySymbol: partial.heldWeightBySymbol ?? new Map<string, number>(),
     portfolioAnalyticsRevision: partial.portfolioAnalyticsRevision ?? 0,
+    narrativeVector: partial.narrativeVector,
+    convictionVector: partial.convictionVector,
+    topThemes: partial.topThemes,
   };
 }

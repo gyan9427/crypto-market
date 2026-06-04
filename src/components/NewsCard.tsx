@@ -165,43 +165,46 @@ export const NewsCard = React.memo<FeedCardProps>(({
         </Pressable>
       </View>
 
-      <Pressable
-        onPress={() => onPress?.(item.id)}
-        disabled={!onPress}
-        style={({ pressed }) => [styles.cardPressable, pressed && onPress && styles.cardPressablePressed]}
-        accessibilityRole={onPress ? 'button' : undefined}
-        accessibilityLabel={onPress ? t('news.openArticleTitle', { title: item.title }) : undefined}
-      >
-        <View style={styles.content}>
-          <NewsCoinTags coins={displayCoins} onCoinPress={onCoinPress} />
+      <View style={styles.content}>
+        <NewsCoinTags coins={displayCoins} onCoinPress={onCoinPress} />
+        <Pressable
+          onPress={() => onPress?.(item.id)}
+          disabled={!onPress}
+          style={({ pressed }) => [
+            styles.cardPressable,
+            pressed && onPress && styles.cardPressablePressed,
+          ]}
+          accessibilityRole={onPress ? 'button' : undefined}
+          accessibilityLabel={onPress ? t('news.openArticleTitle', { title: item.title }) : undefined}
+        >
           <Text style={styles.title} numberOfLines={TITLE_LINES_FEED}>
             {item.title}
           </Text>
           <Text style={styles.timeAgo}>{formatTimeAgo(item.publishedAt)}</Text>
-          {showRelatedInCard && (
-            <View style={styles.relatedCoinsSection}>
-              <Text style={styles.relatedCoinsHeader}>{t('news.relatedCoins')}</Text>
-              <View style={styles.relatedCoinsRow}>
-                {item.relatedCoins!.map((coinId) => (
-                  <TouchableOpacity
-                    key={coinId}
-                    style={styles.relatedCoinBadge}
-                    onPress={() => onCoinPress?.(coinId)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.relatedCoinBadgeText}>{coinId}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
           {feedSnippet.length > 0 && (
             <Text style={styles.snippet} numberOfLines={SNIPPET_LINES_FEED}>
               {feedSnippet}
             </Text>
           )}
-        </View>
-      </Pressable>
+        </Pressable>
+        {showRelatedInCard && (
+          <View style={styles.relatedCoinsSection}>
+            <Text style={styles.relatedCoinsHeader}>{t('news.relatedCoins')}</Text>
+            <View style={styles.relatedCoinsRow}>
+              {item.relatedCoins!.map((coinId) => (
+                <TouchableOpacity
+                  key={coinId}
+                  style={styles.relatedCoinBadge}
+                  onPress={() => onCoinPress?.(coinId)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.relatedCoinBadgeText}>{coinId}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+      </View>
 
       <View style={styles.footerRow}>
         {onPress ? (

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { resolveApiBaseUrl } from '@/src/config/apiBaseUrl';
 import { Holdings, WalletEvent, TxStatus } from '../types';
 import { usePortfolioStore } from '../state/usePortfolioStore';
+import { invalidatePortfolioContextCache } from '@/src/services/piApi';
 
 const HEARTBEAT_STALE_MS = 45000;
 const HEARTBEAT_CHECK_MS = 5000;
@@ -55,13 +56,22 @@ interface PortfolioHoldingsDeltaMessage {
   };
 }
 
+interface PortfolioAnalyticsRevisionMessage {
+  type: 'analytics_revision';
+  seq: number;
+  emittedAt: string;
+  revision: number;
+  stale?: boolean;
+}
+
 type PortfolioInboundMessage =
   | PortfolioHeartbeatMessage
   | PortfolioSyncReadyMessage
   | PortfolioSubscribedMessage
   | PortfolioWalletEventMessage
   | PortfolioWalletStatusMessage
-  | PortfolioHoldingsDeltaMessage;
+  | PortfolioHoldingsDeltaMessage
+  | PortfolioAnalyticsRevisionMessage;
 
 interface UsePortfolioLiveStreamOptions {
   addresses: string[];
@@ -181,6 +191,15 @@ export function usePortfolioLiveStream(options: UsePortfolioLiveStreamOptions): 
         }
         case 'holdings_delta': {
           applyHoldingsDelta(message.delta.holdings);
+          return;
+        }
+        case 'analytics_revision': {
+          if (message.stale !== true) {
+            invalidatePortfolioContextCache({ refetch: true });
+          } else {
+            invalidatePortfolioContextCache();
+          }
+          return;
         }
       }
     };

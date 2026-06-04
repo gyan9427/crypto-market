@@ -17,6 +17,8 @@ export type ScoreBreakdown = {
   repetitionPenalty?: number;
   marketRegimeWeight?: number;
   engagementWeight?: number;
+  narrativeBoost?: number;
+  convictionBoost?: number;
 };
 
 export type FeedPriorityScore = {
@@ -59,6 +61,9 @@ export type FeedUserContext = {
   heldSymbols: Set<string>;
   heldWeightBySymbol: Map<string, number>;
   portfolioAnalyticsRevision: number;
+  narrativeVector?: Map<string, number>;
+  convictionVector?: Map<string, number>;
+  topThemes?: string[];
 };
 
 export type ScoredArticle = {

@@ -1,6 +1,7 @@
-import { fetchJsonCached } from '@/src/services/requestCache';
 import { API_BASE_URL } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
+
+let contextCache: { tokenKey: string; data: PortfolioContextDto | null; expires: number } | null = null;
 
 export type PortfolioContextDto = {
   schemaVersion: number;
@@ -12,6 +13,12 @@ export type PortfolioContextDto = {
   analyticsRevision: number;
   stale: boolean;
   staleMapping: boolean;
+  narrativeVector?: Record<string, number>;
+  convictionVector?: Record<string, number>;
+  topThemes?: string[];
+  healthScore?: number | null;
+  identityId?: string;
+  partial?: boolean;
 };
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -32,10 +39,20 @@ export async function fetchPortfolioContext(): Promise<PortfolioContextDto | nul
 }
 
 export async function fetchPortfolioContextCached(): Promise<PortfolioContextDto | null> {
-  const token = useAuthStore.getState().token ?? 'guest';
-  return fetchJsonCached<PortfolioContextDto | null>(
-    `pi:context:${token}`,
-    () => fetchPortfolioContext(),
-    30_000
-  );
+  const tokenKey = useAuthStore.getState().token ?? 'guest';
+  const now = Date.now();
+  if (contextCache && contextCache.tokenKey === tokenKey && contextCache.expires > now) {
+    return contextCache.data;
+  }
+  const data = await fetchPortfolioContext();
+  contextCache = { tokenKey, data, expires: now + 30_000 };
+  return data;
+}
+
+/** Called when WS `analytics_revision` arrives — bust PI context cache and optionally refetch. */
+export function invalidatePortfolioContextCache(options?: { refetch?: boolean }): void {
+  contextCache = null;
+  if (options?.refetch) {
+    void fetchPortfolioContextCached();
+  }
 }

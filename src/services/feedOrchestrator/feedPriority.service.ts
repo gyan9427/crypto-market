@@ -19,6 +19,8 @@ const WEIGHTS = {
   marketRegimePanic: 22,
   globalExploreThreshold: 25,
   heldBoostMax: 80,
+  narrativeBoostMax: 60,
+  convictionBoostMax: 40,
 } as const;
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -73,6 +75,28 @@ function heldBoostForArticle(article: NewsItem, ctx: FeedUserContext): number {
     if (!ctx.heldSymbols.has(sym)) continue;
     const w = ctx.heldWeightBySymbol.get(sym) ?? 0;
     best = Math.max(best, WEIGHTS.heldBoostMax * Math.min(1, w * 2));
+  }
+  return best;
+}
+
+function narrativeBoostForArticle(article: NewsItem, ctx: FeedUserContext): number {
+  if (!ctx.narrativeVector || ctx.narrativeVector.size === 0) return 0;
+  const tags = article.tags ?? [];
+  let best = 0;
+  for (const tag of tags) {
+    const pct = ctx.narrativeVector.get(String(tag).toUpperCase()) ?? 0;
+    if (pct > 0) best = Math.max(best, WEIGHTS.narrativeBoostMax * Math.min(1, pct / 100));
+  }
+  return best;
+}
+
+function convictionBoostForArticle(article: NewsItem, ctx: FeedUserContext): number {
+  if (!ctx.convictionVector || ctx.convictionVector.size === 0) return 0;
+  let best = 0;
+  for (const coin of article.coins) {
+    const sym = symbolKey(coin);
+    const conviction = ctx.convictionVector.get(sym) ?? 0;
+    if (conviction > 0) best = Math.max(best, WEIGHTS.convictionBoostMax * conviction);
   }
   return best;
 }
@@ -163,6 +187,8 @@ export function computeFollowingPriority(
     rrsWeight: coinCrsWeight(article, ctx),
     crsDeltaWeight: crsDeltaForArticle(article, ctx),
     sentimentShock: sentimentShockForArticle(article, ctx),
+    narrativeBoost: narrativeBoostForArticle(article, ctx),
+    convictionBoost: convictionBoostForArticle(article, ctx),
     recency: recencyWeight(article.publishedAt),
     repetitionPenalty: computeRepetitionPenalty(primarySymbol, recentPrimarySymbols),
   };
@@ -173,6 +199,8 @@ export function computeFollowingPriority(
     (breakdown.rrsWeight ?? 0) +
     (breakdown.crsDeltaWeight ?? 0) +
     (breakdown.sentimentShock ?? 0) +
+    (breakdown.narrativeBoost ?? 0) +
+    (breakdown.convictionBoost ?? 0) +
     (breakdown.recency ?? 0) -
     (breakdown.repetitionPenalty ?? 0);
 
@@ -191,6 +219,8 @@ export function computeExplorePriority(
     rrsWeight: coinCrsWeight(article, ctx),
     crsDeltaWeight: crsDeltaForArticle(article, ctx),
     sentimentShock: sentimentShockForArticle(article, ctx),
+    narrativeBoost: narrativeBoostForArticle(article, ctx),
+    convictionBoost: convictionBoostForArticle(article, ctx),
     marketRegimeWeight: marketRegimeWeight(article, ctx),
     engagementWeight: engagementWeight(article),
     recency: recencyWeight(article.publishedAt),
@@ -199,9 +229,12 @@ export function computeExplorePriority(
 
   const total =
     (breakdown.searchedBoost ?? 0) +
+    (breakdown.followBoost ?? 0) +
     (breakdown.rrsWeight ?? 0) +
     (breakdown.crsDeltaWeight ?? 0) +
     (breakdown.sentimentShock ?? 0) +
+    (breakdown.narrativeBoost ?? 0) +
+    (breakdown.convictionBoost ?? 0) +
     (breakdown.marketRegimeWeight ?? 0) +
     (breakdown.engagementWeight ?? 0) +
     (breakdown.recency ?? 0) -

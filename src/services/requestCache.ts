@@ -82,3 +82,10 @@ export async function fetchJsonCached<T>(url: string, init: FetchJsonOptions = {
 
   return pending;
 }
+
+/** Drop cached GET entries whose key contains the substring (e.g. `pi:context:`). */
+export function invalidateMemoryCacheByPrefix(prefix: string): void {
+  for (const key of memory.keys()) {
+    if (key.includes(prefix)) memory.delete(key);
+  }
+}

@@ -11,7 +11,7 @@ import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
 import { useFeedStore } from '@/src/state/useFeedStore';
 import { useFeedRiskContext } from './useFeedRiskContext';
 import { fetchPortfolioContextCached } from '@/src/services/piApi';
-import { useFeaturesStore } from '@/src/utils/features';
+import { useHasFeature } from '@/src/utils/features';
 
 function articleIdsKey(articles: NewsItem[]): string {
   return articles.map((a) => a.id).join('|');
@@ -32,8 +32,11 @@ export function useFeedOrchestrator(
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [heldSymbols, setHeldSymbols] = useState<Set<string>>(new Set());
   const [heldWeightBySymbol, setHeldWeightBySymbol] = useState<Map<string, number>>(new Map());
+  const [narrativeVector, setNarrativeVector] = useState<Map<string, number>>(new Map());
+  const [convictionVector, setConvictionVector] = useState<Map<string, number>>(new Map());
+  const [topThemes, setTopThemes] = useState<string[]>([]);
   const [portfolioAnalyticsRevision, setPortfolioAnalyticsRevision] = useState(0);
-  const hasPiContext = useFeaturesStore((s) => s.has('portfolio_intelligence_context_api'));
+  const hasPiContext = useHasFeature('portfolio_intelligence_context_api');
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -72,6 +75,17 @@ export function useFeedOrchestrator(
       setHeldWeightBySymbol(
         new Map(Object.entries(ctx.weightBySymbol).map(([k, v]) => [k.toUpperCase(), v]))
       );
+      if (ctx.narrativeVector) {
+        setNarrativeVector(
+          new Map(Object.entries(ctx.narrativeVector).map(([k, v]) => [k.toUpperCase(), v]))
+        );
+      }
+      if (ctx.convictionVector) {
+        setConvictionVector(
+          new Map(Object.entries(ctx.convictionVector).map(([k, v]) => [k.toUpperCase(), v]))
+        );
+      }
+      setTopThemes(ctx.topThemes ?? []);
       setPortfolioAnalyticsRevision(ctx.analyticsRevision);
     });
     return () => {
@@ -101,6 +115,11 @@ export function useFeedOrchestrator(
         heldSymbols,
         heldWeightBySymbol,
         portfolioAnalyticsRevision,
+        narrativeVector:
+          narrativeVector.size > 0 ? narrativeVector : undefined,
+        convictionVector:
+          convictionVector.size > 0 ? convictionVector : undefined,
+        topThemes: topThemes.length > 0 ? topThemes : undefined,
       }),
     [
       mode,
@@ -121,6 +140,9 @@ export function useFeedOrchestrator(
       riskContext.moversTopRiskSymbols,
       heldSymbols,
       heldWeightBySymbol,
+      narrativeVector,
+      convictionVector,
+      topThemes,
       portfolioAnalyticsRevision,
     ]
   );
