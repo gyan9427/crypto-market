@@ -20,7 +20,7 @@ const CollapsibleNavHeaderContext = createContext<CollapsibleNavHeaderContextVal
 export function CollapsibleNavHeaderProvider({ children }: { children: React.ReactNode }) {
   const headerOffset = useSharedValue(0);
   const lastScrollY = useSharedValue(0);
-  const maxHeaderOffset = useSharedValue(56);
+  const maxHeaderOffset = useSharedValue(0);
 
   const resetHeader = useCallback(() => {
     headerOffset.value = 0;

@@ -9,6 +9,7 @@
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "com.nayft.app",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 2,
       "compileSdkVersion": 34,
       "targetSdkVersion": 34,

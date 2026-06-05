@@ -39,17 +39,17 @@ function splashLogoElevation(isDark: boolean): StyleProp<ViewStyle> {
       // Web uses CSS drop-shadow filter on the Image itself
     },
     ios: {
-      shadowColor: isDark ? '#000000' : '#4c1d95',
-      shadowOffset: { width: 0, height: isDark ? 24 : 20 },
-      shadowOpacity: isDark ? 0.7 : 0.45,
-      shadowRadius: isDark ? 48 : 40,
+      shadowColor: isDark ? '#000000' : '#888888',
+      shadowOffset: { width: 0, height: isDark ? 24 : 4 },
+      shadowOpacity: isDark ? 0.7 : 0.12,
+      shadowRadius: isDark ? 48 : 10,
       backgroundColor: 'transparent',
     },
     android: {
-      elevation: 24,
-      shadowColor: isDark ? '#000000' : '#4c1d95',
+      elevation: isDark ? 24 : 4,
+      shadowColor: isDark ? '#000000' : '#888888',
     },
-    default: { elevation: 24, shadowColor: '#000000' },
+    default: { elevation: isDark ? 24 : 4, shadowColor: '#888888' },
   });
 }
 
@@ -59,7 +59,7 @@ function webLogoGlyphFilter(isDark: boolean): StyleProp<ImageStyle> {
 
   const f = isDark
     ? `drop-shadow(0 24px 48px rgba(0, 0, 0, 0.85)) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6)) drop-shadow(0 4px 12px rgba(168, 85, 247, 0.4))`
-    : `drop-shadow(0 20px 40px rgba(76, 29, 149, 0.4)) drop-shadow(0 10px 24px rgba(147, 51, 234, 0.3)) drop-shadow(0 4px 12px rgba(91, 33, 182, 0.2))`;
+    : `drop-shadow(0 4px 10px rgba(0, 0, 0, 0.08)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05))`;
 
   return { filter: f } as StyleProp<ImageStyle>;
 }
@@ -93,9 +93,9 @@ export function AnimatedSplash({ onDone }: Props) {
   const logoSource = isDark ? LOGO_LIGHT : LOGO_DARK;
 
   const lightGradientColors = [
-    '#f3e8ff',
-    '#e9d5ff',
-    '#d8b4fe',
+    '#FAF5EB',
+    '#F0E6D4',
+    '#E2D5C0',
   ] as const;
 
   useEffect(() => {

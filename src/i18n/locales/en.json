@@ -122,7 +122,20 @@
     "aboutBody": "A portfolio-aware crypto intelligence app built to cut through market noise by personalizing news, insights, and market signals around the coins you actually follow and hold.\n\nTrack portfolios, explore live market trends, follow coins, save research boards, and discover smarter crypto insights in one unified experience.",
     "aboutTagline": "Trade the signal, not the noise.",
     "logout": "Logout",
-    "logoutDesc": "Sign out of your account"
+    "logoutDesc": "Sign out of your account",
+    "deleteAccount": "Delete account",
+    "deleteAccountDesc": "Permanently remove your account and data",
+    "deleteAccountTitle": "Delete your account?",
+    "deleteAccountWarning": "This action is permanent and cannot be undone. You will lose access to your NAYFT account immediately.",
+    "deleteAccountBulletsTitle": "The following will be deleted:",
+    "deleteAccountBulletAccount": "Your account, profile, and preferences",
+    "deleteAccountBulletPortfolio": "Connected wallets, exchange links, and portfolio data",
+    "deleteAccountBulletSocial": "Comments, follows, news boards, and saved items",
+    "deleteAccountBulletNotifications": "Notifications and device sessions",
+    "deleteAccountBlockchainNote": "Public blockchain data cannot be removed from blockchain networks. NAYFT only deletes the association of that data with your account.",
+    "deleteAccountConfirm": "Delete account",
+    "deleteAccountCancel": "Cancel",
+    "deleteAccountError": "Could not delete your account. Please try again or contact support@nayft.com."
   },
   "feed": {
     "following": "Following",

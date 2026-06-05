@@ -499,6 +499,11 @@ export async function completeCoinOnboarding(coinIds: string[]): Promise<User> {
   return user;
 }
 
+/** DELETE /api/user/me — permanently delete the authenticated account and all associated data. */
+export async function deleteAccount(): Promise<void> {
+  await apiRequest<{ deleted: boolean }>('/user/me', { method: 'DELETE' });
+}
+
 /**
  * Fetch coin details by ID
  */

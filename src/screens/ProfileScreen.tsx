@@ -15,13 +15,16 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import type { ThemePreference } from '@/src/types';
 import { SegmentToggle } from '@/src/components/SegmentToggle';
-import { LogOut, Shield, Info, User as UserIcon, Bookmark, Bell } from 'lucide-react-native';
+import { LogOut, Shield, Info, User as UserIcon, Bookmark, Bell, Trash2 } from 'lucide-react-native';
 import {
   followUser,
   unfollowUser,
   getFollowedUsers,
   getUserFollowStats,
+  deleteAccount,
 } from '@/src/services/api';
+import { DeleteAccountModal } from '@/src/components/DeleteAccountModal';
+import { useNotificationStore } from '@/src/state/useNotificationStore';
 
 const PREF_ORDER: ThemePreference[] = ['system', 'light', 'dark'];
 
@@ -117,6 +120,7 @@ export default function ProfileScreen() {
   const setDesignSystemV2Dev = useAppStore((state) => state.setDesignSystemV2Dev);
   const languageSheetRef = useRef<BottomSheetModal>(null);
   const [aboutVisible, setAboutVisible] = React.useState(false);
+  const [deleteVisible, setDeleteVisible] = React.useState(false);
   const [followingUsers, setFollowingUsers] = React.useState<{ id: string; username: string }[]>([]);
   const [stats, setStats] = React.useState<{
     followersCount: number;
@@ -143,6 +147,14 @@ export default function ProfileScreen() {
   );
 
   const handleLogout = async () => {
+    await logout();
+    setFeedFilter('explore');
+    router.replace('/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    await deleteAccount();
+    useNotificationStore.getState().reset();
     await logout();
     setFeedFilter('explore');
     router.replace('/login');
@@ -332,6 +344,14 @@ export default function ProfileScreen() {
               console.log('Security pressed');
             }}
           />
+          <ProfileMenuItem
+            tokens={tokens}
+            label={t('profile.deleteAccount')}
+            description={t('profile.deleteAccountDesc')}
+            icon={<Trash2 size={18} color={tokens.colors.error[500]} />}
+            danger
+            onPress={() => setDeleteVisible(true)}
+          />
         </View>
 
         <View style={styles.section}>
@@ -371,6 +391,13 @@ export default function ProfileScreen() {
       <AboutAppModal
         visible={aboutVisible}
         onClose={() => setAboutVisible(false)}
+        tokens={tokens}
+      />
+
+      <DeleteAccountModal
+        visible={deleteVisible}
+        onClose={() => setDeleteVisible(false)}
+        onConfirm={handleDeleteAccount}
         tokens={tokens}
       />
     </SafeAreaView>
