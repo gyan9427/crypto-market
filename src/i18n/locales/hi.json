@@ -92,7 +92,9 @@
       "errorPasswordMismatch": "पासवर्ड मेल नहीं खाते",
       "errorSignUpFailed": "साइन अप असफल रहा",
       "errorEnterEmailPassword": "कृपया ईमेल और पासवर्ड दर्ज करें",
-      "errorLoginFailed": "लॉगिन असफल रहा"
+      "errorLoginFailed": "लॉगिन असफल रहा",
+      "legalPrefix": "जारी रखकर, आप हमारी",
+      "privacyPolicy": "गोपनीयता नीति"
     },
     "profile": {
       "languageSection": "भाषा",

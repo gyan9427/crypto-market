@@ -15,7 +15,7 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import type { ThemePreference } from '@/src/types';
 import { SegmentToggle } from '@/src/components/SegmentToggle';
-import { LogOut, Shield, Info, User as UserIcon, Bookmark, Bell, Trash2 } from 'lucide-react-native';
+import { LogOut, Shield, Info, User as UserIcon, Bookmark, Bell, Trash2, Lock } from 'lucide-react-native';
 import {
   followUser,
   unfollowUser,
@@ -334,6 +334,13 @@ export default function ProfileScreen() {
             description="Alerts, wallet activity, and social updates"
             icon={<Bell size={18} color={tokens.colors.neutral[600]} />}
             onPress={() => router.push('/(tabs)/notifications' as never)}
+          />
+          <ProfileMenuItem
+            tokens={tokens}
+            label={t('privacy.settingsTitle', 'Privacy settings')}
+            description={t('privacy.settingsDesc', 'Analytics, personalization, and data choices')}
+            icon={<Lock size={18} color={tokens.colors.neutral[600]} />}
+            onPress={() => router.push('/privacy-settings' as never)}
           />
           <ProfileMenuItem
             tokens={tokens}

@@ -92,7 +92,9 @@
     "errorPasswordMismatch": "Passwords do not match",
     "errorSignUpFailed": "Failed to sign up",
     "errorEnterEmailPassword": "Please enter your email and password",
-    "errorLoginFailed": "Failed to login"
+    "errorLoginFailed": "Failed to login",
+    "legalPrefix": "By continuing, you agree to our",
+    "privacyPolicy": "Privacy Policy"
   },
   "profile": {
     "languageSection": "Language",

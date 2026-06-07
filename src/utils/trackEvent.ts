@@ -1,5 +1,6 @@
 import { useAuthStore } from '../state/useAuthStore';
 import { API_BASE_URL } from '../services/api';
+import { canTrackAnalytics } from '../privacy/consentStore';
 
 export interface TrackEventPayload {
   featureKey: string;
@@ -7,11 +8,20 @@ export interface TrackEventPayload {
   metadata?: Record<string, unknown>;
 }
 
+export function trackArticleOpened(newsId: string): void {
+  trackEvent({ featureKey: 'news_feed', eventType: 'article_opened', metadata: { newsId } });
+}
+
+export function trackAuthEvent(eventType: 'login_attempt' | 'google_login_attempt' | 'navigate_to_register'): void {
+  trackEvent({ featureKey: 'auth', eventType, metadata: {} });
+}
+
 /**
- * Track an event. Fire-and-forget; does not block or throw.
- * Use for button clicks, navigation, key actions.
+ * Track an event. Fire-and-forget; gated by privacy consent.
  */
 export function trackEvent(payload: TrackEventPayload): void {
+  if (!canTrackAnalytics()) return;
+
   const { featureKey, eventType, metadata = {} } = payload;
   const token = useAuthStore.getState().token;
 
@@ -19,7 +29,7 @@ export function trackEvent(payload: TrackEventPayload): void {
     'Content-Type': 'application/json',
   };
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
   fetch(`${API_BASE_URL}/events`, {

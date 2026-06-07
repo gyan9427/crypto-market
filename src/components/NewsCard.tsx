@@ -9,7 +9,7 @@ import {
 import { Image } from 'expo-image';
 import { openInAppBrowser } from '../utils/browser';
 import { useTranslation } from 'react-i18next';
-import { trackEvent } from '../utils/trackEvent';
+import { trackArticleOpened } from '../utils/trackEvent';
 import { ChevronRight, ExternalLink } from 'lucide-react-native';
 import { FeedCardProps } from '../types';
 import { formatTimeAgo } from '../utils/format';
@@ -89,11 +89,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
     (followingCoins.includes(primaryCoin.id) || Boolean(primaryCoin.isFollowing));
 
   const openExternalArticle = () => {
-    trackEvent({
-      featureKey: 'news_feed',
-      eventType: 'article_opened',
-      metadata: { newsId: item.id },
-    });
+    trackArticleOpened(item.id);
     openInAppBrowser(item.url || item.sourceUrl!);
   };
 

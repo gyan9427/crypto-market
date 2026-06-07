@@ -19,6 +19,7 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { AuthInput } from '@/src/components/auth/AuthInput';
 import { getAuthPaletteFromTokens } from '@/src/design-system/theme/authPaletteFromTokens';
 import { AuthHeader } from '@/src/components/auth/AuthHeader';
+import { AuthPrivacyLinks } from '@/src/components/auth/AuthPrivacyLinks';
 import { signup } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
 
@@ -172,6 +173,8 @@ export default function RegisterScreen() {
                 <Text style={styles.btnText}>{loading ? '…' : t('auth.signUp')}</Text>
               </LinearGradient>
             </TouchableOpacity>
+
+            <AuthPrivacyLinks palette={palette} />
           </Animated.View>
 
           <Animated.View

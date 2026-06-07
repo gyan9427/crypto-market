@@ -9,12 +9,8 @@ export function resolveWsBaseUrl(): string {
   return base.replace(/\/api$/, '');
 }
 
-export function buildNotificationsWsUrl(accessToken: string | null): string | null {
-  if (!accessToken) return null;
-  const origin = resolveWsBaseUrl();
-  const proto = origin.startsWith('https') ? 'wss' : 'ws';
-  const hostPath = origin.replace(/^https?:\/\//, '');
-  return `${proto}://${hostPath}/ws?token=${encodeURIComponent(accessToken)}`;
+export function buildNotificationsWsUrl(_accessToken: string | null): string | null {
+  return buildAppWsUrl();
 }
 
 export function buildAppWsUrl(): string {

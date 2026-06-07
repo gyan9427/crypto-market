@@ -51,6 +51,7 @@ export function useNotificationsGateway(enabled: boolean): void {
 
       ws.onopen = () => {
         attemptRef.current = 0;
+        void ws.send(JSON.stringify({ type: 'ws_auth', token, protocol: 2 }));
         void ws.send(JSON.stringify({ type: 'notification_subscribe', token }));
         syncMissed();
       };

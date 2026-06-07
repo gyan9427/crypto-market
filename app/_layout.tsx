@@ -19,6 +19,9 @@ import { NotificationsGatewayHost } from '@/src/components/NotificationsGatewayH
 import { RiskGatewayHost } from '@/src/components/RiskGatewayHost';
 import { CoinOnboardingGate } from '@/src/components/CoinOnboardingGate';
 import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
+import { useConsentStore } from '@/src/privacy/consentStore';
+import { useRuntimeHints } from '@/src/hooks/useRuntimeHints';
+import { ForceUpgradeGate } from '@/src/components/ForceUpgradeGate';
 
 const RootView = Platform.OS === 'android'
   ? View
@@ -26,6 +29,7 @@ const RootView = Platform.OS === 'android'
 
 function RootLayoutContent({ isReady }: { isReady: boolean }) {
   const { tokens } = useAppTheme();
+  const { forceUpgrade } = useRuntimeHints();
 
   if (!isReady) {
     return <View style={{ flex: 1, backgroundColor: tokens.bg }} />;
@@ -43,6 +47,7 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
       <NotificationsGatewayHost />
       <RiskGatewayHost />
       <CoinOnboardingGate />
+      <ForceUpgradeGate visible={forceUpgrade} />
     </>
   );
 }
@@ -68,6 +73,7 @@ export default function RootLayout() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const featuresLoaded = useFeaturesStore((state) => state.loaded);
   const splashDone = useSplashStore((state) => state.done);
+  const hydrateConsent = useConsentStore((s) => s.hydrate);
   const [isReady, setIsReady] = useState(false);
   const authSyncInFlightRef = useRef<Promise<void> | null>(null);
 
@@ -97,6 +103,7 @@ export default function RootLayout() {
       hydrateThemePreference(),
       hydrateLanguage(),
       useFeedIntentStore.getState().hydrate(),
+      hydrateConsent(),
     ]).then(() => {
       setIsReady(true);
       InteractionManager.runAfterInteractions(() => {
@@ -108,6 +115,7 @@ export default function RootLayout() {
     hydrateThemePreference,
     hydrateLanguage,
     runAuthenticatedBackgroundSync,
+    hydrateConsent,
   ]);
 
   useEffect(() => {

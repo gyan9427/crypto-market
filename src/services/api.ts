@@ -5,6 +5,7 @@ import { isSupportedLanguage } from '@/src/constants/languages';
 import { useAuthStore } from '../state/useAuthStore';
 import { getApiLocaleLanguage } from '@/src/services/apiLocale';
 import { resolveApiBaseUrl } from '../config/apiBaseUrl';
+import { getAppVersion } from '../config/appVersion';
 import { fetchJsonCached } from './requestCache';
 import { resolveNewsItemCoins } from '../components/news/newsCardUtils';
 
@@ -143,6 +144,9 @@ export async function apiRequest<T>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept-Language': getApiLocaleLanguage(),
+    'X-Nayft-App-Version': getAppVersion(),
+    'X-Nayft-WS-Protocol': '2',
+    'X-Nayft-Schema-Version': '1',
     ...(options.headers as Record<string, string>),
   };
 
@@ -320,23 +324,9 @@ export const fetchNews = async (
         : `/news?page=${page}&limit=${limit}${categoryParam}`;
     
     const response = await apiRequest<{ news: BackendNews[] }>(endpoint);
-    
-    const coinIds = new Set<string>();
-    response.news.forEach((news) => {
-      news.relatedCoins.forEach((coinId) => coinIds.add(coinId));
-    });
 
-    const coinIdArray = Array.from(coinIds).slice(0, 50);
-    let coins: Coin[] = [];
-    if (coinIdArray.length > 0) {
-      try {
-        coins = await fetchCoinsByIds(coinIdArray);
-      } catch (e) {
-        console.warn('fetchCoinsByIds failed:', e);
-      }
-    }
-
-    return response.news.map((news) => transformBackendNews(news, coins));
+    const mapped = response.news.map((news) => transformBackendNews(news, []));
+    return mapped;
   } catch (error: any) {
     throw new Error(`Failed to fetch news: ${error.message}`);
   }
@@ -1038,17 +1028,24 @@ export const getCurrentUser = async (): Promise<User> => {
 
 export const getUserPreferences = async (): Promise<{
   preferredLanguage: string | null;
+  personalizationEnabled?: boolean;
 }> => {
-  return apiRequest<{ preferredLanguage: string | null }>('/user/preferences');
+  return apiRequest<{ preferredLanguage: string | null; personalizationEnabled?: boolean }>(
+    '/user/preferences'
+  );
 };
 
-export const patchUserPreferences = async (
-  preferredLanguage: SupportedLanguage
-): Promise<{ preferredLanguage: string }> => {
-  return apiRequest<{ preferredLanguage: string }>('/user/preferences', {
-    method: 'PATCH',
-    body: JSON.stringify({ preferredLanguage }),
-  });
+export const patchUserPreferences = async (patch: {
+  preferredLanguage?: SupportedLanguage;
+  personalizationEnabled?: boolean;
+}): Promise<{ preferredLanguage?: string; personalizationEnabled?: boolean }> => {
+  return apiRequest<{ preferredLanguage?: string; personalizationEnabled?: boolean }>(
+    '/user/preferences',
+    {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }
+  );
 };
 
 // ── Comments ────────────────────────────────────────────────────────

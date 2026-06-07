@@ -20,6 +20,7 @@ type FeedIntentState = {
   hydrate: () => Promise<void>;
   recordSearchCoin: (symbol: string) => void;
   recordArticleRead: (articleId: string) => void;
+  clearAll: () => Promise<void>;
 };
 
 function pruneSearches(entries: SearchEntry[]): SearchEntry[] {
@@ -106,5 +107,10 @@ export const useFeedIntentStore = create<FeedIntentState>((set, get) => ({
     const next = [id, ...prev].slice(0, MAX_READ_IDS);
     set({ recentReadArticleIds: next });
     schedulePersist(get);
+  },
+
+  clearAll: async () => {
+    set({ recentSearchSymbols: [], recentReadArticleIds: [] });
+    await AsyncStorage.removeItem(STORAGE_KEY);
   },
 }));

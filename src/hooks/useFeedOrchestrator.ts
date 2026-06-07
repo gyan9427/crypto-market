@@ -12,6 +12,7 @@ import { useFeedStore } from '@/src/state/useFeedStore';
 import { useFeedRiskContext } from './useFeedRiskContext';
 import { fetchPortfolioContextCached } from '@/src/services/piApi';
 import { useHasFeature } from '@/src/utils/features';
+import { canUsePersonalization } from '@/src/privacy/consentStore';
 
 function articleIdsKey(articles: NewsItem[]): string {
   return articles.map((a) => a.id).join('|');
@@ -20,7 +21,7 @@ function articleIdsKey(articles: NewsItem[]): string {
 export function useFeedOrchestrator(
   rawArticles: NewsItem[],
   mode: FeedFilter
-): FeedRankingResult & { articles: OrchestratedArticle[] } {
+): FeedRankingResult & { articles: OrchestratedArticle[]; isPending: boolean } {
   const followingCoins = useAppStore((s) => s.followingCoins);
   const followingSymbolsFromStore = useAppStore((s) => s.followingSymbols);
   const recentSearchSymbols = useFeedIntentStore((s) => s.recentSearchSymbols);
@@ -30,7 +31,9 @@ export function useFeedOrchestrator(
   const activeRiskRevision = useFeedStore((s) => s.activeRiskRevision);
 
   const [debouncedRaw, setDebouncedRaw] = useState(rawArticles);
+  const [isPending, setIsPending] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hadArticlesRef = useRef(rawArticles.length > 0);
   const [heldSymbols, setHeldSymbols] = useState<Set<string>>(new Set());
   const [heldWeightBySymbol, setHeldWeightBySymbol] = useState<Map<string, number>>(new Map());
   const [narrativeVector, setNarrativeVector] = useState<Map<string, number>>(new Map());
@@ -41,8 +44,27 @@ export function useFeedOrchestrator(
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (rawArticles.length === 0) {
+      setDebouncedRaw([]);
+      setIsPending(false);
+      hadArticlesRef.current = false;
+      return;
+    }
+
+    const isInitialLoad = !hadArticlesRef.current;
+    hadArticlesRef.current = true;
+
+    if (isInitialLoad) {
+      setDebouncedRaw(rawArticles);
+      setIsPending(false);
+      return;
+    }
+
+    setIsPending(true);
     debounceRef.current = setTimeout(() => {
       setDebouncedRaw(rawArticles);
+      setIsPending(false);
     }, 200);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -71,7 +93,7 @@ export function useFeedOrchestrator(
   const revisionKey = activeRiskRevision || riskContext.activeRiskRevision;
 
   useEffect(() => {
-    if (!hasPiContext) return;
+    if (!hasPiContext || !canUsePersonalization()) return;
     let cancelled = false;
     fetchPortfolioContextCached().then((ctx) => {
       if (cancelled || !ctx) return;
@@ -157,10 +179,22 @@ export function useFeedOrchestrator(
     if (debouncedRaw.length === 0) {
       return { articles: [], removedCount: 0, suppressedCount: 0 };
     }
-    return orchestrateFeed(debouncedRaw, mode, context);
+    const orchestrated = !canUsePersonalization()
+      ? orchestrateFeed(debouncedRaw, mode, {
+          ...context,
+          recentSearchSymbols: [],
+          recentReadArticleIds: new Set(),
+          heldSymbols: new Set(),
+          heldWeightBySymbol: new Map(),
+          narrativeVector: undefined,
+          convictionVector: undefined,
+          topThemes: [],
+        })
+      : orchestrateFeed(debouncedRaw, mode, context);
+    return orchestrated;
   }, [debouncedRaw, mode, context, idsKey]);
 
-  return result;
+  return { ...result, isPending };
 }
 
 export function orchestrateArticlesNow(

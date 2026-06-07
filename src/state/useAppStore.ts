@@ -107,7 +107,7 @@ export const useAppStore = create<AppState>((set, get) => {
       }
       try {
         const { patchUserPreferences } = await import('../services/api');
-        await patchUserPreferences(lang);
+        await patchUserPreferences({ preferredLanguage: lang });
         await AsyncStorage.removeItem(LANGUAGE_SYNC_PENDING_KEY);
         const user = useAuthStore.getState().user;
         if (user) {
@@ -145,7 +145,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const lang = get().language;
       try {
         const { patchUserPreferences } = await import('../services/api');
-        await patchUserPreferences(lang);
+        await patchUserPreferences({ preferredLanguage: lang });
         await AsyncStorage.removeItem(LANGUAGE_SYNC_PENDING_KEY);
         const user = useAuthStore.getState().user;
         if (user) {

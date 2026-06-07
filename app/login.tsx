@@ -13,11 +13,12 @@ import { AuthHeader } from '@/src/components/auth/AuthHeader';
 import { AuthInput } from '@/src/components/auth/AuthInput';
 import { PrimaryButton } from '@/src/components/auth/PrimaryButton';
 import { GoogleButton } from '@/src/components/auth/GoogleButton';
+import { AuthPrivacyLinks } from '@/src/components/auth/AuthPrivacyLinks';
 import { getAuthPaletteFromTokens } from '@/src/design-system/theme/authPaletteFromTokens';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { login, loginWithGoogle } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
-import { trackEvent } from '@/src/utils/trackEvent';
+import { trackAuthEvent } from '@/src/utils/trackEvent';
 
 const PASSWORD_RESET_URL =
   process.env.EXPO_PUBLIC_PASSWORD_RESET_URL ?? 'https://nayft.com';
@@ -48,7 +49,7 @@ export default function LoginScreen() {
     try {
       await GoogleSignin.hasPlayServices();
       setGoogleLoading(true);
-      trackEvent({ featureKey: 'auth', eventType: 'google_login_attempt', metadata: {} });
+      trackAuthEvent('google_login_attempt');
       const userInfo = await GoogleSignin.signIn();
       const idToken = userInfo.data?.idToken;
       if (!idToken) {
@@ -79,7 +80,7 @@ export default function LoginScreen() {
       return;
     }
 
-    trackEvent({ featureKey: 'auth', eventType: 'login_attempt', metadata: {} });
+    trackAuthEvent('login_attempt');
 
     try {
       setLoading(true);
@@ -94,7 +95,7 @@ export default function LoginScreen() {
   }, [email, password, router, t]);
 
   const goToRegister = () => {
-    trackEvent({ featureKey: 'auth', eventType: 'navigate_to_register', metadata: {} });
+    trackAuthEvent('navigate_to_register');
     router.push('/register' as never);
   };
 
@@ -179,6 +180,8 @@ export default function LoginScreen() {
             loading={googleLoading}
             disabled={loading || googleLoading}
           />
+
+          <AuthPrivacyLinks palette={palette} />
         </Animated.View>
 
         <Animated.View

@@ -16,11 +16,17 @@ import type {
 } from './relevance.types';
 
 function scoreAndSort(articles: NewsItem[], ctx: FeedUserContext): ScoredArticle[] {
-  const filtered = articles.filter((a) =>
+  let filtered = articles.filter((a) =>
     ctx.mode === 'following'
       ? passesFollowingSoftFilter(a, ctx)
       : passesExploreFilter(a, ctx)
   );
+
+  // Explore: if the follow-coin exclusion removes everything, fall back to the full feed
+  // rather than showing a false "no results" state.
+  if (ctx.mode === 'explore' && filtered.length === 0 && articles.length > 0) {
+    filtered = articles;
+  }
 
   const recentSymbols: string[] = [];
   const scored: ScoredArticle[] = filtered.map((article) => {

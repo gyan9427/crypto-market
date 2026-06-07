@@ -121,6 +121,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
   const [labelInput, setLabelInput] = useState('');
   const [selectedChains, setSelectedChains] = useState<string[]>([]);
   const [addError, setAddError] = useState<string | null>(null);
+  const [walletConsentChecked, setWalletConsentChecked] = useState(false);
 
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [apiSecretInput, setApiSecretInput] = useState('');
@@ -213,6 +214,10 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
       setAddError(t('monitorWallet.errorChainRequired'));
       return;
     }
+    if (!walletConsentChecked) {
+      setAddError(t('monitorWallet.errorConsentRequired', 'Please confirm third-party data sharing to add a wallet.'));
+      return;
+    }
 
     try {
       await addWallet(trimmed, selectedChains, labelInput.trim() || undefined);
@@ -229,6 +234,7 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
     chainsUnavailableMessage,
     labelInput,
     selectedChains,
+    walletConsentChecked,
     addWallet,
     clearError,
     loadEvents,
@@ -395,9 +401,25 @@ export const MonitorWalletSheet: React.FC<MonitorWalletSheetProps> = ({
               ) : null}
 
               <TouchableOpacity
-                style={[styles.addButton, (isLoading || chainsUnavailable) && styles.addButtonDisabled]}
+                style={styles.consentRow}
+                onPress={() => setWalletConsentChecked((v) => !v)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.checkbox, walletConsentChecked && styles.checkboxChecked]}>
+                  {walletConsentChecked ? <Text style={styles.checkmark}>✓</Text> : null}
+                </View>
+                <Text style={styles.consentText}>
+                  {t(
+                    'monitorWallet.consentLabel',
+                    'I understand my wallet address will be shared with Zerion and Alchemy to fetch on-chain portfolio data.'
+                  )}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.addButton, (isLoading || chainsUnavailable || !walletConsentChecked) && styles.addButtonDisabled]}
                 onPress={handleAddWallet}
-                disabled={isLoading || chainsUnavailable}
+                disabled={isLoading || chainsUnavailable || !walletConsentChecked}
               >
                 <Text style={styles.addButtonText}>
                   {isLoading ? t('monitorWallet.adding') : t('monitorWallet.addWallet')}
@@ -659,6 +681,33 @@ function buildMonitorWalletSheetStyles(tokens: ThemeTokens) {
     errorBannerText: {
       color: c.error[700],
       fontSize: typo.fontSizes.sm,
+    },
+    consentRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginTop: s.md,
+      gap: s.sm,
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: c.neutral[400],
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 2,
+    },
+    checkboxChecked: {
+      backgroundColor: c.primary[500],
+      borderColor: c.primary[500],
+    },
+    checkmark: { color: '#fff', fontSize: 14, fontWeight: '700' },
+    consentText: {
+      flex: 1,
+      fontSize: typo.fontSizes.sm,
+      color: tokens.textMuted,
+      lineHeight: 20,
     },
     cancelEditLink: {
       marginTop: s.sm,

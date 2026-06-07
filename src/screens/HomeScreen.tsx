@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, StyleSheet, RefreshControl, Text, Modal } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
@@ -77,17 +77,25 @@ export const HomeScreen: React.FC = () => {
   const recordSearchCoin = useFeedIntentStore((s) => s.recordSearchCoin);
   const recordArticleRead = useFeedIntentStore((s) => s.recordArticleRead);
 
-  const { articles: newsData } = useFeedOrchestrator(rawNewsData, feedFilter);
+  const { articles: newsData, isPending: feedPending } = useFeedOrchestrator(rawNewsData, feedFilter);
   const { articles: featuredNews } = useFeedOrchestrator(rawFeaturedNews, 'explore');
+
+  const loadGenerationRef = useRef(0);
+  const showFeedLoading = loading || feedPending;
 
   const loadNews = useCallback(async (options?: { background?: boolean }) => {
     const isBackground = options?.background === true;
+    const generation = loadGenerationRef.current;
+    const filter = useAppStore.getState().feedFilter;
+
     try {
       if (!isBackground) {
         setLoading(true);
         setError(null);
       }
-      const news = await fetchNews(feedFilter, 1, 50, []);
+      const news = await fetchNews(filter, 1, 50, []);
+      if (generation !== loadGenerationRef.current) return;
+
       const { newsReactions: reactions, isSavedToAnyBoard: savedFn } = useAppStore.getState();
 
       const newsWithState = news.map((item) => ({
@@ -98,36 +106,39 @@ export const HomeScreen: React.FC = () => {
 
       setRawNewsData(newsWithState);
 
-      if (feedFilter === 'explore') {
+      if (filter === 'explore') {
         setRawFeaturedNews(newsWithState);
       } else {
         try {
           const exploreTop = await fetchNews('explore', 1, 50, []);
+          if (generation !== loadGenerationRef.current) return;
           const exploreWithState = exploreTop.map((item) => ({
             ...item,
             userReaction: reactions[item.id] ?? item.userReaction ?? null,
             isSaved: savedFn(item.id),
           }));
           setRawFeaturedNews(exploreWithState);
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error('Error loading featured news:', err);
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      if (generation !== loadGenerationRef.current) return;
       if (!isBackground) {
-        setError(err.message || t('errors.failedToLoadNews'));
+        const message = err instanceof Error ? err.message : t('errors.failedToLoadNews');
+        setError(message);
       }
       console.error('Error loading news:', err);
     } finally {
-      if (!isBackground) {
+      if (generation === loadGenerationRef.current && !isBackground) {
         setLoading(false);
       }
     }
-  }, [feedFilter, t]);
+  }, [t]);
 
   useEffect(() => {
     loadNews();
-  }, [loadNews]);
+  }, [feedFilter, loadNews]);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -197,8 +208,14 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleSegmentChange = useCallback((index: number) => {
-    setFeedFilter(index === 0 ? 'following' : 'explore');
-  }, [setFeedFilter]);
+    const next = index === 0 ? 'following' : 'explore';
+    if (next === feedFilter) return;
+    loadGenerationRef.current += 1;
+    setLoading(true);
+    setRawNewsData([]);
+    setRawFeaturedNews([]);
+    setFeedFilter(next);
+  }, [feedFilter, setFeedFilter]);
 
   const handleReact = useCallback(async (newsId: string, type: ReactionType) => {
     const currentReaction = newsReactions[newsId] ?? null;
@@ -320,8 +337,8 @@ export const HomeScreen: React.FC = () => {
 
   const hasFeaturedContent = displayFeatured.length > 0;
   const feedRows = useMemo(
-    () => buildFeedRows(newsData, hasFeaturedContent, loading && newsData.length === 0),
-    [newsData, hasFeaturedContent, loading]
+    () => buildFeedRows(newsData, hasFeaturedContent, showFeedLoading && newsData.length === 0),
+    [newsData, hasFeaturedContent, showFeedLoading]
   );
 
   const listHeaderComponent = useMemo(
@@ -344,7 +361,7 @@ export const HomeScreen: React.FC = () => {
 
   const renderItem = useCallback(
     ({ item, index }: { item: FeedRow; index: number }) => {
-      if (loading && newsData.length === 0) {
+      if (showFeedLoading && newsData.length === 0) {
         return <NewsCardSkeleton key={`skeleton-${index}`} />;
       }
       if (item === null) {
@@ -370,7 +387,7 @@ export const HomeScreen: React.FC = () => {
       );
     },
     [
-      loading,
+      showFeedLoading,
       newsData.length,
       displayFeatured,
       handleFeaturedNewsPress,
@@ -389,7 +406,7 @@ export const HomeScreen: React.FC = () => {
     return item.id;
   }, []);
 
-  if (error && newsData.length === 0) {
+  if (error && newsData.length === 0 && !showFeedLoading) {
     return (
       <View style={styles.container}>
         <ServiceUnavailableState onRetry={loadNews} />
@@ -406,7 +423,7 @@ export const HomeScreen: React.FC = () => {
         ListHeaderComponent={listHeaderComponent}
         {...collapsibleScrollHandlers}
         ListEmptyComponent={
-          !loading && newsData.length === 0 ? (
+          !showFeedLoading && newsData.length === 0 && rawNewsData.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>{t('home.noResults')}</Text>
             </View>

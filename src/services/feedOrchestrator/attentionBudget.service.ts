@@ -61,5 +61,14 @@ export function applyAttentionBudget(
     coinCounts.set(sym, totalForCoin + 1);
   }
 
+  // Never zero-out the feed when scored articles exist (e.g. cold risk/PI context on first load).
+  if (result.length === 0 && scored.length > 0) {
+    const fallbackSize = Math.min(limits.windowSize, scored.length);
+    return {
+      articles: scored.slice(0, fallbackSize),
+      suppressedCount: suppressedCount + Math.max(0, scored.length - fallbackSize),
+    };
+  }
+
   return { articles: result, suppressedCount };
 }
