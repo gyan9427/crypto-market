@@ -9,6 +9,7 @@ import {
 import Animated from 'react-native-reanimated';
 import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
 import { useTranslation } from 'react-i18next';
+import { Wallet } from 'lucide-react-native';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { MonitorWalletSheet } from '../components/MonitorWalletSheet';
 import { HoldingsSegment } from '../components/HoldingsSegment';
@@ -23,6 +24,7 @@ function truncateAddress(address: string): string {
 }
 
 const PORTFOLIO_ACTIVITY_EVENT_LIMIT = 100;
+const MARKET_ACCENT = '#6383ff';
 
 type SelectedHolding = {
   symbol: string;
@@ -111,7 +113,8 @@ export const PortfolioScreen: React.FC = () => {
     ? t('portfolio.accountWithAddress', { address: truncateAddress(wallets[0].address) })
     : t('portfolio.headerAccount');
 
-  // Show activity screen if requested
+  const sessionStatus = `${MODE_LABEL[sessionMode] ?? 'Syncing'} · ${portfolioStreamConnected ? 'Connected' : 'Disconnected'}`;
+
   if (showActivity) {
     return (
       <ActivityScreen
@@ -132,15 +135,25 @@ export const PortfolioScreen: React.FC = () => {
         }
         {...collapsibleScrollHandlers}
       >
+        <Text style={styles.sectionTitle}>{t('portfolio.headerAccount')}</Text>
         <TouchableOpacity
-          style={styles.accountCard}
+          style={styles.accountRow}
           onPress={() => usePortfolioStore.getState().openMonitorSheet()}
-          activeOpacity={0.8}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={accountLabel}
         >
-          <Text style={styles.accountTitle}>{accountLabel}</Text>
-          <Text style={styles.sessionLabel}>
-            {MODE_LABEL[sessionMode] ?? 'Syncing'} · {portfolioStreamConnected ? 'Connected' : 'Disconnected'}
-          </Text>
+          <View style={styles.accountIcon}>
+            <Wallet size={18} color={MARKET_ACCENT} />
+          </View>
+          <View style={styles.identity}>
+            <Text style={styles.accountTitle} numberOfLines={1}>
+              {accountLabel}
+            </Text>
+            <Text style={styles.sessionLabel} numberOfLines={1}>
+              {sessionStatus}
+            </Text>
+          </View>
         </TouchableOpacity>
         <HoldingsSegment onHoldingPress={handleHoldingPress} />
       </Animated.ScrollView>
@@ -155,35 +168,63 @@ export const PortfolioScreen: React.FC = () => {
 // ── Styles ───────────────────────────────────────────────────────────────────
 
 function buildPortfolioScreenStyles(tokens: ThemeTokens) {
-  const sem = tokens.semantic;
   const typo = tokens.typography;
+  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
+
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: tokens.bg,
     },
     scrollContent: {
-      paddingTop: sem.listMarginH,
-      paddingBottom: 120,
+      paddingBottom: 96,
     },
-
-    accountCard: {
-      marginHorizontal: sem.listMarginH,
-      marginBottom: sem.listGap,
-      backgroundColor: sem.surface,
-      borderRadius: sem.cardRadius,
-      padding: sem.cardPadding,
-      ...sem.cardShadow,
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: tokens.textMuted,
+      letterSpacing: 0.2,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 8,
+    },
+    accountRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderBottomWidth: 0.5,
+      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
+      minHeight: 56,
+    },
+    accountIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: accentBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: tokens.spacing.sm,
+    },
+    identity: {
+      flex: 1,
+      minWidth: 0,
     },
     accountTitle: {
-      fontSize: typo.fontSizes.xl,
-      fontWeight: typo.fontWeights.bold,
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
       color: tokens.text,
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      letterSpacing: typo.letterSpacing.caption,
     },
     sessionLabel: {
-      marginTop: 6,
-      fontSize: typo.fontSizes.sm,
+      fontSize: typo.fontSizes.badge,
       color: tokens.textMuted,
+      marginTop: 2,
+      fontWeight: typo.fontWeights.medium,
+      fontFamily: typo.fontFamilies.sansMedium,
+      letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
   });
 }

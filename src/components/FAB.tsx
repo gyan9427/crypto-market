@@ -15,12 +15,15 @@ import {
   Modal,
   Animated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Bell, PlusCircle, FileText, Gift } from 'lucide-react-native';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useHasFeature } from '../utils/features';
+
+const MARKET_ACCENT = '#6383ff';
 
 interface QuickActionsContextValue {
   open: () => void;
@@ -41,12 +44,49 @@ interface QuickActionsProviderProps {
   onPress?: () => void;
 }
 
+interface QuickActionRowProps {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  accessibilityLabel: string;
+  styles: ReturnType<typeof buildStyles>;
+}
+
+const QuickActionRow: React.FC<QuickActionRowProps> = ({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  accessibilityLabel,
+  styles,
+}) => (
+  <TouchableOpacity
+    style={styles.sheetAction}
+    onPress={onPress}
+    activeOpacity={0.7}
+    accessibilityRole="button"
+    accessibilityLabel={accessibilityLabel}
+  >
+    <View style={styles.sheetIconContainer}>{icon}</View>
+    <View style={styles.sheetActionText}>
+      <Text style={styles.sheetActionTitle} numberOfLines={1}>
+        {title}
+      </Text>
+      <Text style={styles.sheetActionSubtitle} numberOfLines={2}>
+        {subtitle}
+      </Text>
+    </View>
+  </TouchableOpacity>
+);
+
 export const QuickActionsProvider: React.FC<QuickActionsProviderProps> = ({
   children,
   onPress,
 }) => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => buildStyles(tokens), [tokens]);
   const hasRewards = useHasFeature('rewards');
   const hasFollow = useHasFeature('follow');
@@ -98,76 +138,53 @@ export const QuickActionsProvider: React.FC<QuickActionsProviderProps> = ({
         </TouchableWithoutFeedback>
 
         <Animated.View
-          style={[styles.bottomSheetBackground, { transform: [{ translateY: slideAnim }] }]}
+          style={[
+            styles.bottomSheetBackground,
+            { transform: [{ translateY: slideAnim }], paddingBottom: Math.max(insets.bottom, 16) },
+          ]}
         >
           <View style={styles.handleBar} />
-          <View style={styles.bottomSheetContent}>
-            <Text style={styles.sheetTitle}>{t('fab.quickActions')}</Text>
+          <Text style={styles.sheetTitle}>{t('fab.quickActions')}</Text>
 
-            <TouchableOpacity
-              style={styles.sheetAction}
-              onPress={() => handleAction('alert')}
-              accessibilityRole="button"
-              accessibilityLabel={t('fab.addAlert')}
-            >
-              <View style={styles.sheetIconContainer}>
-                <Bell size={24} color={c.primary[500]} />
-              </View>
-              <View style={styles.sheetActionText}>
-                <Text style={styles.sheetActionTitle}>{t('fab.addAlert')}</Text>
-                <Text style={styles.sheetActionSubtitle}>{t('fab.addAlertSubtitle')}</Text>
-              </View>
-            </TouchableOpacity>
+          <QuickActionRow
+            styles={styles}
+            icon={<Bell size={18} color={MARKET_ACCENT} />}
+            title={t('fab.addAlert')}
+            subtitle={t('fab.addAlertSubtitle')}
+            onPress={() => handleAction('alert')}
+            accessibilityLabel={t('fab.addAlert')}
+          />
 
-            {hasFollow && (
-              <TouchableOpacity
-                style={styles.sheetAction}
-                onPress={() => handleAction('watchlist')}
-                accessibilityRole="button"
-                accessibilityLabel={t('fab.addToWatchlist')}
-              >
-                <View style={styles.sheetIconContainer}>
-                  <PlusCircle size={24} color={c.accent[500]} />
-                </View>
-                <View style={styles.sheetActionText}>
-                  <Text style={styles.sheetActionTitle}>{t('fab.addToWatchlist')}</Text>
-                  <Text style={styles.sheetActionSubtitle}>{t('fab.watchlistSubtitle')}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
+          {hasFollow && (
+            <QuickActionRow
+              styles={styles}
+              icon={<PlusCircle size={18} color={MARKET_ACCENT} />}
+              title={t('fab.addToWatchlist')}
+              subtitle={t('fab.watchlistSubtitle')}
+              onPress={() => handleAction('watchlist')}
+              accessibilityLabel={t('fab.addToWatchlist')}
+            />
+          )}
 
-            <TouchableOpacity
-              style={styles.sheetAction}
-              onPress={() => handleAction('submit')}
-              accessibilityRole="button"
-              accessibilityLabel={t('fab.submitNews')}
-            >
-              <View style={styles.sheetIconContainer}>
-                <FileText size={24} color={c.success[500]} />
-              </View>
-              <View style={styles.sheetActionText}>
-                <Text style={styles.sheetActionTitle}>{t('fab.submitNews')}</Text>
-                <Text style={styles.sheetActionSubtitle}>{t('fab.submitNewsSubtitle')}</Text>
-              </View>
-            </TouchableOpacity>
+          <QuickActionRow
+            styles={styles}
+            icon={<FileText size={18} color={c.success[500]} />}
+            title={t('fab.submitNews')}
+            subtitle={t('fab.submitNewsSubtitle')}
+            onPress={() => handleAction('submit')}
+            accessibilityLabel={t('fab.submitNews')}
+          />
 
-            {hasRewards && (
-              <TouchableOpacity
-                style={styles.sheetAction}
-                onPress={() => handleAction('rewards')}
-                accessibilityRole="button"
-                accessibilityLabel={t('fab.rewards')}
-              >
-                <View style={styles.sheetIconContainer}>
-                  <Gift size={24} color={c.primary[500]} />
-                </View>
-                <View style={styles.sheetActionText}>
-                  <Text style={styles.sheetActionTitle}>{t('fab.rewards')}</Text>
-                  <Text style={styles.sheetActionSubtitle}>{t('fab.rewardsSubtitle')}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
+          {hasRewards && (
+            <QuickActionRow
+              styles={styles}
+              icon={<Gift size={18} color={MARKET_ACCENT} />}
+              title={t('fab.rewards')}
+              subtitle={t('fab.rewardsSubtitle')}
+              onPress={() => handleAction('rewards')}
+              accessibilityLabel={t('fab.rewards')}
+            />
+          )}
         </Animated.View>
       </Modal>
     </QuickActionsContext.Provider>
@@ -178,71 +195,83 @@ export const QuickActionsProvider: React.FC<QuickActionsProviderProps> = ({
 export const FAB = QuickActionsProvider;
 
 function buildStyles(tokens: ThemeTokens) {
-  const { spacing, typography, semantic, shadows } = tokens;
+  const { typography } = tokens;
+  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
+  const rowBg = tokens.isDark ? '#0a0a0f' : tokens.surface;
+  const rowBorder = tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle;
+
   return StyleSheet.create({
     backdrop: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: semantic.backdrop,
+      backgroundColor: tokens.isDark ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.35)',
     },
     bottomSheetBackground: {
       position: 'absolute',
       bottom: 0,
       left: 0,
       right: 0,
-      backgroundColor: tokens.bgElevated,
-      borderTopLeftRadius: semantic.sheetRadius,
-      borderTopRightRadius: semantic.sheetRadius,
-      ...shadows.lg,
+      backgroundColor: tokens.bg,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      borderTopWidth: 0.5,
+      borderColor: rowBorder,
+      overflow: 'hidden',
     },
     handleBar: {
-      width: 40,
+      width: 36,
       height: 4,
       borderRadius: 2,
-      backgroundColor: tokens.colors.neutral[300],
+      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.18)' : tokens.colors.neutral[300],
       alignSelf: 'center',
-      marginTop: spacing.sm,
-      marginBottom: spacing.xs,
-    },
-    bottomSheetContent: {
-      padding: semantic.listMarginH,
-      paddingTop: spacing.sm,
+      marginTop: 10,
+      marginBottom: 4,
     },
     sheetTitle: {
-      fontSize: typography.fontSizes.xl,
-      fontWeight: typography.fontWeights.bold,
-      color: tokens.text,
-      marginBottom: spacing.lg,
-      fontFamily: typography.fontFamilies.sansBold,
+      fontSize: 14,
+      fontWeight: '600',
+      color: tokens.textMuted,
+      letterSpacing: 0.2,
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 8,
     },
     sheetAction: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.sm,
-      minHeight: 60,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderBottomWidth: 0.5,
+      borderBottomColor: rowBorder,
+      backgroundColor: rowBg,
+      minHeight: 56,
     },
     sheetIconContainer: {
-      width: 48,
-      height: 48,
-      borderRadius: semantic.sheetRadius,
-      backgroundColor: tokens.isDark ? tokens.colors.neutral[200] : tokens.colors.neutral[100],
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: accentBg,
       justifyContent: 'center',
       alignItems: 'center',
-      marginRight: semantic.cardPadding,
+      marginRight: tokens.spacing.sm,
     },
     sheetActionText: {
       flex: 1,
+      minWidth: 0,
     },
     sheetActionTitle: {
-      fontSize: typography.fontSizes.md,
+      fontSize: typography.fontSizes.sm,
       fontWeight: typography.fontWeights.semibold,
       color: tokens.text,
-      marginBottom: 2,
       fontFamily: typography.fontFamilies.sansSemiBold,
+      letterSpacing: typography.letterSpacing.caption,
     },
     sheetActionSubtitle: {
-      fontSize: typography.fontSizes.sm,
+      fontSize: typography.fontSizes.badge,
       color: tokens.textMuted,
-      fontFamily: typography.fontFamilies.sans,
+      marginTop: 2,
+      fontWeight: typography.fontWeights.medium,
+      fontFamily: typography.fontFamilies.sansMedium,
+      letterSpacing: typography.letterSpacing.eyebrow * 0.5,
     },
   });
 }
