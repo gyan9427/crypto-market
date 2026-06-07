@@ -14,7 +14,6 @@ import { AboutAppModal } from '@/src/components/AboutAppModal';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import type { ThemePreference } from '@/src/types';
-import { SegmentToggle } from '@/src/components/SegmentToggle';
 import { LogOut, Shield, Info, User as UserIcon, Bookmark, Bell, Trash2, Lock } from 'lucide-react-native';
 import {
   followUser,
@@ -27,6 +26,7 @@ import { DeleteAccountModal } from '@/src/components/DeleteAccountModal';
 import { useNotificationStore } from '@/src/state/useNotificationStore';
 
 const PREF_ORDER: ThemePreference[] = ['system', 'light', 'dark'];
+const MARKET_ACCENT = '#6383ff';
 
 const getInitials = (name?: string | null) => {
   if (!name) return '?';
@@ -55,54 +55,58 @@ const ProfileMenuItem: React.FC<ProfileMenuItemProps> = ({
   const s = useMemo(() => menuStyles(tokens), [tokens]);
   return (
     <TouchableOpacity style={s.menuItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={s.menuItemLeft}>
-        {icon && <View style={s.menuIcon}>{icon}</View>}
-        <View>
-          <Text style={[s.menuLabel, danger && s.menuLabelDanger]}>{label}</Text>
-          {description && <Text style={s.menuDescription}>{description}</Text>}
-        </View>
+      {icon && <View style={s.menuIcon}>{icon}</View>}
+      <View style={s.menuContent}>
+        <Text style={[s.menuLabel, danger && s.menuLabelDanger]} numberOfLines={1}>
+          {label}
+        </Text>
+        {description && (
+          <Text style={s.menuDescription} numberOfLines={2}>
+            {description}
+          </Text>
+        )}
       </View>
-      <Text style={[s.menuChevron, danger && s.menuLabelDanger]}>{'›'}</Text>
     </TouchableOpacity>
   );
 };
 
 function menuStyles(tokens: ThemeTokens) {
+  const typo = tokens.typography;
   return StyleSheet.create({
     menuItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
-    },
-    menuItemLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderBottomWidth: 0.5,
+      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
+      minHeight: 56,
     },
     menuIcon: {
       marginRight: tokens.spacing.sm,
     },
+    menuContent: {
+      flex: 1,
+      minWidth: 0,
+    },
     menuLabel: {
-      fontSize: tokens.typography.fontSizes.md,
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+      fontFamily: typo.fontFamilies.sansSemiBold,
       color: tokens.text,
-      fontWeight: tokens.typography.fontWeights.medium,
-      fontFamily: tokens.typography.fontFamilies.sansMedium,
+      letterSpacing: typo.letterSpacing.caption,
     },
     menuLabelDanger: {
       color: tokens.colors.error[600],
     },
     menuDescription: {
-      fontSize: tokens.typography.fontSizes.xs,
+      fontSize: typo.fontSizes.badge,
       color: tokens.textMuted,
       marginTop: 2,
-      fontFamily: tokens.typography.fontFamilies.sans,
-    },
-    menuChevron: {
-      fontSize: tokens.typography.fontSizes.lg,
-      color: tokens.textMuted,
-      marginLeft: tokens.spacing.sm,
+      fontWeight: typo.fontWeights.medium,
+      fontFamily: typo.fontFamilies.sansMedium,
+      letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
   });
 }
@@ -135,6 +139,7 @@ export default function ProfileScreen() {
 
   const prefIndex = PREF_ORDER.indexOf(preference);
   const appearanceIndex = prefIndex >= 0 ? prefIndex : 0;
+  const appearanceOptions = [t('common.themeSystem'), t('common.themeLight'), t('common.themeDark')];
 
   const currentLanguageMeta = useMemo(() => getLanguageOption(language), [language]);
 
@@ -212,60 +217,70 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         {...collapsibleScrollHandlers}
       >
-        <View style={styles.card}>
+        <View style={styles.profileRow}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(displayName)}</Text>
           </View>
-          <Text style={styles.name}>{displayName}</Text>
-          {email && <Text style={styles.email}>{email}</Text>}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.appearance')}</Text>
-          <Text style={styles.appearanceHint}>{t('profile.appearanceHint')}</Text>
-          <View style={styles.appearanceToggleWrap}>
-            <SegmentToggle
-              flush
-              options={[t('common.themeSystem'), t('common.themeLight'), t('common.themeDark')]}
-              selectedIndex={appearanceIndex}
-              onSelect={(i) => setPreference(PREF_ORDER[i] ?? 'system')}
-            />
+          <View style={styles.identity}>
+            <Text style={styles.name} numberOfLines={1}>
+              {displayName}
+            </Text>
+            {email ? (
+              <Text style={styles.email} numberOfLines={1}>
+                {email}
+              </Text>
+            ) : (
+              <Text style={styles.email} numberOfLines={1}>
+                @{displayName}
+              </Text>
+            )}
           </View>
         </View>
 
-        <View style={styles.section}>
-          <ProfileMenuItem
-            label="Design system v2"
-            description={
-              designSystemV2Dev ? 'Enabled (dev override)' : 'Off — or enable design_system_v2 flag'
-            }
-            onPress={() => setDesignSystemV2Dev(!designSystemV2Dev)}
-            tokens={tokens}
-          />
+        <Text style={styles.sectionTitle}>{t('profile.appearance')}</Text>
+        <View style={styles.tabRow}>
+          {appearanceOptions.map((option, index) => (
+            <TouchableOpacity
+              key={option}
+              style={[styles.tab, appearanceIndex === index && styles.tabActive]}
+              onPress={() => setPreference(PREF_ORDER[index] ?? 'system')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: appearanceIndex === index }}
+            >
+              <Text style={[styles.tabText, appearanceIndex === index && styles.tabTextActive]}>
+                {option}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.languageSection')}</Text>
-          <Text style={styles.appearanceHint}>{t('profile.languageHint')}</Text>
-          <TouchableOpacity
-            style={styles.languageRow}
-            onPress={() => languageSheetRef.current?.present()}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={`${t('profile.languageSection')}, ${currentLanguageMeta?.englishLabel ?? language}`}
-            accessibilityHint={t('profile.languageHint')}
-          >
-            <View style={styles.languageRowLeft}>
-              <Text style={styles.languageRowPrimary} numberOfLines={1}>
-                {currentLanguageMeta?.label ?? language}
-              </Text>
-              <Text style={styles.languageRowSecondary} numberOfLines={1}>
-                {currentLanguageMeta?.englishLabel ?? language}
-              </Text>
-            </View>
-            <Text style={styles.languageRowChevron}>{'›'}</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.sectionTitle}>{t('profile.languageSection')}</Text>
+        <TouchableOpacity
+          style={styles.flatRow}
+          onPress={() => languageSheetRef.current?.present()}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('profile.languageSection')}, ${currentLanguageMeta?.englishLabel ?? language}`}
+          accessibilityHint={t('profile.languageHint')}
+        >
+          <View style={styles.identity}>
+            <Text style={styles.rowPrimary} numberOfLines={1}>
+              {currentLanguageMeta?.label ?? language}
+            </Text>
+            <Text style={styles.rowSecondary} numberOfLines={1}>
+              {currentLanguageMeta?.englishLabel ?? language}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <ProfileMenuItem
+          label="Design system v2"
+          description={
+            designSystemV2Dev ? 'Enabled (dev override)' : 'Off — or enable design_system_v2 flag'
+          }
+          onPress={() => setDesignSystemV2Dev(!designSystemV2Dev)}
+          tokens={tokens}
+        />
 
         <LanguagePickerSheet
           ref={languageSheetRef}
@@ -274,123 +289,113 @@ export default function ProfileScreen() {
           onSelectLanguage={handleLanguageSelect}
         />
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.social')}</Text>
-          {socialLoading ? (
-            <View style={styles.socialLoadingRow}>
-              <ActivityIndicator size="small" color={tokens.colors.primary[500]} />
+        <Text style={styles.sectionTitle}>{t('profile.social')}</Text>
+        {socialLoading ? (
+          <View style={styles.socialLoadingRow}>
+            <ActivityIndicator size="small" color={MARKET_ACCENT} />
+          </View>
+        ) : (
+          <View style={styles.socialStatsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats?.followersCount ?? 0}</Text>
+              <Text style={styles.statLabel}>{t('profile.followers')}</Text>
             </View>
-          ) : (
-            <View style={styles.socialStatsRow}>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('profile.followers')}</Text>
-                <Text style={styles.statValue}>{stats?.followersCount ?? 0}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('profile.followingUsers')}</Text>
-                <Text style={styles.statValue}>{stats?.followingUsersCount ?? 0}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('profile.followingCoins')}</Text>
-                <Text style={styles.statValue}>{stats?.followingCoinsCount ?? 0}</Text>
-              </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats?.followingUsersCount ?? 0}</Text>
+              <Text style={styles.statLabel}>{t('profile.followingUsers')}</Text>
             </View>
-          )}
-          {followingUsers.length > 0 && (
-            <View style={styles.followingList}>
-              <Text style={styles.subSectionTitle}>{t('profile.following')}</Text>
-              {followingUsers.slice(0, 8).map((item) => (
-                <View key={item.id} style={styles.followingUserRow}>
-                  <Text style={styles.followUsername}>@{item.username}</Text>
-                  <TouchableOpacity
-                    style={[styles.followChip, styles.followingChip]}
-                    onPress={() => handleToggleUserFollow(item.id, true)}
-                    disabled={updatingUserId === item.id}
-                  >
-                    <Text style={[styles.followChipText, styles.followingChipText]}>
-                      {updatingUserId === item.id ? t('common.ellipsis') : t('profile.unfollow')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats?.followingCoinsCount ?? 0}</Text>
+              <Text style={styles.statLabel}>{t('profile.followingCoins')}</Text>
             </View>
-          )}
-        </View>
+          </View>
+        )}
+        {followingUsers.length > 0 && (
+          <>
+            <Text style={styles.listLabel}>{t('profile.following')}</Text>
+            {followingUsers.slice(0, 8).map((item) => (
+              <View key={item.id} style={styles.followingUserRow}>
+                <Text style={styles.followUsername}>@{item.username}</Text>
+                <TouchableOpacity
+                  style={[styles.followChip, styles.followingChip]}
+                  onPress={() => handleToggleUserFollow(item.id, true)}
+                  disabled={updatingUserId === item.id}
+                >
+                  <Text style={[styles.followChipText, styles.followingChipText]}>
+                    {updatingUserId === item.id ? t('common.ellipsis') : t('profile.unfollow')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </>
+        )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.account')}</Text>
-          <ProfileMenuItem
-            tokens={tokens}
-            label={t('profile.accountDetails')}
-            description={t('profile.accountDetailsDesc')}
-            icon={<UserIcon size={18} color={tokens.colors.neutral[600]} />}
-            onPress={() => {
-              console.log('Account pressed');
-            }}
-          />
-          <ProfileMenuItem
-            tokens={tokens}
-            label="Notifications"
-            description="Alerts, wallet activity, and social updates"
-            icon={<Bell size={18} color={tokens.colors.neutral[600]} />}
-            onPress={() => router.push('/(tabs)/notifications' as never)}
-          />
-          <ProfileMenuItem
-            tokens={tokens}
-            label={t('privacy.settingsTitle', 'Privacy settings')}
-            description={t('privacy.settingsDesc', 'Analytics, personalization, and data choices')}
-            icon={<Lock size={18} color={tokens.colors.neutral[600]} />}
-            onPress={() => router.push('/privacy-settings' as never)}
-          />
-          <ProfileMenuItem
-            tokens={tokens}
-            label={t('profile.security')}
-            description={t('profile.securityDesc')}
-            icon={<Shield size={18} color={tokens.colors.neutral[600]} />}
-            onPress={() => router.push('/change-password' as never)}
-          />
-          <ProfileMenuItem
-            tokens={tokens}
-            label={t('profile.deleteAccount')}
-            description={t('profile.deleteAccountDesc')}
-            icon={<Trash2 size={18} color={tokens.colors.error[500]} />}
-            danger
-            onPress={() => setDeleteVisible(true)}
-          />
-        </View>
+        <Text style={styles.sectionTitle}>{t('profile.account')}</Text>
+        <ProfileMenuItem
+          tokens={tokens}
+          label={t('profile.accountDetails')}
+          description={t('profile.accountDetailsDesc')}
+          icon={<UserIcon size={18} color={tokens.textMuted} />}
+          onPress={() => {
+            console.log('Account pressed');
+          }}
+        />
+        <ProfileMenuItem
+          tokens={tokens}
+          label="Notifications"
+          description="Alerts, wallet activity, and social updates"
+          icon={<Bell size={18} color={tokens.textMuted} />}
+          onPress={() => router.push('/(tabs)/notifications' as never)}
+        />
+        <ProfileMenuItem
+          tokens={tokens}
+          label={t('privacy.settingsTitle', 'Privacy settings')}
+          description={t('privacy.settingsDesc', 'Analytics, personalization, and data choices')}
+          icon={<Lock size={18} color={tokens.textMuted} />}
+          onPress={() => router.push('/privacy-settings' as never)}
+        />
+        <ProfileMenuItem
+          tokens={tokens}
+          label={t('profile.security')}
+          description={t('profile.securityDesc')}
+          icon={<Shield size={18} color={tokens.textMuted} />}
+          onPress={() => router.push('/change-password' as never)}
+        />
+        <ProfileMenuItem
+          tokens={tokens}
+          label={t('profile.deleteAccount')}
+          description={t('profile.deleteAccountDesc')}
+          icon={<Trash2 size={18} color={tokens.colors.error[500]} />}
+          danger
+          onPress={() => setDeleteVisible(true)}
+        />
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.collections')}</Text>
-          <ProfileMenuItem
-            tokens={tokens}
-            label={t('profile.newsBoards')}
-            description={t('profile.newsBoardsDesc')}
-            icon={<Bookmark size={18} color={tokens.colors.neutral[600]} />}
-            onPress={() => router.push('/news-boards' as never)}
-          />
-        </View>
+        <Text style={styles.sectionTitle}>{t('profile.collections')}</Text>
+        <ProfileMenuItem
+          tokens={tokens}
+          label={t('profile.newsBoards')}
+          description={t('profile.newsBoardsDesc')}
+          icon={<Bookmark size={18} color={tokens.textMuted} />}
+          onPress={() => router.push('/news-boards' as never)}
+        />
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.about')}</Text>
-          <ProfileMenuItem
-            tokens={tokens}
-            label={t('profile.aboutApp')}
-            description={t('profile.aboutAppDesc')}
-            icon={<Info size={18} color={tokens.colors.neutral[600]} />}
-            onPress={() => setAboutVisible(true)}
-          />
-        </View>
+        <Text style={styles.sectionTitle}>{t('profile.about')}</Text>
+        <ProfileMenuItem
+          tokens={tokens}
+          label={t('profile.aboutApp')}
+          description={t('profile.aboutAppDesc')}
+          icon={<Info size={18} color={tokens.textMuted} />}
+          onPress={() => setAboutVisible(true)}
+        />
 
-        <View style={styles.section}>
-          <ProfileMenuItem
-            tokens={tokens}
-            label={t('profile.logout')}
-            description={t('profile.logoutDesc')}
-            icon={<LogOut size={18} color={tokens.colors.error[500]} />}
-            danger
-            onPress={handleLogout}
-          />
-        </View>
+        <ProfileMenuItem
+          tokens={tokens}
+          label={t('profile.logout')}
+          description={t('profile.logoutDesc')}
+          icon={<LogOut size={18} color={tokens.colors.error[500]} />}
+          danger
+          onPress={handleLogout}
+        />
       </Animated.ScrollView>
 
       <AboutAppModal
@@ -410,180 +415,202 @@ export default function ProfileScreen() {
 }
 
 function buildScreenStyles(tokens: ThemeTokens) {
+  const typo = tokens.typography;
+  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
+
   return StyleSheet.create({
     safeArea: {
       flex: 1,
       backgroundColor: tokens.bg,
     },
     container: {
-      paddingHorizontal: tokens.spacing.lg,
-      paddingTop: tokens.spacing.lg,
-      paddingBottom: tokens.spacing.xl,
+      paddingBottom: 96,
     },
-    card: {
-      alignItems: 'center',
-      marginBottom: tokens.spacing.xl,
-    },
-    avatar: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      backgroundColor: tokens.colors.primary[100],
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: tokens.spacing.sm,
-      ...tokens.shadows.md,
-    },
-    avatarText: {
-      fontSize: tokens.typography.fontSizes.xl,
-      fontWeight: tokens.typography.fontWeights.bold,
-      color: tokens.colors.primary[700],
-      fontFamily: tokens.typography.fontFamilies.sansBold,
-    },
-    name: {
-      fontSize: tokens.typography.fontSizes.lg,
-      fontWeight: tokens.typography.fontWeights.semibold,
-      color: tokens.text,
-      marginBottom: 4,
-      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
-    },
-    email: {
-      fontSize: tokens.typography.fontSizes.sm,
-      color: tokens.textMuted,
-      fontFamily: tokens.typography.fontFamilies.sans,
-    },
-    section: {
-      backgroundColor: tokens.bgElevated,
-      borderRadius: tokens.semantic.cardRadius,
-      paddingVertical: tokens.spacing.xs,
-      marginBottom: tokens.spacing.lg,
-      ...tokens.semantic.cardShadow,
-      borderWidth: tokens.isDark ? 1 : 0,
-      borderColor: tokens.borderSubtle,
-    },
-    appearanceHint: {
-      fontSize: tokens.typography.fontSizes.xs,
-      color: tokens.textMuted,
-      paddingHorizontal: tokens.spacing.md,
-      paddingBottom: tokens.spacing.sm,
-      fontFamily: tokens.typography.fontFamilies.sans,
-    },
-    appearanceToggleWrap: {
-      paddingHorizontal: tokens.spacing.md,
-      paddingBottom: tokens.spacing.sm,
-    },
-    languageRow: {
+    profileRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
-      marginHorizontal: tokens.spacing.sm,
-      marginBottom: tokens.spacing.sm,
-      borderRadius: tokens.semantic.cardRadiusSmall,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 16,
+      borderBottomWidth: 0.5,
+      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
     },
-    languageRowLeft: {
-      flex: 1,
+    avatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: accentBg,
+      alignItems: 'center',
+      justifyContent: 'center',
       marginRight: tokens.spacing.sm,
     },
-    languageRowPrimary: {
-      fontSize: tokens.typography.fontSizes.md,
-      fontWeight: tokens.typography.fontWeights.semibold,
-      color: tokens.text,
-      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+    avatarText: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.bold,
+      color: MARKET_ACCENT,
+      fontFamily: typo.fontFamilies.sansBold,
     },
-    languageRowSecondary: {
-      fontSize: tokens.typography.fontSizes.xs,
+    identity: {
+      flex: 1,
+      minWidth: 0,
+    },
+    name: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+      color: tokens.text,
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      letterSpacing: typo.letterSpacing.caption,
+    },
+    email: {
+      fontSize: typo.fontSizes.badge,
       color: tokens.textMuted,
       marginTop: 2,
-      fontFamily: tokens.typography.fontFamilies.sans,
+      fontWeight: typo.fontWeights.medium,
+      fontFamily: typo.fontFamilies.sansMedium,
+      letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
-    languageRowChevron: {
-      fontSize: tokens.typography.fontSizes.xl,
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
       color: tokens.textMuted,
-      fontFamily: tokens.typography.fontFamilies.sans,
+      letterSpacing: 0.2,
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 8,
+    },
+    listLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: tokens.textMuted,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 6,
+      letterSpacing: 0.2,
+    },
+    tabRow: {
+      flexDirection: 'row',
+      gap: 4,
+      paddingHorizontal: 16,
+      paddingBottom: 4,
+    },
+    tab: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    tabActive: {
+      backgroundColor: accentBg,
+    },
+    tabText: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: tokens.textMuted,
+    },
+    tabTextActive: {
+      color: MARKET_ACCENT,
+    },
+    flatRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderBottomWidth: 0.5,
+      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
+      minHeight: 56,
+    },
+    rowPrimary: {
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+      color: tokens.text,
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      letterSpacing: typo.letterSpacing.caption,
+    },
+    rowSecondary: {
+      fontSize: typo.fontSizes.badge,
+      color: tokens.textMuted,
+      marginTop: 2,
+      fontWeight: typo.fontWeights.medium,
+      fontFamily: typo.fontFamilies.sansMedium,
+      letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
     socialLoadingRow: {
-      paddingVertical: tokens.spacing.md,
+      paddingVertical: 16,
       alignItems: 'center',
+      borderBottomWidth: 0.5,
+      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
     },
     socialStatsRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      paddingHorizontal: tokens.spacing.md,
-      paddingBottom: tokens.spacing.sm,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 0.5,
+      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
     },
     statItem: {
       alignItems: 'center',
       flex: 1,
     },
     statLabel: {
-      fontSize: tokens.typography.fontSizes.xs,
+      fontSize: typo.fontSizes.badge,
       color: tokens.textMuted,
-      marginBottom: 2,
+      marginTop: 4,
       textAlign: 'center',
-      fontFamily: tokens.typography.fontFamilies.sans,
+      fontFamily: typo.fontFamilies.sans,
     },
     statValue: {
-      fontSize: tokens.typography.fontSizes.md,
-      fontWeight: tokens.typography.fontWeights.semibold,
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
       color: tokens.text,
-      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      fontVariant: ['tabular-nums'],
     },
     followUsername: {
       color: tokens.text,
-      fontSize: tokens.typography.fontSizes.sm,
-      fontWeight: tokens.typography.fontWeights.medium,
-      fontFamily: tokens.typography.fontFamilies.sansMedium,
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      flex: 1,
+      marginRight: tokens.spacing.sm,
     },
     followChip: {
       borderWidth: 1,
-      borderColor: tokens.colors.primary[500],
-      backgroundColor: tokens.colors.primary[500],
-      borderRadius: tokens.borderRadius.button,
+      borderColor: MARKET_ACCENT,
+      backgroundColor: MARKET_ACCENT,
+      borderRadius: 8,
       paddingHorizontal: tokens.spacing.sm,
       paddingVertical: 4,
       minWidth: 84,
       alignItems: 'center',
     },
     followingChip: {
-      backgroundColor: tokens.isDark ? tokens.colors.neutral[200] : tokens.colors.neutral[100],
-      borderColor: tokens.colors.neutral[300],
+      backgroundColor: accentBg,
+      borderColor: tokens.isDark ? 'rgba(99,131,255,0.35)' : 'rgba(99,131,255,0.25)',
     },
     followChipText: {
       color: '#fff',
-      fontSize: tokens.typography.fontSizes.xs,
-      fontWeight: tokens.typography.fontWeights.semibold,
-      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+      fontSize: typo.fontSizes.badge,
+      fontWeight: typo.fontWeights.semibold,
+      fontFamily: typo.fontFamilies.sansSemiBold,
     },
     followingChipText: {
-      color: tokens.text,
-    },
-    followingList: {
-      paddingTop: tokens.spacing.xs,
-      paddingBottom: tokens.spacing.sm,
-    },
-    subSectionTitle: {
-      fontSize: tokens.typography.fontSizes.xs,
-      color: tokens.textMuted,
-      paddingHorizontal: tokens.spacing.md,
-      paddingBottom: tokens.spacing.xs,
-      fontFamily: tokens.typography.fontFamilies.sans,
+      color: MARKET_ACCENT,
     },
     followingUserRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.xs,
-    },
-    sectionTitle: {
-      fontSize: tokens.typography.fontSizes.sm,
-      fontWeight: tokens.typography.fontWeights.medium,
-      color: tokens.textMuted,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.xs,
-      fontFamily: tokens.typography.fontFamilies.sansMedium,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderBottomWidth: 0.5,
+      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
+      minHeight: 56,
     },
   });
 }
