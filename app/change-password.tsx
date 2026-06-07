@@ -39,7 +39,7 @@ export default function ChangePasswordScreen() {
 
   const strength = usePasswordStrength(
     newPassword,
-    { username: user?.username },
+    { username: user?.username, email: user?.email },
     { isDark }
   );
 

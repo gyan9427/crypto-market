@@ -61,9 +61,18 @@ interface BackendUser {
   followingCoins?: string[];
   rewardPoints?: number;
   preferredLanguage?: string | null;
+  emailVerified?: boolean;
   coinOnboardingCompleted?: boolean;
   createdAt?: string;
 }
+
+export type VerificationStatus = {
+  emailVerified: boolean;
+  canResend: boolean;
+  cooldownSecondsRemaining: number;
+  codeExpiresAt: string | null;
+  locked: boolean;
+};
 
 interface BackendFollowUser {
   id: string;
@@ -181,14 +190,19 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok || !data.success) {
-    // Handle 401 unauthorized
+    const errMsg = data.error || `HTTP error! status: ${response.status}`;
     if (response.status === 401) {
       await useAuthStore.getState().logout();
       const { useAppStore } = await import('../state/useAppStore');
       useAppStore.getState().setFeedFilter('explore');
       throw new Error('Unauthorized. Please login again.');
     }
-    throw new Error(data.error || `HTTP error! status: ${response.status}`);
+    if (response.status === 403 && errMsg.includes('EMAIL_NOT_VERIFIED')) {
+      const { router } = await import('expo-router');
+      router.replace('/verify-email' as never);
+      throw new Error('EMAIL_NOT_VERIFIED');
+    }
+    throw new Error(errMsg);
   }
 
   return data.data as T;
@@ -264,11 +278,14 @@ function transformBackendTrendingCoin(
 
 function transformBackendUser(backendUser: BackendUser): User {
   const pl = backendUser.preferredLanguage;
+  const emailVerified = backendUser.emailVerified === true;
   const user: User = {
     id: backendUser._id,
-    name: backendUser.username, // Backend doesn't have separate name field
+    name: backendUser.username,
     username: backendUser.username,
-    verified: false, // Backend doesn't track verification
+    email: backendUser.email,
+    verified: emailVerified,
+    emailVerified,
   };
   if (pl != null && pl !== '' && isSupportedLanguage(pl)) {
     user.preferredLanguage = pl;
@@ -950,6 +967,28 @@ export const signup = async (
 /**
  * Sign in / sign up via Google OAuth id_token (issued to your mobile OAuth client IDs).
  */
+export const verifyEmail = async (
+  code: string
+): Promise<{ user: User; token: string }> => {
+  const response = await apiRequest<{ user: BackendUser; token: string }>('/auth/verify-email', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+  const user = transformBackendUser(response.user);
+  return { user, token: response.token };
+};
+
+export const resendVerification = async (): Promise<{ message: string }> => {
+  return apiRequest<{ message: string }>('/auth/resend-verification', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+};
+
+export const getVerificationStatus = async (): Promise<VerificationStatus> => {
+  return apiRequest<VerificationStatus>('/auth/verification-status');
+};
+
 export const changePassword = async (
   currentPassword: string,
   newPassword: string

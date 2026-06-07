@@ -5,8 +5,10 @@ export interface User {
   id: string;
   name: string;
   username: string;
+  email?: string;
   avatar?: string;
   verified?: boolean;
+  emailVerified?: boolean;
   preferredLanguage?: SupportedLanguage | null;
   coinOnboardingCompleted?: boolean;
 }

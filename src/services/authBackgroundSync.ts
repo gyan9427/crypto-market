@@ -1,5 +1,6 @@
 import { useAppStore } from '@/src/state/useAppStore';
 import { useAuthStore } from '@/src/state/useAuthStore';
+import { getCurrentUser } from '@/src/services/api';
 import { incrementPerfCounter, perfLog } from '@/src/runtime/perfInstrumentation';
 import { bumpGeneration } from '@/src/runtime/asyncRequestGuard';
 
@@ -16,6 +17,7 @@ async function executeSync(): Promise<void> {
     useAppStore.getState();
 
   await Promise.allSettled([
+    getCurrentUser().catch(() => null),
     syncLanguageFromServer(),
     retryLanguageSync(),
     syncFollowingCoins(),

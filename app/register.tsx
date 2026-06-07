@@ -46,11 +46,16 @@ export default function RegisterScreen() {
 
   const strength = usePasswordStrength(password, { email: email.trim(), username: username.trim() }, { isDark });
 
+  const user = useAuthStore((state) => state.user);
+
   useEffect(() => {
-    if (isAuthenticated) {
-      router.replace('/(tabs)' as never);
+    if (!isAuthenticated) return;
+    if (user?.emailVerified !== true) {
+      router.replace('/verify-email' as never);
+      return;
     }
-  }, [isAuthenticated, router]);
+    router.replace('/(tabs)' as never);
+  }, [isAuthenticated, user?.emailVerified, router]);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -90,7 +95,7 @@ export default function RegisterScreen() {
       setLoading(true);
       setError(null);
       await signup(email.trim(), password, username.trim());
-      router.replace('/(tabs)' as never);
+      router.replace('/verify-email' as never);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('auth.errorSignUpFailed'));
     } finally {

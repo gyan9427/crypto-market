@@ -28,6 +28,7 @@ export default function LoginScreen() {
   const { tokens, effectiveScheme } = useAppTheme();
   const router = useRouter();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
   const isDark = effectiveScheme === 'dark';
   const palette = useMemo(() => getAuthPaletteFromTokens(tokens), [tokens]);
 
@@ -38,10 +39,13 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.replace('/(tabs)' as never);
+    if (!isAuthenticated) return;
+    if (user?.emailVerified !== true) {
+      router.replace('/verify-email' as never);
+      return;
     }
-  }, [isAuthenticated, router]);
+    router.replace('/(tabs)' as never);
+  }, [isAuthenticated, user?.emailVerified, router]);
 
   const handleGoogleSignIn = async () => {
     if (googleLoading || loading) return;
@@ -56,8 +60,10 @@ export default function LoginScreen() {
         setError(t('auth.errorGoogleUnavailable'));
         return;
       }
-      await loginWithGoogle(idToken);
-      router.replace('/(tabs)' as never);
+      const result = await loginWithGoogle(idToken);
+      router.replace(
+        (result.user.emailVerified !== true ? '/verify-email' : '/(tabs)') as never
+      );
     } catch (err: unknown) {
       const code = (err as any)?.code;
       if (code === statusCodes.SIGN_IN_CANCELLED) {
@@ -85,8 +91,10 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       setError(null);
-      await login(email.trim(), password);
-      router.replace('/(tabs)' as never);
+      const result = await login(email.trim(), password);
+      router.replace(
+        (result.user.emailVerified !== true ? '/verify-email' : '/(tabs)') as never
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('auth.errorLoginFailed'));
     } finally {

@@ -22,7 +22,7 @@ export function CoinOnboardingGate(): React.ReactElement | null {
   const [visible, setVisible] = useState(false);
 
   const evaluate = useCallback(async () => {
-    if (!isAuthenticated || !featuresLoaded) {
+    if (!isAuthenticated || !featuresLoaded || user?.emailVerified !== true) {
       setEvaluated(false);
       setVisible(false);
       return;
@@ -56,6 +56,7 @@ export function CoinOnboardingGate(): React.ReactElement | null {
     followingCoins.length,
     syncFollowingCoins,
     user?.coinOnboardingCompleted,
+    user?.emailVerified,
   ]);
 
   useEffect(() => {

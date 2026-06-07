@@ -42,6 +42,7 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
   const { tokens } = useAppTheme();
   const { forceUpgrade } = useRuntimeHints(isReady);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const emailVerified = useAuthStore((s) => s.user?.emailVerified === true);
 
   if (!isReady) {
     return <View style={{ flex: 1, backgroundColor: tokens.bg }} />;
@@ -49,17 +50,18 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
 
   return (
     <>
-      {isAuthenticated ? <RiskGatewayHost /> : null}
+      {isAuthenticated && emailVerified ? <RiskGatewayHost /> : null}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="splash" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" />
         <Stack.Screen name="register" />
+        <Stack.Screen name="verify-email" />
         <Stack.Screen name="change-password" />
         <Stack.Screen name="reset-password" />
         <Stack.Screen name="+not-found" />
       </Stack>
-      <CoinOnboardingGate />
+      {isAuthenticated && emailVerified ? <CoinOnboardingGate /> : null}
       <ForceUpgradeGate visible={forceUpgrade} />
     </>
   );
@@ -93,6 +95,7 @@ export default function RootLayout() {
   const segments = useSegments();
   const initializeAuth = useAuthStore((state) => state.initialize);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const emailVerified = useAuthStore((state) => state.user?.emailVerified === true);
   const featuresLoaded = useFeaturesStore((state) => state.loaded);
   const splashDone = useSplashStore((state) => state.done);
   const [isReady, setIsReady] = useState(false);
@@ -161,6 +164,8 @@ export default function RootLayout() {
     if (firstSegment === 'splash') {
       if (!isAuthenticated) {
         router.replace('/login' as Href);
+      } else if (!emailVerified) {
+        router.replace('/verify-email' as Href);
       } else {
         router.replace('/(tabs)' as Href);
       }
@@ -173,7 +178,14 @@ export default function RootLayout() {
       return;
     }
 
-    if (firstSegment === 'login' || firstSegment === 'register') {
+    if (!emailVerified) {
+      if (firstSegment !== 'verify-email') {
+        router.replace('/verify-email' as Href);
+      }
+      return;
+    }
+
+    if (firstSegment === 'login' || firstSegment === 'register' || firstSegment === 'verify-email') {
       router.replace('/(tabs)' as Href);
     }
   }, [
@@ -181,6 +193,7 @@ export default function RootLayout() {
     featuresLoaded,
     splashDone,
     isAuthenticated,
+    emailVerified,
     segments,
     router,
   ]);

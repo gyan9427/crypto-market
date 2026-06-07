@@ -124,7 +124,26 @@
     "errorEnterEmailPassword": "Please enter your email and password",
     "errorLoginFailed": "Failed to login",
     "legalPrefix": "By continuing, you agree to our",
-    "privacyPolicy": "Privacy Policy"
+    "privacyPolicy": "Privacy Policy",
+    "verification": {
+      "title": "Verify your email",
+      "sent": "Verification code sent to your email",
+      "invalid": "Incorrect verification code",
+      "expired": "This verification code has expired",
+      "success": "Email verified successfully",
+      "resent": "A new verification code has been sent",
+      "resend": "Resend code",
+      "resendCooldown": "Resend available in {{seconds}}s",
+      "resendLimit": "Too many resend attempts. Try again later.",
+      "resendFailed": "Could not resend verification email. Try again.",
+      "submit": "Verify email",
+      "verifying": "Verifying…",
+      "expiryHint": "Code expires in 24 hours",
+      "trustCopy": "NAYFT will never ask for your password on this screen.",
+      "locked": "Too many verification attempts. Try again later.",
+      "otpGroupLabel": "Verification code, 6 digits",
+      "devHint": "Development mode: check the backend console for your verification code."
+    }
   },
   "profile": {
     "languageSection": "Language",
