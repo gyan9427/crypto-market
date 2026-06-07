@@ -265,6 +265,7 @@ export function TradingScreen() {
   return (
     <View style={S.root}>
       <TradingHeader
+        coin={coin}
         coinName={coin.name}
         coinSymbol={`${coin.symbol.toUpperCase()} / USDT`}
         tokens={tokens}

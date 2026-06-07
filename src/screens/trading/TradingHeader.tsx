@@ -2,6 +2,8 @@ import React from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { ChevronLeft, Bell } from 'lucide-react-native';
 import { AppText } from '@/src/design-system/primitives/AppText';
+import { CoinIcon } from '@/src/components/CoinIcon';
+import type { Coin } from '@/src/types';
 import type { ThemeTokens } from '@/src/theme/theme';
 
 type TradingHeaderStyles = {
@@ -13,6 +15,7 @@ type TradingHeaderStyles = {
 };
 
 type Props = {
+  coin: Coin;
   coinName: string;
   coinSymbol: string;
   tokens: ThemeTokens;
@@ -23,6 +26,7 @@ type Props = {
 };
 
 export function TradingHeader({
+  coin,
   coinName,
   coinSymbol,
   tokens,
@@ -49,7 +53,7 @@ export function TradingHeader({
           <Bell size={20} color={tokens.text} />
         </TouchableOpacity>
       ) : (
-        <View style={S.iconBtn} />
+        <CoinIcon coin={coin} size={32} />
       )}
     </View>
   );
