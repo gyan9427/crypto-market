@@ -22,6 +22,7 @@ import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { buildAppWsUrl } from '@/src/config/wsBaseUrl';
 import { shareNewsById } from '../utils/share';
+import { navigateToCoin } from '../navigation/coinNavigation';
 
 /** After this many article cards, insert the Featured carousel (sixth vertical block). */
 const FEATURE_INSERT_AFTER = 5;
@@ -329,7 +330,7 @@ export const HomeScreen: React.FC = () => {
           ? fromFeed.coinContext.primaryCoin
           : fromFeed?.coins.find((c) => c.id === coinId);
       if (coin?.symbol) recordSearchCoin(coin.symbol);
-      router.push(`/coins/${coinId}` as never);
+      navigateToCoin(router, coinId, 'home');
     },
     [router, newsData, featuredNews, recordSearchCoin]
   );

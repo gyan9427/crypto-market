@@ -10,6 +10,7 @@ import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
 import { UnifiedSearch } from '@/src/components/UnifiedSearch';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { navigateToCoin } from '@/src/navigation/coinNavigation';
 
 const ALL_SEGMENTS: SearchSegment[] = [
   'all',
@@ -60,7 +61,7 @@ export default function SearchScreen() {
   const handleCoinPress = React.useCallback(
     (coinId: string, symbol?: string) => {
       if (symbol) recordSearchCoin(symbol);
-      router.push(`/coins/${coinId}` as never);
+      navigateToCoin(router, coinId, 'search');
     },
     [router, recordSearchCoin]
   );

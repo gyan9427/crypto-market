@@ -28,6 +28,7 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { TradingHeader } from '@/src/screens/trading/TradingHeader';
 import { shareNewsById } from '@/src/utils/share';
+import { isCoinReturnTo, leaveCoinDetail, navigateToCoin } from '@/src/navigation/coinNavigation';
 
 // ── Interval mapping ──────────────────────────────────────────────────────────
 type RangeTab = '1H' | '1D' | '1W' | '1M' | '3M' | '1Y';
@@ -53,7 +54,7 @@ function fmtPrice(n: number | undefined): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function TradingScreen() {
-  const { coinId } = useLocalSearchParams<{ coinId: string }>();
+  const { coinId, returnTo } = useLocalSearchParams<{ coinId: string; returnTo?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { tokens } = useAppTheme();
@@ -222,8 +223,9 @@ export function TradingScreen() {
   }, [news]);
 
   const handleCoinPress = useCallback(
-    (targetCoinId: string) => router.push(`/coin/${targetCoinId}` as never),
-    [router]
+    (targetCoinId: string) =>
+      navigateToCoin(router, targetCoinId, isCoinReturnTo(returnTo) ? returnTo : undefined),
+    [router, returnTo]
   );
 
   const toggleIndicator = useCallback((ind: Indicator) => {
@@ -268,7 +270,7 @@ export function TradingScreen() {
         tokens={tokens}
         styles={S}
         topInset={insets.top}
-        onBack={() => router.back()}
+        onBack={() => leaveCoinDetail(router, returnTo)}
       />
 
       <ScrollView

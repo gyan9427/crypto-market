@@ -22,6 +22,7 @@ import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useAppStore } from '../state/useAppStore';
 import { shareNewsItem } from '../utils/share';
+import { navigateToCoin } from '../navigation/coinNavigation';
 
 interface NewsDetailModalProps {
   newsItem: NewsItem;
@@ -184,7 +185,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                   <TouchableOpacity
                     key={coinId}
                     style={styles.relatedTickerBadge}
-                    onPress={() => router.push(`/coins/${coinId}` as never)}
+                    onPress={() => navigateToCoin(router, coinId, 'home')}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.relatedTickerText}>{coinId}</Text>

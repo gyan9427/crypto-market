@@ -23,6 +23,7 @@ import { useAppStore } from '../state/useAppStore';
 import { fetchActiveCoinsPage, fetchMarketSnapshot, enrichTrendingCoinsWithSnapshot } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
 import { usePollingEffect } from '../hooks/usePollingEffect';
+import { navigateToCoin } from '../navigation/coinNavigation';
 import { LivePriceQuote, useMarketPriceStream, useSparklineHistory, seedPriceHistory } from '../hooks/useMarketPriceStream';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
@@ -184,7 +185,7 @@ export const ExploreScreen: React.FC = () => {
   }, [loadingMore, nextCursor, exploreCategory]);
 
   const handleCoinPress = (coinId: string) => {
-    router.push(`/coin/${coinId}` as never);
+    navigateToCoin(router, coinId, 'market');
   };
 
   const onMarketGraphLayout = (e: LayoutChangeEvent) => {
