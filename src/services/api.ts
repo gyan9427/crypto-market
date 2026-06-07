@@ -52,6 +52,7 @@ interface BackendCoin {
   marketCap?: number;
   volume24h?: number;
   image?: string;
+  marketCapRank?: number;
 }
 
 interface BackendUser {
@@ -258,10 +259,24 @@ function transformBackendCoin(backendCoin: BackendCoin, isFollowing: boolean = f
     change24h: backendCoin.percentChange24h,
     marketCap: backendCoin.marketCap,
     volume24h: backendCoin.volume24h,
+    marketCapRank: backendCoin.marketCapRank ?? backendCoin.rank,
     logo: backendCoin.image,
     isFollowing,
     sparklineData: undefined, // Backend doesn't provide sparkline data
   };
+}
+
+/** Collect unique related-coin refs across a news page and hydrate in one batch request. */
+async function hydrateBatchCoinsForNews(backendNews: BackendNews[]): Promise<Coin[]> {
+  const refs = new Set<string>();
+  for (const article of backendNews) {
+    for (const ref of article.relatedCoins ?? []) {
+      const trimmed = ref.trim();
+      if (trimmed) refs.add(trimmed);
+    }
+  }
+  if (refs.size === 0) return [];
+  return fetchCoinsByIds([...refs]);
 }
 
 function transformBackendTrendingCoin(
@@ -342,7 +357,8 @@ export const fetchNews = async (
     
     const response = await apiRequest<{ news: BackendNews[] }>(endpoint);
 
-    const mapped = response.news.map((news) => transformBackendNews(news, []));
+    const batchCoins = await hydrateBatchCoinsForNews(response.news);
+    const mapped = response.news.map((news) => transformBackendNews(news, batchCoins));
     return mapped;
   } catch (error: any) {
     throw new Error(`Failed to fetch news: ${error.message}`);
@@ -415,6 +431,18 @@ export function mapSnapshotRowToTrendingCoin(
 export const fetchMarketSnapshot = async (): Promise<MarketSnapshotV2> => {
   return apiRequest<MarketSnapshotV2>('/market/snapshot');
 };
+
+/** Load snapshot into global store (secondary CoinIcon lookup + sparkline enrichment). */
+export async function hydrateMarketSnapshotStore(): Promise<void> {
+  const { useAppStore } = await import('../state/useAppStore');
+  try {
+    const snapshot = await fetchMarketSnapshot();
+    useAppStore.getState().setMarketSnapshot(snapshot);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load market snapshot';
+    useAppStore.getState().setMarketSnapshot(null, message);
+  }
+}
 
 export interface MarketAnalysisResponse {
   coins: MarketAnalysisCoin[];

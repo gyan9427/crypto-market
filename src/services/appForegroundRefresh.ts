@@ -5,6 +5,7 @@ import {
 import { refreshRuntimeHintsIfStale } from '@/src/hooks/useRuntimeHints';
 import { useFeaturesStore } from '@/src/utils/features';
 import { logWsLifecycleSummary } from '@/src/runtime/wsLifecycleMetrics';
+import { hydrateMarketSnapshotStore } from '@/src/services/api';
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -19,5 +20,6 @@ export function scheduleAppForegroundRefresh(): void {
     useFeaturesStore.getState().refetchFeatures();
     runAuthBackgroundSyncDebounced(5000);
     void refreshRuntimeHintsIfStale();
+    void hydrateMarketSnapshotStore();
   }, 500);
 }

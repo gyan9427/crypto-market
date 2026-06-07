@@ -28,33 +28,48 @@ export function coinHeaderTitle(coin: { name: string; symbol: string }): string 
   return `${coin.name}${coin.symbol ? ` · ${coin.symbol}` : ''}`;
 }
 
-/** Map API relatedCoins refs (ids or symbols) to Coin objects for display. */
+function findHydratedCoin(ref: string, batchCoins: Coin[]): Coin | undefined {
+  const key = ref.trim();
+  if (!key) return undefined;
+  const lower = key.toLowerCase();
+  const upper = key.toUpperCase();
+
+  return (
+    batchCoins.find((c) => c.id === key) ||
+    batchCoins.find((c) => c.id.toLowerCase() === lower) ||
+    batchCoins.find((c) => c.symbol.toUpperCase() === upper) ||
+    batchCoins.find((c) => c.symbol.toLowerCase() === lower)
+  );
+}
+
+/** Map API relatedCoins refs to hydrated canonical coins (batch-resolved from `coin_market_snapshots`). */
 export function resolveNewsItemCoins(relatedRefs: string[], batchCoins: Coin[] = []): Coin[] {
   const resolved: Coin[] = [];
   const seen = new Set<string>();
 
   for (const ref of relatedRefs) {
+    const match = findHydratedCoin(ref, batchCoins);
+    if (match) {
+      const dedupeKey = (match.symbol || match.id).toUpperCase();
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      resolved.push(match);
+      continue;
+    }
+
     const key = ref.trim();
     if (!key) continue;
     const upper = key.toUpperCase();
-
-    const match =
-      batchCoins.find((c) => c.id === key || c.id === upper) ||
-      batchCoins.find((c) => c.symbol.toUpperCase() === upper);
-
-    const coin: Coin =
-      match ?? {
-        id: upper,
-        symbol: upper,
-        name: upper,
-        price: 0,
-        change24h: 0,
-      };
-
-    const dedupeKey = (coin.symbol || coin.id).toUpperCase();
+    const dedupeKey = upper;
     if (seen.has(dedupeKey)) continue;
     seen.add(dedupeKey);
-    resolved.push(coin);
+    resolved.push({
+      id: upper,
+      symbol: upper,
+      name: upper,
+      price: 0,
+      change24h: 0,
+    });
   }
 
   return resolved;
@@ -102,6 +117,7 @@ export function areNewsCardPropsEqual(prev: FeedCardProps, next: FeedCardProps):
     const bc = bOrdered[i];
     if ((ac?.id ?? '') !== (bc?.id ?? '')) return false;
     if ((ac?.symbol ?? '') !== (bc?.symbol ?? '')) return false;
+    if ((ac?.logo ?? '') !== (bc?.logo ?? '')) return false;
     if ((ac?.isFollowing ?? false) !== (bc?.isFollowing ?? false)) return false;
   }
   return true;

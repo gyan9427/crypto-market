@@ -125,6 +125,17 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
   cardTopBarLeft: {
     flex: 1,
     minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  cardTopBarSymbol: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamilies.sansSemiBold,
+    fontWeight: typography.fontWeights.semibold,
+    color: tokens.text,
+    textTransform: 'uppercase',
+    letterSpacing: typography.letterSpacing.caption,
   },
   heroOuter: {
     width: '100%',

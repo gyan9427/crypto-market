@@ -30,6 +30,7 @@ import {
 } from '@/src/runtime/perfInstrumentation';
 import { runAuthBackgroundSync } from '@/src/services/authBackgroundSync';
 import { scheduleAppForegroundRefresh } from '@/src/services/appForegroundRefresh';
+import { hydrateMarketSnapshotStore } from '@/src/services/api';
 import { enqueueBackgroundTask } from '@/src/runtime/backgroundTaskQueue';
 import { initCacheRegistryLifecycle } from '@/src/runtime/cacheRegistry';
 import { initWsRegistryLifecycle } from '@/src/runtime/wsConnectionRegistry';
@@ -77,6 +78,7 @@ function runTier2Hydration(): void {
     useConsentStore.getState().hydrate(),
   ]);
   enqueueBackgroundTask('low', () => useAuthStore.getState().migrateTokenToSecureStore());
+  enqueueBackgroundTask('low', () => hydrateMarketSnapshotStore());
 }
 
 export default function RootLayout() {
@@ -132,6 +134,7 @@ export default function RootLayout() {
       useAppStore.getState().hydrateLanguage(),
       useFeedIntentStore.getState().hydrate(),
       useConsentStore.getState().hydrate(),
+      hydrateMarketSnapshotStore(),
     ]).then(finishReady);
   }, [initializeAuth]);
 

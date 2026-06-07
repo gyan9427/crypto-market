@@ -63,14 +63,14 @@ export function CoinIcon({
   const { tokens } = useAppTheme();
   const marketSnapshot = useAppStore((s) => s.marketSnapshot);
   const styles = useMemo(
-    () => buildStyles(tokens, size),
+    () => buildStyles(tokens, size, highlightRisk),
     [tokens, size, highlightRisk]
   );
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   const logoUri = useMemo(
     () => getCoinLogoUri(coin, marketSnapshot),
-    [coin, marketSnapshot]
+    [coin.id, coin.symbol, coin.logo, marketSnapshot]
   );
 
   const showCoinLogo = Boolean(logoUri) && !imageLoadFailed;

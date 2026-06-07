@@ -105,12 +105,17 @@ export const NewsCard = React.memo<FeedCardProps>(({
         <View style={styles.cardTopBar}>
           <View style={styles.cardTopBarLeft}>
             {primaryCoin != null ? (
-              <CoinIcon
-                coin={primaryCoin}
-                onPress={onCoinPress}
-                size={32}
-                highlightRisk={highlightRisk}
-              />
+              <>
+                <CoinIcon
+                  coin={primaryCoin}
+                  onPress={onCoinPress}
+                  size={32}
+                  highlightRisk={highlightRisk}
+                />
+                <Text style={styles.cardTopBarSymbol} numberOfLines={1}>
+                  {primaryCoin.symbol}
+                </Text>
+              </>
             ) : null}
           </View>
           {hasFollow && primaryCoin != null ? (

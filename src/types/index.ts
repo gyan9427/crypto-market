@@ -23,6 +23,7 @@ export interface Coin {
   sparklineData?: number[];
   marketCap?: number;
   volume24h?: number;
+  marketCapRank?: number;
   isFollowing?: boolean;
 }
 

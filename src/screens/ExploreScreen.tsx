@@ -105,6 +105,7 @@ export const ExploreScreen: React.FC = () => {
 
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
+  const setMarketSnapshot = useAppStore((state) => state.setMarketSnapshot);
 
   const categories: ExploreCategory[] = ['trending', 'top'];
 
@@ -119,6 +120,7 @@ export const ExploreScreen: React.FC = () => {
         fetchActiveCoinsPage(undefined, 20, cat),
         fetchMarketSnapshot().catch(() => null),
       ]);
+      if (snapshot) setMarketSnapshot(snapshot);
       setCoins(enrichTrendingCoinsWithSnapshot(pageCoins, snapshot));
       setNextCursor(cursor);
     } catch (err: any) {
@@ -144,6 +146,7 @@ export const ExploreScreen: React.FC = () => {
         fetchActiveCoinsPage(undefined, 20, cat),
         fetchMarketSnapshot().catch(() => null),
       ]);
+      if (snapshot) setMarketSnapshot(snapshot);
       const enriched = enrichTrendingCoinsWithSnapshot(pageCoins, snapshot);
       setCoins((prev) => {
         if (prev.length === 0) return enriched;

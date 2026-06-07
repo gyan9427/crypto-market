@@ -5,6 +5,14 @@ function symbolKey(coin: Pick<Coin, 'symbol' | 'id'>): string {
   return (coin.symbol || coin.id || '').toUpperCase();
 }
 
+/** Reject empty/invalid URIs before passing to Image. */
+export function isValidLogoUri(uri: string | undefined | null): uri is string {
+  if (!uri || typeof uri !== 'string') return false;
+  const trimmed = uri.trim();
+  if (!trimmed) return false;
+  return /^https?:\/\//i.test(trimmed);
+}
+
 /** Same index pattern as market list rows (`coinId`, `symbol`, `baseAsset` → `image`). */
 export function buildSnapshotLogoLookup(
   snapshot: MarketSnapshotV2 | null | undefined
@@ -14,7 +22,7 @@ export function buildSnapshotLogoLookup(
 
   for (const rows of Object.values(snapshot.tabs)) {
     for (const row of rows) {
-      if (!row.image) continue;
+      if (!isValidLogoUri(row.image)) continue;
       lookup.set(row.coinId, row.image);
       lookup.set(row.coinId.toLowerCase(), row.image);
       lookup.set(row.symbol.toUpperCase(), row.image);
@@ -25,21 +33,21 @@ export function buildSnapshotLogoLookup(
 }
 
 /**
- * Resolve logo URI the same way Market rows do: `coin.logo` first, then snapshot `image`.
+ * Resolve logo URI: hydrated `coin.logo` first, then O(1) snapshot lookup.
  */
 export function getCoinLogoUri(
   coin: Coin,
   snapshot: MarketSnapshotV2 | null | undefined
 ): string | undefined {
-  if (coin.logo) return coin.logo;
+  if (isValidLogoUri(coin.logo)) return coin.logo.trim();
   const lookup = buildSnapshotLogoLookup(snapshot);
   const sym = symbolKey(coin);
-  return (
+  const candidate =
     lookup.get(coin.id) ??
     lookup.get(coin.id.toLowerCase()) ??
     lookup.get(sym) ??
-    undefined
-  );
+    undefined;
+  return isValidLogoUri(candidate) ? candidate : undefined;
 }
 
 /** Returns coin with `logo` set when resolvable (Market `TrendingCoin` shape). */
