@@ -950,6 +950,16 @@ export const signup = async (
 /**
  * Sign in / sign up via Google OAuth id_token (issued to your mobile OAuth client IDs).
  */
+export const changePassword = async (
+  currentPassword: string,
+  newPassword: string
+): Promise<void> => {
+  await apiRequest<{ message: string }>('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+};
+
 export const loginWithGoogle = async (
   idToken: string
 ): Promise<{ user: User; token: string }> => {

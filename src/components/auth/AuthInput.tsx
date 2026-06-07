@@ -44,6 +44,9 @@ type Props = {
   label?: string;
   value: string;
   onChangeText: (text: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  helperText?: string;
   placeholder?: string;
   secure?: boolean;
   keyboardType?: 'default' | 'email-address';
@@ -57,6 +60,9 @@ export function AuthInput({
   label,
   value,
   onChangeText,
+  onFocus,
+  onBlur,
+  helperText,
   placeholder,
   secure,
   keyboardType = 'default',
@@ -69,8 +75,14 @@ export function AuthInput({
   const [focused, setFocused] = React.useState(false);
   const showSecret = isPassword ? !internalReveal : false;
 
-  const handleFocus = useCallback(() => setFocused(true), []);
-  const handleBlur = useCallback(() => setFocused(false), []);
+  const handleFocus = useCallback(() => {
+    setFocused(true);
+    onFocus?.();
+  }, [onFocus]);
+  const handleBlur = useCallback(() => {
+    setFocused(false);
+    onBlur?.();
+  }, [onBlur]);
 
   const borderColor = focused ? palette.inputBorderFocused : palette.border;
   const focusShadow =
@@ -141,6 +153,9 @@ export function AuthInput({
           </View>
         ) : null}
       </View>
+      {helperText ? (
+        <Text style={[styles.helperText, { color: palette.textSecondary }]}>{helperText}</Text>
+      ) : null}
     </View>
   );
 }
@@ -204,5 +219,11 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 6,
+    marginLeft: 2,
+    lineHeight: 18,
   },
 });

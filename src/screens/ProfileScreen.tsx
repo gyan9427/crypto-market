@@ -347,9 +347,7 @@ export default function ProfileScreen() {
             label={t('profile.security')}
             description={t('profile.securityDesc')}
             icon={<Shield size={18} color={tokens.colors.neutral[600]} />}
-            onPress={() => {
-              console.log('Security pressed');
-            }}
+            onPress={() => router.push('/change-password' as never)}
           />
           <ProfileMenuItem
             tokens={tokens}

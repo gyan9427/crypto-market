@@ -55,6 +55,8 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" />
         <Stack.Screen name="register" />
+        <Stack.Screen name="change-password" />
+        <Stack.Screen name="reset-password" />
         <Stack.Screen name="+not-found" />
       </Stack>
       <CoinOnboardingGate />

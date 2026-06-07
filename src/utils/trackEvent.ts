@@ -12,8 +12,15 @@ export function trackArticleOpened(newsId: string): void {
   trackEvent({ featureKey: 'news_feed', eventType: 'article_opened', metadata: { newsId } });
 }
 
-export function trackAuthEvent(eventType: 'login_attempt' | 'google_login_attempt' | 'navigate_to_register'): void {
-  trackEvent({ featureKey: 'auth', eventType, metadata: {} });
+export function trackAuthEvent(
+  eventType:
+    | 'login_attempt'
+    | 'google_login_attempt'
+    | 'navigate_to_register'
+    | 'weak_password_attempt',
+  metadata: Record<string, unknown> = {}
+): void {
+  trackEvent({ featureKey: 'auth', eventType, metadata });
 }
 
 /**
