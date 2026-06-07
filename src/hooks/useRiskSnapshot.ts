@@ -1,76 +1,73 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { riskApi, type RiskSnapshotData } from '../services/riskApi';
+import { useCallback } from 'react';
+import type { RiskSnapshotData } from '../types/risk';
+import { fetchRiskSnapshotCoalesced } from '../services/riskSnapshotFetch';
 import type { RiskMeta } from '../types/risk';
-import { useRiskRevision } from './useRiskRevision';
 import { usePollingEffect } from './usePollingEffect';
 import { useRiskStore } from '../state/useRiskStore';
+import { incrementPerfCounter } from '@/src/runtime/perfInstrumentation';
 
 export type RiskSnapshotState = {
   meta: RiskMeta;
   snapshot: RiskSnapshotData | null;
-  crsBySymbol: Map<string, import('../types/risk').RiskCoinDto>;
   loading: boolean;
 };
 
-const EMPTY_META: RiskMeta = {
-  revision: 0,
-  buildId: '',
-  buildFingerprint: '',
-  computedAt: null,
-  stale: true,
-  partial: false,
-};
+type LoadSource = 'poll' | 'ws' | 'manual';
 
+/**
+ * Hydrates CRS snapshot into useRiskStore with stable callbacks (no revision deps).
+ * Polling is the sole lifecycle owner for initial + interval fetches.
+ */
 export function useRiskSnapshot(options?: { enabled?: boolean; pollMs?: number }) {
   const enabled = options?.enabled ?? true;
   const pollMs = options?.pollMs ?? 120_000;
-  const { revision, meta, applyMeta, applyWsRevision } = useRiskRevision();
-  const [snapshot, setSnapshot] = useState<RiskSnapshotData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const fetchingRef = useRef(false);
 
-  const load = useCallback(async () => {
-    if (!enabled || fetchingRef.current) return;
-    fetchingRef.current = true;
+  const meta = useRiskStore((s) => s.meta);
+  const snapshot = useRiskStore((s) => s.snapshot);
+
+  const load = useCallback(async (source: LoadSource = 'manual') => {
+    if (!enabled) return;
+
+    if (source === 'poll') incrementPerfCounter('riskSnapshotPoll');
+    if (source === 'ws') incrementPerfCounter('riskSnapshotWsRefresh');
+
     try {
-      const { meta: incoming, data, manifest } = await riskApi.fetchSnapshot(revision || undefined);
-      if (manifest && manifest.complete === false) return;
-      if (!applyMeta(incoming)) return;
-      if (data) {
-        setSnapshot(data);
-        useRiskStore.getState().setSnapshot(incoming, data);
-      }
+      const { meta: incoming, data, manifest } = await fetchRiskSnapshotCoalesced();
+      if (manifest?.complete === false) return;
+
+      const currentRevision = useRiskStore.getState().meta.revision;
+      if (incoming.partial || incoming.revision < currentRevision) return;
+      if (!data) return;
+      if (incoming.revision === currentRevision) return;
+
+      useRiskStore.getState().setSnapshot(incoming, data);
     } catch {
-      // keep last-good
-    } finally {
-      setLoading(false);
-      fetchingRef.current = false;
+      // keep last-good snapshot in store
     }
-  }, [enabled, revision, applyMeta]);
+  }, [enabled]);
 
-  useEffect(() => {
-    if (enabled) void load();
-  }, [enabled, load]);
-
-  usePollingEffect(load, [load], { enabled, intervalMs: pollMs });
+  usePollingEffect(
+    () => load('poll'),
+    [enabled],
+    { enabled, intervalMs: pollMs, immediate: true }
+  );
 
   const onWsRevision = useCallback(
     (incomingRevision: number) => {
-      if (!applyWsRevision(incomingRevision)) return;
-      void load();
+      if (!enabled) return;
+      const current = useRiskStore.getState().meta.revision;
+      if (!Number.isFinite(incomingRevision) || incomingRevision <= current) return;
+      void load('ws');
     },
-    [applyWsRevision, load]
+    [enabled, load]
   );
 
-  const crsBySymbol = snapshot ? riskApi.crsBySymbol(snapshot.coins) : new Map();
-
   return {
-    revision,
-    meta: meta ?? EMPTY_META,
+    revision: meta.revision,
+    meta,
     snapshot,
-    crsBySymbol,
-    loading,
-    reload: load,
+    loading: meta.revision <= 0 && snapshot === null,
+    reload: () => load('manual'),
     onWsRevision,
   };
 }

@@ -16,6 +16,18 @@ export type RiskCoinDto = {
   regime: string;
 };
 
+export type RiskSnapshotData = {
+  revision: number;
+  buildId: string;
+  buildFingerprint: string;
+  computedAt: string;
+  partial: boolean;
+  stale: boolean;
+  marketRegime: string;
+  universeSize: number;
+  coins: RiskCoinDto[];
+};
+
 export type RiskRevisionMessage = {
   channel: 'risk';
   type: 'risk:revision';

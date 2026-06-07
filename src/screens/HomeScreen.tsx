@@ -93,7 +93,14 @@ export const HomeScreen: React.FC = () => {
         setLoading(true);
         setError(null);
       }
-      const news = await fetchNews(filter, 1, 50, []);
+
+      const featuredLimit = 3;
+      const [news, exploreTop] = await Promise.all([
+        fetchNews(filter, 1, 50, []),
+        filter === 'following'
+          ? fetchNews('explore', 1, featuredLimit, [])
+          : Promise.resolve(null),
+      ]);
       if (generation !== loadGenerationRef.current) return;
 
       const { newsReactions: reactions, isSavedToAnyBoard: savedFn } = useAppStore.getState();
@@ -108,19 +115,13 @@ export const HomeScreen: React.FC = () => {
 
       if (filter === 'explore') {
         setRawFeaturedNews(newsWithState);
-      } else {
-        try {
-          const exploreTop = await fetchNews('explore', 1, 50, []);
-          if (generation !== loadGenerationRef.current) return;
-          const exploreWithState = exploreTop.map((item) => ({
-            ...item,
-            userReaction: reactions[item.id] ?? item.userReaction ?? null,
-            isSaved: savedFn(item.id),
-          }));
-          setRawFeaturedNews(exploreWithState);
-        } catch (err: unknown) {
-          console.error('Error loading featured news:', err);
-        }
+      } else if (exploreTop) {
+        const exploreWithState = exploreTop.map((item) => ({
+          ...item,
+          userReaction: reactions[item.id] ?? item.userReaction ?? null,
+          isSaved: savedFn(item.id),
+        }));
+        setRawFeaturedNews(exploreWithState);
       }
     } catch (err: unknown) {
       if (generation !== loadGenerationRef.current) return;

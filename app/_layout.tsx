@@ -1,9 +1,9 @@
 import '@/src/i18n';
 import '@/src/polyfills/devtools';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Stack, useRouter, useSegments, type Href } from 'expo-router';
-import { AppState, InteractionManager, Platform, View } from 'react-native';
+import { AppState, Platform, View } from 'react-native';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ThemeProvider, useAppTheme } from '@/src/theme/ThemeProvider';
 import { GlobalErrorBoundary } from '@/src/components/GlobalErrorBoundary';
@@ -15,13 +15,24 @@ import { useAuthStore } from '@/src/state/useAuthStore';
 import { useAppStore } from '@/src/state/useAppStore';
 import { useSplashStore } from '@/src/state/useSplashStore';
 import { useFeaturesStore } from '@/src/utils/features';
-import { NotificationsGatewayHost } from '@/src/components/NotificationsGatewayHost';
-import { RiskGatewayHost } from '@/src/components/RiskGatewayHost';
 import { CoinOnboardingGate } from '@/src/components/CoinOnboardingGate';
+import { RiskGatewayHost } from '@/src/components/RiskGatewayHost';
 import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
 import { useConsentStore } from '@/src/privacy/consentStore';
 import { useRuntimeHints } from '@/src/hooks/useRuntimeHints';
 import { ForceUpgradeGate } from '@/src/components/ForceUpgradeGate';
+import { isTieredStartupEnabled } from '@/src/config/featureFlags';
+import {
+  markStartupTier1Begin,
+  markStartupTier1End,
+  recordBaselineSnapshot,
+  getBaselineSnapshot,
+} from '@/src/runtime/perfInstrumentation';
+import { runAuthBackgroundSync } from '@/src/services/authBackgroundSync';
+import { scheduleAppForegroundRefresh } from '@/src/services/appForegroundRefresh';
+import { enqueueBackgroundTask } from '@/src/runtime/backgroundTaskQueue';
+import { initCacheRegistryLifecycle } from '@/src/runtime/cacheRegistry';
+import { initWsRegistryLifecycle } from '@/src/runtime/wsConnectionRegistry';
 
 const RootView = Platform.OS === 'android'
   ? View
@@ -29,7 +40,8 @@ const RootView = Platform.OS === 'android'
 
 function RootLayoutContent({ isReady }: { isReady: boolean }) {
   const { tokens } = useAppTheme();
-  const { forceUpgrade } = useRuntimeHints();
+  const { forceUpgrade } = useRuntimeHints(isReady);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   if (!isReady) {
     return <View style={{ flex: 1, backgroundColor: tokens.bg }} />;
@@ -37,6 +49,7 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
 
   return (
     <>
+      {isAuthenticated ? <RiskGatewayHost /> : null}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="splash" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -44,12 +57,22 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
         <Stack.Screen name="register" />
         <Stack.Screen name="+not-found" />
       </Stack>
-      <NotificationsGatewayHost />
-      <RiskGatewayHost />
       <CoinOnboardingGate />
       <ForceUpgradeGate visible={forceUpgrade} />
     </>
   );
+}
+
+function runTier2Hydration(): void {
+  const hydrateThemePreference = useAppStore.getState().hydrateThemePreference;
+  const hydrateLanguage = useAppStore.getState().hydrateLanguage;
+  void Promise.allSettled([
+    hydrateThemePreference(),
+    hydrateLanguage(),
+    useFeedIntentStore.getState().hydrate(),
+    useConsentStore.getState().hydrate(),
+  ]);
+  enqueueBackgroundTask('low', () => useAuthStore.getState().migrateTokenToSecureStore());
 }
 
 export default function RootLayout() {
@@ -60,88 +83,72 @@ export default function RootLayout() {
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
       offlineAccess: true,
     });
+    initCacheRegistryLifecycle();
+    initWsRegistryLifecycle();
   }, []);
 
   const router = useRouter();
   const segments = useSegments();
   const initializeAuth = useAuthStore((state) => state.initialize);
-  const syncFollowingCoins = useAppStore((state) => state.syncFollowingCoins);
-  const hydrateThemePreference = useAppStore((state) => state.hydrateThemePreference);
-  const hydrateLanguage = useAppStore((state) => state.hydrateLanguage);
-  const syncLanguageFromServer = useAppStore((state) => state.syncLanguageFromServer);
-  const retryLanguageSync = useAppStore((state) => state.retryLanguageSync);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const featuresLoaded = useFeaturesStore((state) => state.loaded);
   const splashDone = useSplashStore((state) => state.done);
-  const hydrateConsent = useConsentStore((s) => s.hydrate);
   const [isReady, setIsReady] = useState(false);
-  const authSyncInFlightRef = useRef<Promise<void> | null>(null);
-
-  const runAuthenticatedBackgroundSync = useCallback(() => {
-    if (!useAuthStore.getState().isAuthenticated) return Promise.resolve();
-    if (authSyncInFlightRef.current) return authSyncInFlightRef.current;
-
-    const task = Promise.allSettled([
-      syncLanguageFromServer(),
-      retryLanguageSync(),
-      syncFollowingCoins(),
-    ]).then(() => undefined);
-
-    authSyncInFlightRef.current = task.finally(() => {
-      authSyncInFlightRef.current = null;
-    });
-
-    return authSyncInFlightRef.current;
-  }, [retryLanguageSync, syncFollowingCoins, syncLanguageFromServer]);
 
   useEffect(() => {
+    const tier1Start = markStartupTier1Begin();
+
+    const finishReady = () => {
+      markStartupTier1End(tier1Start);
+      recordBaselineSnapshot(getBaselineSnapshot());
+      setIsReady(true);
+      if (isTieredStartupEnabled()) {
+        runTier2Hydration();
+      }
+      enqueueBackgroundTask('low', () => runAuthBackgroundSync());
+    };
+
+    if (isTieredStartupEnabled()) {
+      Promise.all([
+        initializeAuth().catch((err) => {
+          console.error('initializeAuth failed:', err);
+        }),
+        useFeaturesStore.getState().loadFeatures(),
+      ]).then(finishReady);
+      return;
+    }
+
     Promise.all([
       initializeAuth().catch((err) => {
         console.error('initializeAuth failed:', err);
       }),
       useFeaturesStore.getState().loadFeatures(),
-      hydrateThemePreference(),
-      hydrateLanguage(),
+      useAppStore.getState().hydrateThemePreference(),
+      useAppStore.getState().hydrateLanguage(),
       useFeedIntentStore.getState().hydrate(),
-      hydrateConsent(),
-    ]).then(() => {
-      setIsReady(true);
-      InteractionManager.runAfterInteractions(() => {
-        void runAuthenticatedBackgroundSync();
-      });
-    });
-  }, [
-    initializeAuth,
-    hydrateThemePreference,
-    hydrateLanguage,
-    runAuthenticatedBackgroundSync,
-    hydrateConsent,
-  ]);
+      useConsentStore.getState().hydrate(),
+    ]).then(finishReady);
+  }, [initializeAuth]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        useFeaturesStore.getState().refetchFeatures();
-        if (useAuthStore.getState().isAuthenticated) {
-          void runAuthenticatedBackgroundSync();
-        }
+        scheduleAppForegroundRefresh();
       }
     });
     return () => subscription.remove();
-  }, [runAuthenticatedBackgroundSync]);
+  }, []);
 
   useEffect(() => {
     if (!isReady || !isAuthenticated) return;
-    void runAuthenticatedBackgroundSync();
-  }, [isReady, isAuthenticated, runAuthenticatedBackgroundSync]);
+    enqueueBackgroundTask('low', () => runAuthBackgroundSync());
+  }, [isReady, isAuthenticated]);
 
   useEffect(() => {
     if (!isReady || !featuresLoaded) return;
 
     const firstSegment = segments[0] as string | undefined;
 
-    // Splash is session-only. After JS reload, splashDone resets but auth restores from
-    // AsyncStorage — skip splash for already-authenticated users (fixes web reload regression).
     const shouldGateWithSplash = !splashDone && !isAuthenticated;
 
     if (shouldGateWithSplash) {
@@ -158,14 +165,12 @@ export default function RootLayout() {
       return;
     }
 
-    // Unauthenticated: only login and register are public.
     if (!isAuthenticated) {
       const isPublicRoute = firstSegment === 'login' || firstSegment === 'register';
       if (!isPublicRoute) router.replace('/login' as Href);
       return;
     }
 
-    // Authenticated → redirect away from auth screens.
     if (firstSegment === 'login' || firstSegment === 'register') {
       router.replace('/(tabs)' as Href);
     }

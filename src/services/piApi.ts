@@ -1,5 +1,7 @@
 import { API_BASE_URL } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
+import { incrementPerfCounter } from '@/src/runtime/perfInstrumentation';
+import { fetchWithTimeout } from '@/src/runtime/asyncRequestGuard';
 
 let contextCache: { tokenKey: string; data: PortfolioContextDto | null; expires: number } | null = null;
 
@@ -28,31 +30,42 @@ async function authHeaders(): Promise<Record<string, string>> {
   return h;
 }
 
-export async function fetchPortfolioContext(): Promise<PortfolioContextDto | null> {
+export async function fetchPortfolioContext(options?: {
+  signal?: AbortSignal;
+}): Promise<PortfolioContextDto | null> {
   const base = API_BASE_URL.replace(/\/$/, '');
-  const res = await fetch(`${base}/portfolio/intelligence/context`, {
+  const res = await fetchWithTimeout(`${base}/portfolio/intelligence/context`, {
     headers: await authHeaders(),
+    signal: options?.signal,
+    timeoutMs: 8_000,
   });
   if (!res.ok) return null;
   const json = await res.json();
   return json?.data ?? null;
 }
 
-export async function fetchPortfolioContextCached(): Promise<PortfolioContextDto | null> {
+export async function fetchPortfolioContextCached(options?: {
+  signal?: AbortSignal;
+}): Promise<PortfolioContextDto | null> {
   const tokenKey = useAuthStore.getState().token ?? 'guest';
   const now = Date.now();
   if (contextCache && contextCache.tokenKey === tokenKey && contextCache.expires > now) {
     return contextCache.data;
   }
-  const data = await fetchPortfolioContext();
+  incrementPerfCounter('piFetch');
+  const data = await fetchPortfolioContext(options);
   contextCache = { tokenKey, data, expires: now + 30_000 };
   return data;
 }
 
 /** Called when WS `analytics_revision` arrives — bust PI context cache and optionally refetch. */
-export function invalidatePortfolioContextCache(options?: { refetch?: boolean }): void {
+export function invalidatePortfolioContextCache(opts?: { refetch?: boolean }): void {
   contextCache = null;
-  if (options?.refetch) {
+  if (opts?.refetch) {
     void fetchPortfolioContextCached();
   }
+}
+
+export function clearPortfolioContextCache(): void {
+  contextCache = null;
 }

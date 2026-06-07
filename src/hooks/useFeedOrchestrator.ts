@@ -9,13 +9,74 @@ import {
 import { useAppStore } from '@/src/state/useAppStore';
 import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
 import { useFeedStore } from '@/src/state/useFeedStore';
-import { useFeedRiskContext } from './useFeedRiskContext';
+import { useFeedRiskContext, type FeedRiskContext } from './useFeedRiskContext';
 import { fetchPortfolioContextCached } from '@/src/services/piApi';
 import { useHasFeature } from '@/src/utils/features';
 import { canUsePersonalization } from '@/src/privacy/consentStore';
+import { isFeedContextProviderEnabled } from '@/src/config/featureFlags';
+import {
+  useFeedRiskContextShared,
+  useFeedPiContextShared,
+  useFeedPersonalizationGate,
+  useFeedContextAvailable,
+} from '@/src/context/FeedContext';
+import { incrementPerfCounter } from '@/src/runtime/perfInstrumentation';
 
 function articleIdsKey(articles: NewsItem[]): string {
   return articles.map((a) => a.id).join('|');
+}
+
+function useSharedOrLocalRisk(): FeedRiskContext {
+  const useShared = isFeedContextProviderEnabled() && useFeedContextAvailable();
+  const shared = useFeedRiskContextShared();
+  const local = useFeedRiskContext({ enabled: !useShared });
+  if (useShared && shared) return shared;
+  return local;
+}
+
+function useLegacyPiState(hasPiContext: boolean, personalizationEnabled: boolean) {
+  const [heldSymbols, setHeldSymbols] = useState<Set<string>>(new Set());
+  const [heldWeightBySymbol, setHeldWeightBySymbol] = useState<Map<string, number>>(new Map());
+  const [narrativeVector, setNarrativeVector] = useState<Map<string, number>>(new Map());
+  const [convictionVector, setConvictionVector] = useState<Map<string, number>>(new Map());
+  const [topThemes, setTopThemes] = useState<string[]>([]);
+  const [portfolioAnalyticsRevision, setPortfolioAnalyticsRevision] = useState(0);
+
+  useEffect(() => {
+    if (!hasPiContext || !personalizationEnabled) return;
+    let cancelled = false;
+    fetchPortfolioContextCached().then((ctx) => {
+      if (cancelled || !ctx) return;
+      setHeldSymbols(new Set(ctx.heldSymbols.map((s) => s.toUpperCase())));
+      setHeldWeightBySymbol(
+        new Map(Object.entries(ctx.weightBySymbol).map(([k, v]) => [k.toUpperCase(), v]))
+      );
+      if (ctx.narrativeVector) {
+        setNarrativeVector(
+          new Map(Object.entries(ctx.narrativeVector).map(([k, v]) => [k.toUpperCase(), v]))
+        );
+      }
+      if (ctx.convictionVector) {
+        setConvictionVector(
+          new Map(Object.entries(ctx.convictionVector).map(([k, v]) => [k.toUpperCase(), v]))
+        );
+      }
+      setTopThemes(ctx.topThemes ?? []);
+      setPortfolioAnalyticsRevision(ctx.analyticsRevision);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasPiContext, personalizationEnabled]);
+
+  return {
+    heldSymbols,
+    heldWeightBySymbol,
+    narrativeVector,
+    convictionVector,
+    topThemes,
+    portfolioAnalyticsRevision,
+  };
 }
 
 export function useFeedOrchestrator(
@@ -26,21 +87,40 @@ export function useFeedOrchestrator(
   const followingSymbolsFromStore = useAppStore((s) => s.followingSymbols);
   const recentSearchSymbols = useFeedIntentStore((s) => s.recentSearchSymbols);
   const recentReadArticleIds = useFeedIntentStore((s) => s.recentReadArticleIds);
-  const riskContext = useFeedRiskContext();
+  const riskContext = useSharedOrLocalRisk();
   const setActiveRiskRevision = useFeedStore((s) => s.setActiveRiskRevision);
   const activeRiskRevision = useFeedStore((s) => s.activeRiskRevision);
+  const hasPiContext = useHasFeature('portfolio_intelligence_context_api');
+  const sharedPi = useFeedPiContextShared();
+  const personalizationFromContext = useFeedPersonalizationGate();
+  const sharedAvailable = useFeedContextAvailable();
+  const useSharedPi = isFeedContextProviderEnabled() && sharedAvailable && sharedPi != null;
 
   const [debouncedRaw, setDebouncedRaw] = useState(rawArticles);
   const [isPending, setIsPending] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hadArticlesRef = useRef(rawArticles.length > 0);
-  const [heldSymbols, setHeldSymbols] = useState<Set<string>>(new Set());
-  const [heldWeightBySymbol, setHeldWeightBySymbol] = useState<Map<string, number>>(new Map());
-  const [narrativeVector, setNarrativeVector] = useState<Map<string, number>>(new Map());
-  const [convictionVector, setConvictionVector] = useState<Map<string, number>>(new Map());
-  const [topThemes, setTopThemes] = useState<string[]>([]);
-  const [portfolioAnalyticsRevision, setPortfolioAnalyticsRevision] = useState(0);
-  const hasPiContext = useHasFeature('portfolio_intelligence_context_api');
+
+  const revisionKey = activeRiskRevision || riskContext.activeRiskRevision;
+  const legacyPi = useLegacyPiState(
+    hasPiContext && !useSharedPi,
+    !useSharedPi && canUsePersonalization()
+  );
+
+  const piState = useSharedPi && sharedPi
+    ? {
+        heldSymbols: sharedPi.pi.heldSymbols,
+        heldWeightBySymbol: sharedPi.pi.heldWeightBySymbol,
+        narrativeVector: sharedPi.pi.narrativeVector,
+        convictionVector: sharedPi.pi.convictionVector,
+        topThemes: sharedPi.pi.topThemes,
+        portfolioAnalyticsRevision: sharedPi.pi.portfolioAnalyticsRevision,
+      }
+    : legacyPi;
+
+  const personalizationEnabled = useSharedPi
+    ? personalizationFromContext
+    : canUsePersonalization();
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -90,34 +170,6 @@ export function useFeedOrchestrator(
     return symbols;
   }, [followingCoins, followingSymbolsFromStore]);
 
-  const revisionKey = activeRiskRevision || riskContext.activeRiskRevision;
-
-  useEffect(() => {
-    if (!hasPiContext || !canUsePersonalization()) return;
-    let cancelled = false;
-    fetchPortfolioContextCached().then((ctx) => {
-      if (cancelled || !ctx) return;
-      setHeldSymbols(new Set(ctx.heldSymbols.map((s) => s.toUpperCase())));
-      setHeldWeightBySymbol(
-        new Map(Object.entries(ctx.weightBySymbol).map(([k, v]) => [k.toUpperCase(), v]))
-      );
-      if (ctx.narrativeVector) {
-        setNarrativeVector(
-          new Map(Object.entries(ctx.narrativeVector).map(([k, v]) => [k.toUpperCase(), v]))
-        );
-      }
-      if (ctx.convictionVector) {
-        setConvictionVector(
-          new Map(Object.entries(ctx.convictionVector).map(([k, v]) => [k.toUpperCase(), v]))
-        );
-      }
-      setTopThemes(ctx.topThemes ?? []);
-      setPortfolioAnalyticsRevision(ctx.analyticsRevision);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [hasPiContext, revisionKey, portfolioAnalyticsRevision]);
   const crsKey = riskContext.crsBySymbol.size;
   const deltaKey = riskContext.crsDeltaBySymbol.size;
   const shockKey = riskContext.sentimentShockSymbols.size;
@@ -138,14 +190,14 @@ export function useFeedOrchestrator(
         moversTopRiskSymbols: riskContext.moversTopRiskSymbols,
         marketRegime: riskContext.marketRegime,
         riskStale: riskContext.riskStale,
-        heldSymbols,
-        heldWeightBySymbol,
-        portfolioAnalyticsRevision,
+        heldSymbols: piState.heldSymbols,
+        heldWeightBySymbol: piState.heldWeightBySymbol,
+        portfolioAnalyticsRevision: piState.portfolioAnalyticsRevision,
         narrativeVector:
-          narrativeVector.size > 0 ? narrativeVector : undefined,
+          piState.narrativeVector.size > 0 ? piState.narrativeVector : undefined,
         convictionVector:
-          convictionVector.size > 0 ? convictionVector : undefined,
-        topThemes: topThemes.length > 0 ? topThemes : undefined,
+          piState.convictionVector.size > 0 ? piState.convictionVector : undefined,
+        topThemes: piState.topThemes.length > 0 ? piState.topThemes : undefined,
       }),
     [
       mode,
@@ -160,26 +212,23 @@ export function useFeedOrchestrator(
       moversKey,
       riskContext.marketRegime,
       riskContext.riskStale,
-      riskContext.crsBySymbol,
-      riskContext.crsDeltaBySymbol,
-      riskContext.sentimentShockSymbols,
-      riskContext.moversTopRiskSymbols,
-      heldSymbols,
-      heldWeightBySymbol,
-      narrativeVector,
-      convictionVector,
-      topThemes,
-      portfolioAnalyticsRevision,
+      piState.heldSymbols,
+      piState.heldWeightBySymbol,
+      piState.narrativeVector,
+      piState.convictionVector,
+      piState.topThemes,
+      piState.portfolioAnalyticsRevision,
     ]
   );
 
   const idsKey = articleIdsKey(debouncedRaw);
 
   const result = useMemo(() => {
+    incrementPerfCounter('feedOrchestration');
     if (debouncedRaw.length === 0) {
       return { articles: [], removedCount: 0, suppressedCount: 0 };
     }
-    const orchestrated = !canUsePersonalization()
+    const orchestrated = !personalizationEnabled
       ? orchestrateFeed(debouncedRaw, mode, {
           ...context,
           recentSearchSymbols: [],
@@ -192,7 +241,7 @@ export function useFeedOrchestrator(
         })
       : orchestrateFeed(debouncedRaw, mode, context);
     return orchestrated;
-  }, [debouncedRaw, mode, context, idsKey]);
+  }, [debouncedRaw, mode, context, idsKey, personalizationEnabled]);
 
   return { ...result, isPending };
 }
@@ -203,7 +252,7 @@ export function orchestrateArticlesNow(
   options?: {
     followingCoins?: string[];
     recentSearchSymbols?: string[];
-    riskContext?: ReturnType<typeof useFeedRiskContext>;
+    riskContext?: FeedRiskContext;
   }
 ): OrchestratedArticle[] {
   const following = options?.followingCoins ?? useAppStore.getState().followingCoins;

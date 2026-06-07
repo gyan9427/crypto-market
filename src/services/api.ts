@@ -694,11 +694,17 @@ export const unfollowCoin = async (coinId: string): Promise<void> => {
   }
 };
 
+let getWishlistInflight: Promise<Coin[]> | null = null;
+
 /**
- * Get wishlist (following coins)
+ * Get wishlist (following coins) — in-flight deduped.
  */
 export const getWishlist = async (): Promise<Coin[]> => {
-  return getFollowedCoins();
+  if (getWishlistInflight) return getWishlistInflight;
+  getWishlistInflight = getFollowedCoins().finally(() => {
+    getWishlistInflight = null;
+  });
+  return getWishlistInflight;
 };
 
 export const getFollowedCoins = async (): Promise<Coin[]> => {
@@ -1013,17 +1019,25 @@ export const getBoardNews = async (boardId: string): Promise<NewsItem[]> => {
 };
 
 /**
- * Get current user
+ * Get current user (in-flight deduped).
  */
+let getCurrentUserInflight: Promise<User> | null = null;
+
 export const getCurrentUser = async (): Promise<User> => {
-  try {
-    const response = await apiRequest<{ user: BackendUser }>('/auth/me');
-    const user = transformBackendUser(response.user);
-    useAuthStore.getState().setUser(user);
-    return user;
-  } catch (error: any) {
-    throw new Error(`Failed to get current user: ${error.message}`);
-  }
+  if (getCurrentUserInflight) return getCurrentUserInflight;
+  getCurrentUserInflight = (async () => {
+    try {
+      const response = await apiRequest<{ user: BackendUser }>('/auth/me');
+      const user = transformBackendUser(response.user);
+      useAuthStore.getState().setUser(user);
+      return user;
+    } catch (error: any) {
+      throw new Error(`Failed to get current user: ${error.message}`);
+    } finally {
+      getCurrentUserInflight = null;
+    }
+  })();
+  return getCurrentUserInflight;
 };
 
 export const getUserPreferences = async (): Promise<{

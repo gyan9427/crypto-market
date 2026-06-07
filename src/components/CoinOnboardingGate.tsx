@@ -4,6 +4,7 @@ import { useAppStore } from '@/src/state/useAppStore';
 import { useFeaturesStore, isOnboardingFeatureEnabled } from '@/src/utils/features';
 import { completeCoinOnboarding, getCurrentUser } from '@/src/services/api';
 import { CoinOnboardingModal } from './CoinOnboardingModal';
+import { withLatestWins } from '@/src/runtime/asyncRequestGuard';
 
 /**
  * Blocks the app with coin-picker onboarding until the user follows ≥5 coins
@@ -13,6 +14,7 @@ export function CoinOnboardingGate(): React.ReactElement | null {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
   const featuresLoaded = useFeaturesStore((s) => s.loaded);
+  const followingCoins = useAppStore((s) => s.followingCoins);
   const syncFollowingCoins = useAppStore((s) => s.syncFollowingCoins);
   const setFeedFilter = useAppStore((s) => s.setFeedFilter);
 
@@ -33,15 +35,28 @@ export function CoinOnboardingGate(): React.ReactElement | null {
     }
 
     try {
-      await syncFollowingCoins();
-      const fresh = await getCurrentUser();
-      setVisible(fresh.coinOnboardingCompleted !== true);
+      if (followingCoins.length === 0) {
+        await syncFollowingCoins();
+      }
+
+      if (user?.coinOnboardingCompleted !== undefined) {
+        setVisible(user.coinOnboardingCompleted !== true);
+      } else {
+        const fresh = await withLatestWins('onboarding:eval', async () => getCurrentUser());
+        setVisible(fresh?.coinOnboardingCompleted !== true);
+      }
     } catch {
       setVisible(user?.coinOnboardingCompleted !== true);
     } finally {
       setEvaluated(true);
     }
-  }, [isAuthenticated, featuresLoaded, syncFollowingCoins, user?.coinOnboardingCompleted]);
+  }, [
+    isAuthenticated,
+    featuresLoaded,
+    followingCoins.length,
+    syncFollowingCoins,
+    user?.coinOnboardingCompleted,
+  ]);
 
   useEffect(() => {
     setEvaluated(false);

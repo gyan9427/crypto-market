@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { riskApi } from '../services/riskApi';
 import { sentimentApi } from '../services/sentimentApi';
 import { useRiskStore } from '../state/useRiskStore';
+import { createRequestGuard, bumpGeneration } from '@/src/runtime/asyncRequestGuard';
+import { incrementPerfCounter } from '@/src/runtime/perfInstrumentation';
 
 export type FeedRiskContext = {
   crsBySymbol: Map<string, number>;
@@ -23,11 +25,14 @@ const EMPTY: FeedRiskContext = {
   riskStale: true,
 };
 
-export function useFeedRiskContext(): FeedRiskContext {
-  const meta = useRiskStore((s) => s.meta);
+export function useFeedRiskContext(options?: { enabled?: boolean }): FeedRiskContext {
+  const enabled = options?.enabled ?? true;
+  const revision = useRiskStore((s) => s.meta.revision);
+  const partial = useRiskStore((s) => s.meta.partial);
+  const stale = useRiskStore((s) => s.meta.stale);
   const crsBySymbolStore = useRiskStore((s) => s.crsBySymbol);
-  const crsDeltaBySymbol = useRiskStore((s) => s.crsDeltaBySymbol);
-  const snapshot = useRiskStore((s) => s.snapshot);
+  const crsDeltaBySymbolStore = useRiskStore((s) => s.crsDeltaBySymbol);
+  const snapshotRegime = useRiskStore((s) => s.snapshot?.marketRegime ?? null);
 
   const [moversTopRiskSymbols, setMoversTopRiskSymbols] = useState<Set<string>>(new Set());
   const [sentimentShockSymbols, setSentimentShockSymbols] = useState<Set<string>>(new Set());
@@ -35,54 +40,79 @@ export function useFeedRiskContext(): FeedRiskContext {
   const priorSentimentRef = useRef<Map<string, number>>(new Map());
   const enrichRevisionRef = useRef(0);
 
-  const crsBySymbol = useRef(new Map<string, number>());
-  crsBySymbol.current = new Map(
-    Array.from(crsBySymbolStore.entries()).map(([sym, dto]) => [sym, dto.crs])
+  const crsRevisionKey = `${revision}:${crsBySymbolStore.size}`;
+
+  const crsBySymbol = useMemo(
+    () =>
+      new Map(
+        Array.from(crsBySymbolStore.entries()).map(([sym, dto]) => [sym, dto.crs])
+      ),
+    [crsRevisionKey, crsBySymbolStore]
   );
 
-  const enrich = useCallback(async (revision: number) => {
-    if (revision < enrichRevisionRef.current) return;
-    enrichRevisionRef.current = revision;
+  const crsDeltaBySymbol = useMemo(
+    () => new Map(crsDeltaBySymbolStore),
+    [crsRevisionKey, crsDeltaBySymbolStore]
+  );
 
-    const [moversRes, regimeRes, trending] = await Promise.all([
-      riskApi.fetchMovers(),
-      riskApi.fetchRegime(),
-      sentimentApi.fetchTrending(),
-    ]);
+  const enrich = useCallback(
+    async (enrichRevision: number, signal: AbortSignal) => {
+      if (enrichRevision < enrichRevisionRef.current) return;
+      enrichRevisionRef.current = enrichRevision;
+      incrementPerfCounter('riskEnrich');
 
-    if (revision < enrichRevisionRef.current) return;
+      const [moversRes, regimeRes, trending] = await Promise.all([
+        riskApi.fetchMovers(),
+        riskApi.fetchRegime(),
+        sentimentApi.fetchTrending(),
+      ]);
 
-    const topRisk = new Set(
-      (moversRes.data?.topRisk ?? []).map((c) => c.symbol.toUpperCase())
-    );
-    setMoversTopRiskSymbols(topRisk);
+      if (signal.aborted || enrichRevision < enrichRevisionRef.current) return;
 
-    const regime = regimeRes.data?.regime ?? snapshot?.marketRegime ?? null;
-    setMarketRegime(regime);
+      const topRisk = new Set(
+        (moversRes.data?.topRisk ?? []).map((c) => c.symbol.toUpperCase())
+      );
+      setMoversTopRiskSymbols(topRisk);
 
-    const shocks = sentimentApi.shockSymbolsFromTrending(
-      trending,
-      priorSentimentRef.current
-    );
-    setSentimentShockSymbols(shocks);
-  }, [meta.stale, snapshot?.marketRegime]);
+      const regime = regimeRes.data?.regime ?? snapshotRegime ?? null;
+      setMarketRegime(regime);
+
+      const shocks = sentimentApi.shockSymbolsFromTrending(
+        trending,
+        priorSentimentRef.current
+      );
+      setSentimentShockSymbols(shocks);
+    },
+    [snapshotRegime]
+  );
 
   useEffect(() => {
-    if (meta.partial || meta.revision <= 0) return;
-    void enrich(meta.revision);
-  }, [meta.revision, meta.partial, enrich]);
+    if (!enabled || partial || revision <= 0) return;
+    const guard = createRequestGuard('feed:risk-enrich');
+    void enrich(revision, guard.signal);
+    return () => bumpGeneration('feed:risk-enrich');
+  }, [enabled, revision, partial, enrich]);
 
-  if (meta.revision <= 0) {
+  const stableMovers = useMemo(
+    () => moversTopRiskSymbols,
+    [revision, moversTopRiskSymbols.size]
+  );
+  const stableShocks = useMemo(
+    () => sentimentShockSymbols,
+    [revision, sentimentShockSymbols.size]
+  );
+
+  if (revision <= 0) {
     return EMPTY;
   }
 
   return {
-    crsBySymbol: crsBySymbol.current,
+    crsBySymbol,
     crsDeltaBySymbol,
-    sentimentShockSymbols,
-    moversTopRiskSymbols,
-    marketRegime: marketRegime ?? snapshot?.marketRegime ?? null,
-    activeRiskRevision: meta.revision,
-    riskStale: meta.stale,
+    sentimentShockSymbols: stableShocks,
+    moversTopRiskSymbols: stableMovers,
+    marketRegime: marketRegime ?? snapshotRegime ?? null,
+    activeRiskRevision: revision,
+    riskStale: stale,
   };
 }

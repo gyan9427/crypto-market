@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './api';
 import { fetchJsonCached } from './requestCache';
-import type { RiskCoinDto, RiskMeta } from '../types/risk';
+import { fetchRiskSnapshotCoalesced } from './riskSnapshotFetch';
+import type { RiskCoinDto, RiskMeta, RiskSnapshotData } from '../types/risk';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -10,17 +11,7 @@ interface ApiResponse<T> {
   error?: string;
 }
 
-export type RiskSnapshotData = {
-  revision: number;
-  buildId: string;
-  buildFingerprint: string;
-  computedAt: string;
-  partial: boolean;
-  stale: boolean;
-  marketRegime: string;
-  universeSize: number;
-  coins: RiskCoinDto[];
-};
+export type { RiskSnapshotData } from '../types/risk';
 
 export type RiskMoversData = {
   generatedAt: string;
@@ -38,25 +29,13 @@ export type RiskRegimeData = {
 };
 
 export const riskApi = {
-  async fetchSnapshot(revision?: number): Promise<{
+  /** Coalesced GET /risk/snapshot — revision is compared client-side after response. */
+  async fetchSnapshot(): Promise<{
     meta: RiskMeta;
     data: RiskSnapshotData | null;
     manifest: ApiResponse<RiskSnapshotData>['manifest'];
   }> {
-    const qs = revision !== undefined ? `?revision=${revision}` : '';
-    const res = await fetchJsonCached<ApiResponse<RiskSnapshotData>>(
-      `${API_BASE_URL}/risk/snapshot${qs}`,
-      { cacheTtlMs: 30_000 }
-    );
-    const meta: RiskMeta = {
-      revision: res.meta?.revision ?? res.data?.revision ?? 0,
-      buildId: res.meta?.buildId ?? res.data?.buildId ?? '',
-      buildFingerprint: res.meta?.buildFingerprint ?? res.data?.buildFingerprint ?? '',
-      computedAt: res.meta?.computedAt ?? res.data?.computedAt ?? null,
-      stale: res.meta?.stale ?? false,
-      partial: res.meta?.partial ?? res.data?.partial ?? false,
-    };
-    return { meta, data: res.data ?? null, manifest: res.manifest };
+    return fetchRiskSnapshotCoalesced();
   },
 
   async fetchCoin(symbol: string): Promise<{ meta: RiskMeta; coin: RiskCoinDto | null }> {

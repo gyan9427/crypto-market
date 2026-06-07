@@ -5,6 +5,9 @@ import { useNotificationStore } from '@/src/state/useNotificationStore';
 import { useNotificationUiStore } from '@/src/state/useNotificationUiStore';
 import { notificationsApi } from '@/src/services/notificationsApi';
 import type { NotificationItem } from '@/src/services/notificationsApi';
+import { wsRegistry, bindWsOpenHandler } from '@/src/runtime/wsConnectionRegistry';
+
+const OWNER_ID = 'tabs-layout';
 
 function backoffMs(attempt: number): number {
   const cap = 30000;
@@ -19,20 +22,20 @@ export function useNotificationsGateway(enabled: boolean): void {
   const wsRef = useRef<WebSocket | null>(null);
   const attemptRef = useRef(0);
   const closingRef = useRef(false);
+  const generationRef = useRef(0);
 
   useEffect(() => {
     closingRef.current = false;
 
     if (!enabled || !token) {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      wsRegistry.release('notifications', OWNER_ID);
+      wsRef.current = null;
       useNotificationStore.getState().reset();
       return;
     }
 
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    const generation = ++generationRef.current;
 
     const syncMissed = () => {
       const seq = useNotificationStore.getState().lastSeq;
@@ -42,21 +45,19 @@ export function useNotificationsGateway(enabled: boolean): void {
         .catch(() => {});
     };
 
-    const connect = () => {
-      const url = buildNotificationsWsUrl(token);
-      if (!url || closingRef.current) return;
-
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
+    const attachHandlers = (ws: WebSocket) => {
+      const onOpen = () => {
+        if (generation !== generationRef.current) return;
         attemptRef.current = 0;
         void ws.send(JSON.stringify({ type: 'ws_auth', token, protocol: 2 }));
         void ws.send(JSON.stringify({ type: 'notification_subscribe', token }));
         syncMissed();
       };
 
+      bindWsOpenHandler(ws, onOpen);
+
       ws.onmessage = (evt) => {
+        if (generation !== generationRef.current) return;
         try {
           const msg = JSON.parse(String(evt.data)) as Record<string, unknown>;
           if (msg.type === 'notification:new' && msg.notification && typeof msg.notification === 'object') {
@@ -83,11 +84,20 @@ export function useNotificationsGateway(enabled: boolean): void {
       };
 
       ws.onclose = () => {
+        if (generation !== generationRef.current || closingRef.current) return;
         wsRef.current = null;
-        if (closingRef.current) return;
         attemptRef.current += 1;
         reconnectTimer = setTimeout(connect, backoffMs(attemptRef.current));
       };
+    };
+
+    const connect = () => {
+      const url = buildNotificationsWsUrl(token);
+      if (!url || closingRef.current) return;
+
+      const ws = wsRegistry.acquire('notifications', OWNER_ID, () => new WebSocket(url)) as WebSocket;
+      wsRef.current = ws;
+      attachHandlers(ws);
     };
 
     connect();
@@ -95,10 +105,15 @@ export function useNotificationsGateway(enabled: boolean): void {
     return () => {
       closingRef.current = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
+      const ws = wsRef.current;
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onclose = null;
+        ws.onerror = null;
       }
+      wsRegistry.release('notifications', OWNER_ID);
+      wsRef.current = null;
     };
   }, [enabled, token]);
 }

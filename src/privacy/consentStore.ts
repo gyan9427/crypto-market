@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { cacheRegistry } from '@/src/runtime/cacheRegistry';
+import { bumpGeneration } from '@/src/runtime/asyncRequestGuard';
+import { invalidatePortfolioContextCache } from '@/src/services/piApi';
 
 const CONSENT_KEY = '@nayft_privacy_consent_v1';
 
@@ -60,6 +63,7 @@ export const useConsentStore = create<PrivacyConsentState>((set, get) => ({
     };
     await AsyncStorage.setItem(CONSENT_KEY, JSON.stringify(next));
     set(next);
+    if (!value) bumpGeneration('analytics:track');
   },
 
   setPersonalizationConsent: async (value: boolean) => {
@@ -70,6 +74,12 @@ export const useConsentStore = create<PrivacyConsentState>((set, get) => ({
     };
     await AsyncStorage.setItem(CONSENT_KEY, JSON.stringify(next));
     set(next);
+    if (!value) {
+      cacheRegistry.purgePersonalization();
+    } else {
+      invalidatePortfolioContextCache();
+      bumpGeneration('feed:pi');
+    }
   },
 
   acceptAll: async () => {
@@ -90,6 +100,7 @@ export const useConsentStore = create<PrivacyConsentState>((set, get) => ({
     };
     await AsyncStorage.setItem(CONSENT_KEY, JSON.stringify(next));
     set(next);
+    bumpGeneration('analytics:track');
   },
 }));
 

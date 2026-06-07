@@ -19,6 +19,7 @@ export function usePollingEffect(
   const taskRef = useRef(task);
   const runningRef = useRef(false);
 
+  // Keep task fresh without restarting the interval when only the callback identity changes.
   useEffect(() => {
     taskRef.current = task;
   }, [task]);
