@@ -702,7 +702,7 @@ function buildMonitorWalletSheetStyles(tokens: ThemeTokens) {
       backgroundColor: c.primary[500],
       borderColor: c.primary[500],
     },
-    checkmark: { color: '#fff', fontSize: 14, fontWeight: '700' },
+    checkmark: { color: c.white, fontSize: 14, fontWeight: '700' },
     consentText: {
       flex: 1,
       fontSize: typo.fontSizes.sm,

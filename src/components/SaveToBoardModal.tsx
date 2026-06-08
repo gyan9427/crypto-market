@@ -270,7 +270,7 @@ export const SaveToBoardModal: React.FC<SaveToBoardModalProps> = ({
             activeOpacity={0.85}
           >
             {saving ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={c.white} size="small" />
             ) : (
               <Text style={styles.saveButtonText}>{t('common.save')}</Text>
             )}
