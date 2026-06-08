@@ -9,7 +9,9 @@ on:
         default: 'false'
         type: boolean
   push:
-    branches: [develop]
+    branches:
+      - develop
+      - fix/dependabot-expo-ecosystem
     paths-ignore:
       - 'docs/**'
       - '*.md'
