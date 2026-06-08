@@ -27,7 +27,8 @@ function articleIdsKey(articles: NewsItem[]): string {
 }
 
 function useSharedOrLocalRisk(): FeedRiskContext {
-  const useShared = isFeedContextProviderEnabled() && useFeedContextAvailable();
+  const feedContextAvailable = useFeedContextAvailable();
+  const useShared = isFeedContextProviderEnabled() && feedContextAvailable;
   const shared = useFeedRiskContextShared();
   const local = useFeedRiskContext({ enabled: !useShared });
   if (useShared && shared) return shared;

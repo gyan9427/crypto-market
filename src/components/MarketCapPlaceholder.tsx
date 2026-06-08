@@ -124,7 +124,7 @@ interface ChartSvgProps {
   gridStroke: string;
 }
 
-const ChartSvg = memo<ChartSvgProps>(({
+const ChartSvg = memo<ChartSvgProps>(function ChartSvg({
   view,
   gradientId,
   isDark,
@@ -133,7 +133,8 @@ const ChartSvg = memo<ChartSvgProps>(({
   crosshairStroke,
   markerStroke,
   gridStroke,
-}) => (
+}) {
+  return (
   <Svg
     style={svgStyle}
     preserveAspectRatio="none"
@@ -203,12 +204,14 @@ const ChartSvg = memo<ChartSvgProps>(({
       </>
     ) : null}
   </Svg>
-));
+  );
+});
 
 const svgStyle = { width: '100%' as const, height: '100%' as const };
 
 // ─── Chart-type icons ─────────────────────────────────────────────────────────
-const LineIcon = memo(({ color }: { color: string }) => (
+const LineIcon = memo(function LineIcon({ color }: { color: string }) {
+  return (
   <Svg width={16} height={16} viewBox="0 0 16 16">
     <Path
       d="M1 12 L5 6 L9 9 L15 3"
@@ -219,18 +222,27 @@ const LineIcon = memo(({ color }: { color: string }) => (
       strokeLinejoin="round"
     />
   </Svg>
-));
+  );
+});
 
-const CandleIcon = memo(
-  ({ color, green, red }: { color: string; green: string; red: string }) => (
+const CandleIcon = memo(function CandleIcon({
+  color,
+  green,
+  red,
+}: {
+  color: string;
+  green: string;
+  red: string;
+}) {
+  return (
     <Svg width={16} height={16} viewBox="0 0 16 16">
       <Line x1="5" y1="2" x2="5" y2="14" stroke={color} strokeWidth="1.2" />
       <Rect x="3" y="5" width="4" height="5" fill={red} rx="0.5" />
       <Line x1="11" y1="3" x2="11" y2="13" stroke={color} strokeWidth="1.2" />
       <Rect x="9" y="6" width="4" height="5" fill={green} rx="0.5" />
     </Svg>
-  )
-);
+  );
+});
 
 // ─── Candlestick SVG ──────────────────────────────────────────────────────────
 interface CandleSvgProps {
@@ -243,7 +255,7 @@ interface CandleSvgProps {
   totalSvgW: number;
 }
 
-const CandleSvg = memo<CandleSvgProps>(({
+const CandleSvg = memo<CandleSvgProps>(function CandleSvg({
   klines,
   green,
   red,
@@ -251,7 +263,7 @@ const CandleSvg = memo<CandleSvgProps>(({
   activeIndex,
   crosshairStroke,
   totalSvgW,
-}) => {
+}) {
   const n = klines.length;
   if (n === 0) return null;
 
