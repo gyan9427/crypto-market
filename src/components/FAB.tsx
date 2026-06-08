@@ -23,8 +23,6 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useHasFeature } from '../utils/features';
 
-const MARKET_ACCENT = '#6383ff';
-
 interface QuickActionsContextValue {
   open: () => void;
 }
@@ -148,7 +146,7 @@ export const QuickActionsProvider: React.FC<QuickActionsProviderProps> = ({
 
           <QuickActionRow
             styles={styles}
-            icon={<Bell size={18} color={MARKET_ACCENT} />}
+            icon={<Bell size={18} color={c.primary[400]} />}
             title={t('fab.addAlert')}
             subtitle={t('fab.addAlertSubtitle')}
             onPress={() => handleAction('alert')}
@@ -158,7 +156,7 @@ export const QuickActionsProvider: React.FC<QuickActionsProviderProps> = ({
           {hasFollow && (
             <QuickActionRow
               styles={styles}
-              icon={<PlusCircle size={18} color={MARKET_ACCENT} />}
+              icon={<PlusCircle size={18} color={c.primary[400]} />}
               title={t('fab.addToWatchlist')}
               subtitle={t('fab.watchlistSubtitle')}
               onPress={() => handleAction('watchlist')}
@@ -178,7 +176,7 @@ export const QuickActionsProvider: React.FC<QuickActionsProviderProps> = ({
           {hasRewards && (
             <QuickActionRow
               styles={styles}
-              icon={<Gift size={18} color={MARKET_ACCENT} />}
+              icon={<Gift size={18} color={c.primary[400]} />}
               title={t('fab.rewards')}
               subtitle={t('fab.rewardsSubtitle')}
               onPress={() => handleAction('rewards')}
@@ -196,14 +194,14 @@ export const FAB = QuickActionsProvider;
 
 function buildStyles(tokens: ThemeTokens) {
   const { typography } = tokens;
-  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
-  const rowBg = tokens.isDark ? '#0a0a0f' : tokens.surface;
-  const rowBorder = tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle;
+  const accentBg = tokens.isDark ? tokens.colors.primary[900] : tokens.colors.primary[50];
+  const rowBg = tokens.isDark ? tokens.bg : tokens.surface;
+  const rowBorder = tokens.borderSubtle;
 
   return StyleSheet.create({
     backdrop: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: tokens.isDark ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.35)',
+      ...StyleSheet.absoluteFill,
+      backgroundColor: tokens.backdrop,
     },
     bottomSheetBackground: {
       position: 'absolute',
@@ -221,7 +219,7 @@ function buildStyles(tokens: ThemeTokens) {
       width: 36,
       height: 4,
       borderRadius: 2,
-      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.18)' : tokens.colors.neutral[300],
+      backgroundColor: tokens.isDark ? tokens.borderStrong : tokens.colors.neutral[300],
       alignSelf: 'center',
       marginTop: 10,
       marginBottom: 4,

@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, View, StyleSheet, Text } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from "expo-router/react-navigation";
 import Svg, { Defs, LinearGradient, Path, Stop, Line, Circle } from 'react-native-svg';
 import type { KlineInterval } from '../types';
 import type { KlineRecord } from '@/src/types/kline';
@@ -180,9 +180,9 @@ function UniversalLineChart({ symbol, interval, style }: ProfessionalChartProps)
     [klines, chartWidth, interval, tokens]
   );
 
-  const gridStroke = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
-  const crosshairStroke = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
-  const markerStroke = isDark ? '#ffffff' : tokens.surface;
+  const gridStroke = tokens.borderSubtle;
+  const crosshairStroke = tokens.borderStrong;
+  const markerStroke = isDark ? tokens.colors.white : tokens.surface;
 
   const yLabelPositions = useMemo(() => {
     if (!chartView) return [];
@@ -416,9 +416,9 @@ function buildProfessionalChartStyles(tokens: ThemeTokens) {
       paddingHorizontal: 8,
       paddingVertical: 5,
       borderRadius: tokens.borderRadius.sm,
-      backgroundColor: tokens.isDark ? 'rgba(22,22,28,0.92)' : 'rgba(250,250,252,0.96)',
+      backgroundColor: tokens.bgElevated,
       borderWidth: 0.5,
-      borderColor: tokens.isDark ? 'rgba(99,131,255,0.28)' : 'rgba(99,131,255,0.35)',
+      borderColor: tokens.borderFocus,
     },
     hoverLabelTime: {
       fontSize: typo.fontSizes.badge,

@@ -16,6 +16,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
+import type { ThemeTokens } from '@/src/theme/theme';
 
 const SPLASH_HOLD_MS = 2900;
 const FADE_OUT_MS = 460;
@@ -33,13 +34,13 @@ const LOGO_LIGHT = require('../../../assets/images/logo.png');
 const LOGO_DARK = require('../../../assets/images/logo_dark.png');
 
 /** Direct logo elevation without wrapper pill */
-function splashLogoElevation(isDark: boolean): StyleProp<ViewStyle> {
+function splashLogoElevation(isDark: boolean, tokens: ThemeTokens): StyleProp<ViewStyle> {
   return Platform.select<ViewStyle>({
     web: {
       // Web uses CSS drop-shadow filter on the Image itself
     },
     ios: {
-      shadowColor: isDark ? '#000000' : '#888888',
+      shadowColor: tokens.colors.neutral[900],
       shadowOffset: { width: 0, height: isDark ? 24 : 4 },
       shadowOpacity: isDark ? 0.7 : 0.12,
       shadowRadius: isDark ? 48 : 10,
@@ -47,19 +48,19 @@ function splashLogoElevation(isDark: boolean): StyleProp<ViewStyle> {
     },
     android: {
       elevation: isDark ? 24 : 4,
-      shadowColor: isDark ? '#000000' : '#888888',
+      shadowColor: tokens.colors.neutral[900],
     },
-    default: { elevation: isDark ? 24 : 4, shadowColor: '#888888' },
+    default: { elevation: isDark ? 24 : 4, shadowColor: tokens.colors.neutral[900] },
   });
 }
 
 /** Web-only: silhouettes PNG alpha (`drop-shadow`), not rectangular `box-shadow` artifact */
-function webLogoGlyphFilter(isDark: boolean): StyleProp<ImageStyle> {
+function webLogoGlyphFilter(isDark: boolean, tokens: ThemeTokens): StyleProp<ImageStyle> {
   if (Platform.OS !== 'web') return {};
 
   const f = isDark
-    ? `drop-shadow(0 24px 48px rgba(0, 0, 0, 0.85)) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6)) drop-shadow(0 4px 12px rgba(168, 85, 247, 0.4))`
-    : `drop-shadow(0 4px 10px rgba(0, 0, 0, 0.08)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05))`;
+    ? (tokens.shadows.lg as { boxShadow?: string }).boxShadow ?? 'none'
+    : (tokens.shadows.sm as { boxShadow?: string }).boxShadow ?? 'none';
 
   return { filter: f } as StyleProp<ImageStyle>;
 }
@@ -92,11 +93,7 @@ export function AnimatedSplash({ onDone }: Props) {
 
   const logoSource = isDark ? LOGO_LIGHT : LOGO_DARK;
 
-  const lightGradientColors = [
-    '#FAF5EB',
-    '#F0E6D4',
-    '#E2D5C0',
-  ] as const;
+  const lightGradientColors = [tokens.colors.primary[50], tokens.bg, tokens.surfaceMuted] as const;
 
   useEffect(() => {
     logoReveal.value = withDelay(
@@ -201,8 +198,8 @@ export function AnimatedSplash({ onDone }: Props) {
     >
       {isDark ? (
         <LinearGradient
-          colors={['#080510', tokens.bg]}
-          style={StyleSheet.absoluteFillObject}
+          colors={[tokens.colors.ink, tokens.bg]}
+          style={StyleSheet.absoluteFill}
           start={{ x: 0.45, y: 0 }}
           end={{ x: 0.5, y: 1 }}
         />
@@ -210,19 +207,19 @@ export function AnimatedSplash({ onDone }: Props) {
         <LinearGradient
           colors={[...lightGradientColors]}
           locations={[0, 0.52, 1]}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           start={{ x: 0.48, y: 0 }}
           end={{ x: 0.52, y: 1 }}
         />
       )}
 
       <View style={[styles.center, { paddingHorizontal: SPLASH_SIDE_GAP }]}>
-        <Animated.View style={[styles.logoLift, logoAnimatedStyle, splashLogoElevation(isDark)]}>
+        <Animated.View style={[styles.logoLift, logoAnimatedStyle, splashLogoElevation(isDark, tokens)]}>
           <Image
             source={logoSource}
             style={[
               { width: logoW, height: logoH },
-              webLogoGlyphFilter(isDark),
+              webLogoGlyphFilter(isDark, tokens),
             ]}
             contentFit="contain"
             accessibilityLabel="NAYFT logo"
@@ -253,8 +250,8 @@ export function AnimatedSplash({ onDone }: Props) {
               styles.accentHairline,
               {
                 backgroundColor: isDark
-                  ? 'rgba(192, 132, 252, 0.45)'
-                  : 'rgba(91, 33, 182, 0.45)',
+                  ? tokens.colors.primary[400]
+                  : tokens.colors.primary[700],
               },
               hairlineStyle,
             ]}

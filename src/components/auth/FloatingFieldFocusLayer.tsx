@@ -19,6 +19,8 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import type { ThemeTokens } from '@/src/theme/theme';
 
 /** Single duration for open + close so base card, backdrop, and card stay in sync */
 const TIMING_MS = 280;
@@ -65,6 +67,8 @@ export const FloatingFieldFocusLayer = forwardRef<
   { activeField, sourceCenter, onDismissComplete, children, progress },
   ref
 ) {
+  const { tokens } = useAppTheme();
+  const styles = useMemo(() => buildFloatingFieldFocusLayerStyles(tokens), [tokens]);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
@@ -291,49 +295,39 @@ export const FloatingFieldFocusLayer = forwardRef<
   );
 });
 
-const styles = StyleSheet.create({
-  layerRoot: {
-    zIndex: 1000,
-    elevation: 1000,
-  },
-  backdropTint: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.16)',
-  },
-  blurWrap: {
-    zIndex: 1,
-  },
-  cardHitArea: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    zIndex: 2,
-  },
-  glassCard: {
-    width: '100%',
-    maxWidth: 340,
-    paddingVertical: 22,
-    paddingHorizontal: 22,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.82)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.55)',
-    zIndex: 3,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.12,
-        shadowRadius: 24,
-      },
-      android: { elevation: 14 },
-      web: {
-        boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
-      },
-      default: {},
-    }),
-  },
-});
+function buildFloatingFieldFocusLayerStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    layerRoot: {
+      zIndex: 1000,
+      elevation: 1000,
+    },
+    backdropTint: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: tokens.backdrop,
+    },
+    blurWrap: {
+      zIndex: 1,
+    },
+    cardHitArea: {
+      ...StyleSheet.absoluteFill,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      zIndex: 2,
+    },
+    glassCard: {
+      width: '100%',
+      maxWidth: 340,
+      paddingVertical: 22,
+      paddingHorizontal: 22,
+      borderRadius: 22,
+      backgroundColor: tokens.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: tokens.borderStrong,
+      zIndex: 3,
+      ...tokens.shadows.card,
+    },
+  });
+}
 
 export const floatingFieldTiming = { in: TIMING_MS, out: TIMING_MS };

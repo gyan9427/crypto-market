@@ -6,7 +6,7 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
-    # Expo SDK 54 pins react-native 0.81.x — use `npx expo install` for native deps, not Dependabot groups.
+    # Expo SDK 56 pins react-native 0.85.x — use `npx expo install` for native deps, not Dependabot groups.
     ignore:
       - dependency-name: 'react-native'
         update-types: ['version-update:semver-major', 'version-update:semver-minor']

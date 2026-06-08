@@ -13,7 +13,7 @@ import {
 import Reanimated from 'react-native-reanimated';
 import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
 import { useRouter } from 'expo-router';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from "expo-router/react-navigation";
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';
@@ -29,8 +29,6 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 
 const GRAPH_ANIM_MS = 280;
-
-const MARKET_ACCENT = '#6383ff';
 
 const CATEGORY_LABELS: Record<ExploreCategory, string> = {
   trending: 'Trending',
@@ -334,7 +332,7 @@ export const ExploreScreen: React.FC = () => {
         ListFooterComponent={
           loadingMore ? (
             <View style={S.footerLoader}>
-              <ActivityIndicator size="small" color={MARKET_ACCENT} />
+              <ActivityIndicator size="small" color={tokens.colors.primary[400]} />
             </View>
           ) : null
         }
@@ -349,7 +347,7 @@ export const ExploreScreen: React.FC = () => {
 };
 
 function buildExploreStyles(tokens: ThemeTokens) {
-  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
+  const accentBg = tokens.isDark ? tokens.colors.primary[900] : tokens.colors.primary[50];
 
   return StyleSheet.create({
   root: {
@@ -400,18 +398,18 @@ function buildExploreStyles(tokens: ThemeTokens) {
     color: tokens.textMuted,
   },
   tabTextActive: {
-    color: MARKET_ACCENT,
+    color: tokens.colors.primary[400],
   },
 
   // Error banner
   errorBanner: {
-    backgroundColor: tokens.isDark ? 'rgba(240,82,82,0.12)' : 'rgba(240,82,82,0.08)',
+    backgroundColor: tokens.isDark ? tokens.colors.error[100] : tokens.colors.error[50],
     marginHorizontal: 16,
     marginBottom: 8,
     padding: 10,
     borderRadius: 8,
     borderWidth: 0.5,
-    borderColor: tokens.isDark ? 'rgba(240,82,82,0.25)' : 'rgba(240,82,82,0.2)',
+    borderColor: tokens.colors.error[300],
   },
   errorBannerText: {
     color: tokens.colors.error[500],

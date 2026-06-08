@@ -26,6 +26,7 @@ type FloatingCoinProps = {
   gradientId: string;
   stopColor: string;
   stopColorEnd: string;
+  ringStroke: string;
   symbol: string;
   symbolColor: string;
   style: RNAnimated.WithAnimatedObject<ViewStyle>;
@@ -37,6 +38,7 @@ const FloatingCoin = memo(function FloatingCoin({
   gradientId,
   stopColor,
   stopColorEnd,
+  ringStroke,
   symbol,
   symbolColor,
   style,
@@ -53,7 +55,7 @@ const FloatingCoin = memo(function FloatingCoin({
           </LinearGradient>
         </Defs>
         <Circle cx={r} cy={r} r={r - 1.5} fill={`url(#${gradientId})`} />
-        <Circle cx={r} cy={r} r={r - 1.5} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth={1.2} />
+        <Circle cx={r} cy={r} r={r - 1.5} fill="none" stroke={ringStroke} strokeWidth={1.2} />
       </Svg>
       <View style={[coinStyles.coinLabel, { width: size, height: size }]}>
         <Text style={[coinStyles.coinSymbol, { fontSize: size * 0.38, color: symbolColor }]}>{symbol}</Text>
@@ -332,10 +334,11 @@ function ServiceUnavailableStateInner({
             <FloatingCoin
               size={56}
               gradientId="btcGrad"
-              stopColor="#F7931A"
-              stopColorEnd="#E2761B"
+              stopColor={c.amber}
+              stopColorEnd={c.danger[500]}
+              ringStroke={tokens.borderStrong}
               symbol="₿"
-              symbolColor="rgba(255,255,255,0.95)"
+              symbolColor={c.white}
               style={coinA}
               coinStyles={coinStyles}
             />
@@ -352,8 +355,9 @@ function ServiceUnavailableStateInner({
               gradientId="ethGrad"
               stopColor={c.primary[400]}
               stopColorEnd={c.primary[600]}
+              ringStroke={tokens.borderStrong}
               symbol="Ξ"
-              symbolColor="rgba(255,255,255,0.95)"
+              symbolColor={c.white}
               style={coinB}
               coinStyles={coinStyles}
             />
@@ -366,8 +370,9 @@ function ServiceUnavailableStateInner({
             gradientId="altGrad"
             stopColor={c.accent[300]}
             stopColorEnd={c.accent[500]}
+            ringStroke={tokens.borderStrong}
             symbol="◈"
-            symbolColor="rgba(255,255,255,0.95)"
+            symbolColor={c.white}
             style={coinC}
             coinStyles={coinStyles}
           />
@@ -429,7 +434,7 @@ function buildServiceUnavailableStyles(tokens: ThemeTokens) {
       marginBottom: s.xl,
     },
     aura: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
