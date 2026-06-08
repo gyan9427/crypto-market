@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { TextStyle } from 'react-native';
+import type { TextStyle, ViewStyle } from 'react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
 import type { AuthPalette } from '@/src/components/auth/authPalette';
 
@@ -31,7 +31,6 @@ function webAutofillStyle(bg: string, text: string): TextStyle {
   if (Platform.OS !== 'web') return {};
   return {
     backgroundColor: 'transparent',
-    // @ts-expect-error web-only CSS properties
     WebkitBoxShadow: `0 0 0 1000px ${bg} inset`,
     WebkitTextFillColor: text,
     caretColor: text,
@@ -85,9 +84,9 @@ export function AuthInput({
   }, [onBlur]);
 
   const borderColor = focused ? palette.inputBorderFocused : palette.border;
-  const focusShadow =
+  const focusShadow: ViewStyle =
     focused && Platform.OS === 'web'
-      ? ({ boxShadow: '0 0 0 3px rgba(168,85,247,0.15)' } as unknown as TextStyle)
+      ? ({ boxShadow: '0 0 0 3px rgba(168,85,247,0.15)' } as unknown as ViewStyle)
       : {};
 
   const inputStyle = useMemo(

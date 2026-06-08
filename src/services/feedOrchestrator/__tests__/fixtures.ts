@@ -46,6 +46,9 @@ export function baseContext(overrides?: Partial<FeedUserContext>): FeedUserConte
     moversTopRiskSymbols: new Set(),
     marketRegime: 'normal',
     riskStale: false,
+    heldSymbols: new Set(),
+    heldWeightBySymbol: new Map(),
+    portfolioAnalyticsRevision: 0,
     ...overrides,
   };
 }

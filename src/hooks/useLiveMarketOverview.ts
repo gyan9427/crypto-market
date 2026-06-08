@@ -88,7 +88,10 @@ export function useLiveMarketOverview(
       const low24h  = values.length ? Math.min(...values) : 0;
 
       const newKlines: KlineRecord[] = trend.points.map((point) => ({
-        openTime: point.openTime,
+        openTime:
+          typeof point.openTime === 'number'
+            ? point.openTime
+            : new Date(point.openTime).getTime(),
         open: point.value,
         high: point.value,
         low: point.value,

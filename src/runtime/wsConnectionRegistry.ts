@@ -7,11 +7,10 @@ import { isWsRegistryEnabled } from '@/src/config/featureFlags';
 
 type Channel = 'notifications' | 'risk' | 'portfolio' | 'news';
 
-type WsLike = {
-  close: () => void;
-  readyState: number;
-  onopen?: (() => void) | null;
-};
+type WsLike = Pick<
+  WebSocket,
+  'close' | 'readyState' | 'send' | 'onopen' | 'onmessage' | 'onclose' | 'onerror'
+>;
 
 /** Bind onopen and invoke immediately if the socket is already connected (registry reuse). */
 export function bindWsOpenHandler(ws: WsLike, onOpen: () => void): void {

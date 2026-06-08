@@ -12,10 +12,10 @@
       "automerge": false
     },
     {
-      "description": "React Native ecosystem — manual review",
+      "description": "React Native ecosystem — block uncoordinated bumps (Expo SDK 54 pins 0.81.x)",
       "matchPackagePatterns": ["^react-native", "^@react-native/"],
-      "groupName": "react-native-ecosystem",
-      "automerge": false
+      "allowedVersions": "<0.82.0",
+      "enabled": false
     },
     {
       "description": "EAS CLI — manual review",

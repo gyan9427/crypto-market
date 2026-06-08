@@ -19,7 +19,7 @@ import { useChartUi } from '../ChartUiContext';
 const FONT_SIZE = 10;
 const AXIS_FONT = (() => {
   try {
-    return matchFont({ familyName: 'System', fontSize: FONT_SIZE, fontStyle: 'normal', fontWeight: 'normal' });
+    return matchFont({ fontFamily: 'System', fontSize: FONT_SIZE, fontStyle: 'normal', fontWeight: 'normal' });
   } catch {
     return null;
   }
