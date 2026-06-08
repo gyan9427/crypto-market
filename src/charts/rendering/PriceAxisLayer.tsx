@@ -9,7 +9,7 @@ const FONT_SIZE = 10;
 // Module-level font — avoids first-render flash, fixes Android monospace fallback (P0-17)
 const AXIS_FONT = (() => {
   try {
-    return matchFont({ familyName: 'System', fontSize: FONT_SIZE, fontStyle: 'normal', fontWeight: 'normal' });
+    return matchFont({ fontFamily: 'System', fontSize: FONT_SIZE, fontStyle: 'normal', fontWeight: 'normal' });
   } catch {
     return null;
   }

@@ -81,7 +81,7 @@ function heldBoostForArticle(article: NewsItem, ctx: FeedUserContext): number {
 
 function narrativeBoostForArticle(article: NewsItem, ctx: FeedUserContext): number {
   if (!ctx.narrativeVector || ctx.narrativeVector.size === 0) return 0;
-  const tags = article.tags ?? [];
+  const tags = (article.categories ?? []).map((c) => c.key);
   let best = 0;
   for (const tag of tags) {
     const pct = ctx.narrativeVector.get(String(tag).toUpperCase()) ?? 0;

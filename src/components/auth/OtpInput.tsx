@@ -105,7 +105,7 @@ export function OtpInput({
         const idx = Math.min(value.length, length - 1);
         inputsRef.current[idx]?.focus();
       }}
-      accessibilityRole="group"
+      accessibilityRole="radiogroup"
       accessibilityLabel="Verification code, 6 digits"
     >
       <TextInput

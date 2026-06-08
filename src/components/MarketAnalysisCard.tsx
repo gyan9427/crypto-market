@@ -260,7 +260,7 @@ function buildStyles(tokens: ThemeTokens) {
       paddingHorizontal: 6,
       paddingVertical: 2,
       borderRadius: 6,
-      backgroundColor: tokens.isDark ? 'rgba(239,68,68,0.15)' : c.danger[100],
+      backgroundColor: tokens.isDark ? 'rgba(239,68,68,0.15)' : c.error[100],
     },
     crsPillStale: {
       opacity: 0.55,
