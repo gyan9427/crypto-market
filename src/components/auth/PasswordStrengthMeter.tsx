@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react-native';
 import type { AuthPalette } from '@/src/components/auth/authPalette';
 // @ts-expect-error Metro resolves SkiaProgressBar.{ios,android,web}; tsc has no extension map
+// eslint-disable-next-line import/no-unresolved
 import { SkiaProgressBar } from '../SkiaProgressBar';
 import type { PasswordEvaluationResult } from '@nayft/password-policy';
 
