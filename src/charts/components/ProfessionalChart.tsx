@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, View, StyleSheet, Text } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from "expo-router/react-navigation";
 import Svg, { Defs, LinearGradient, Path, Stop, Line, Circle } from 'react-native-svg';
 import type { KlineInterval } from '../types';
 import type { KlineRecord } from '@/src/types/kline';

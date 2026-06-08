@@ -287,7 +287,7 @@ function buildSaveToBoardModalStyles(tokens: ThemeTokens) {
   const br = tokens.borderRadius;
   return StyleSheet.create({
     backdrop: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: tokens.semantic.backdrop,
     },
     keyboardView: {

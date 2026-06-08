@@ -202,7 +202,7 @@ export function AnimatedSplash({ onDone }: Props) {
       {isDark ? (
         <LinearGradient
           colors={['#080510', tokens.bg]}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           start={{ x: 0.45, y: 0 }}
           end={{ x: 0.5, y: 1 }}
         />
@@ -210,7 +210,7 @@ export function AnimatedSplash({ onDone }: Props) {
         <LinearGradient
           colors={[...lightGradientColors]}
           locations={[0, 0.52, 1]}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           start={{ x: 0.48, y: 0 }}
           end={{ x: 0.52, y: 1 }}
         />

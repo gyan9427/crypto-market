@@ -13,7 +13,7 @@ import {
 import Reanimated from 'react-native-reanimated';
 import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
 import { useRouter } from 'expo-router';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from "expo-router/react-navigation";
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { MarketCapPlaceholder } from '../components/MarketCapPlaceholder';
 import { TrendingCoinCard } from '../components/TrendingCoinCard';

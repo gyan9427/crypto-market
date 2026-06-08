@@ -297,14 +297,14 @@ const styles = StyleSheet.create({
     elevation: 1000,
   },
   backdropTint: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.16)',
   },
   blurWrap: {
     zIndex: 1,
   },
   cardHitArea: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,

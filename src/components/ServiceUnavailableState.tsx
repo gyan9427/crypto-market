@@ -429,7 +429,7 @@ function buildServiceUnavailableStyles(tokens: ThemeTokens) {
       marginBottom: s.xl,
     },
     aura: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       alignItems: 'center',
       justifyContent: 'center',
     },

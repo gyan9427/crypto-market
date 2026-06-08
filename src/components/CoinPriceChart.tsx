@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from "expo-router/react-navigation";
 import Svg, { Defs, LinearGradient, Stop, Path, Circle, Line } from 'react-native-svg';
 import Animated, {
   useSharedValue,

@@ -1,5 +1,5 @@
 import React, { useLayoutEffect } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from "expo-router/react-navigation";
 import { TradingScreen } from '@/src/screens/TradingScreen';
 
 export default function CoinRoute() {

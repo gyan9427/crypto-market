@@ -13,8 +13,8 @@ if (!expoMajor) {
   process.exit(1);
 }
 
-// crypto-market targets Expo SDK 54
-const expectedMajor = '54';
+// crypto-market targets Expo SDK 56
+const expectedMajor = '56';
 if (expoMajor !== expectedMajor) {
   console.error(
     `Expo SDK major ${expoMajor} != expected ${expectedMajor}. Update scripts/check-expo-sdk-compat.js after SDK upgrade.`

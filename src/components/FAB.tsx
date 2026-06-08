@@ -202,7 +202,7 @@ function buildStyles(tokens: ThemeTokens) {
 
   return StyleSheet.create({
     backdrop: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: tokens.isDark ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.35)',
     },
     bottomSheetBackground: {
