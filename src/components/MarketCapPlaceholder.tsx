@@ -346,9 +346,9 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     () => buildMarketCapStyles(tokens, chartColors),
     [tokens, chartColors]
   );
-  const chartCrosshairStroke = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
-  const chartMarkerStroke    = isDark ? '#ffffff' : tokens.surface;
-  const chartGridStroke      = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+  const chartCrosshairStroke = chartColors.crosshair;
+  const chartMarkerStroke = chartColors.marker;
+  const chartGridStroke = chartColors.grid;
 
   const gradientId = useRef(`mcpGrad_${Math.random().toString(36).slice(2, 8)}`).current;
 

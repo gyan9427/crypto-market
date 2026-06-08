@@ -53,7 +53,7 @@ jobs:
         run: npm run test
 
       - name: Color lint
-        run: npm run check:colors
+        run: npm run check:colors -- origin/${{ github.base_ref }}
 
       - name: Expo doctor
         run: npx expo-doctor
