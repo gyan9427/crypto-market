@@ -21,6 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: internal-deploy
     steps:
+      - name: Workflow identity banner
+        run: |
+          set -euo pipefail
+          echo "RUNNING INTERNAL DEPLOYMENT PIPELINE"
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -39,6 +44,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate Play credentials JSON
+        run: |
+          set -euo pipefail
+          node -e "const raw=process.env.PLAY_STORE_SERVICE_ACCOUNT_JSON||'';if(!raw.trim()){console.error('PLAY_STORE_SERVICE_ACCOUNT_JSON is required');process.exit(1)}let parsed;try{parsed=JSON.parse(raw)}catch(e){console.error('PLAY_STORE_SERVICE_ACCOUNT_JSON is not valid JSON');process.exit(1)}const required=['type','project_id','client_email','private_key'];const missing=required.filter((key)=>!parsed[key]||String(parsed[key]).trim()==='');if(missing.length){console.error('Missing required Play credential fields: '+missing.join(', '));process.exit(1)}"
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+
       - name: Setup Play Store credentials
         run: |
           set -euo pipefail
@@ -48,6 +60,7 @@ jobs:
           echo "::endgroup::"
         env:
           PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          PLAY_STORE_JSON_KEY_PATH: ${{ runner.temp }}/play-store-key.json
 
       - name: Build Android AAB with EAS
         run: |
@@ -75,18 +88,44 @@ jobs:
           set -euo pipefail
           echo "::group::Download AAB"
           npx eas-cli build:download --id "${EAS_BUILD_ID}" --output artifacts/app-internal.aab --non-interactive
-          test -f artifacts/app-internal.aab
           echo "::endgroup::"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify AAB artifact integrity
+        run: |
+          set -euo pipefail
+          ARTIFACT_PATH="artifacts/app-internal.aab"
+          echo "Artifact path: ${ARTIFACT_PATH}"
+          ls -lah artifacts
+          if [ ! -f "${ARTIFACT_PATH}" ]; then
+            echo "Missing AAB artifact at ${ARTIFACT_PATH}"
+            exit 1
+          fi
+          if [ ! -s "${ARTIFACT_PATH}" ]; then
+            echo "AAB artifact is empty at ${ARTIFACT_PATH}"
+            exit 1
+          fi
+          stat -c "Artifact size (bytes): %s" "${ARTIFACT_PATH}"
 
       - name: Upload AAB to Play Internal
         run: |
           set -euo pipefail
           echo "::group::Fastlane upload"
-          bundle exec fastlane android deploy_internal aab_path:"artifacts/app-internal.aab"
+          bundle exec fastlane android deploy_internal aab_path:"artifacts/app-internal.aab" 2>&1 | tee artifacts/fastlane-upload.log
+          node -e "const fs=require('fs');const log=fs.readFileSync('artifacts/fastlane-upload.log','utf8');if(!log.includes('UPLOAD_COMPLETED')){console.error('UPLOAD_COMPLETED marker missing from Fastlane logs');process.exit(1)}"
+          echo "PLAY_UPLOAD_STATUS=PLAY_UPLOAD_COMPLETED" >> "$GITHUB_ENV"
           echo "::endgroup::"
         env:
           PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
           PLAY_STORE_JSON_KEY_PATH: ${{ env.PLAY_STORE_JSON_KEY_PATH }}
           CI: "true"
+
+      - name: Final deployment summary
+        run: |
+          set -euo pipefail
+          echo "PACKAGE: com.nayft.app"
+          echo "TRACK: internal"
+          echo "ARTIFACT: artifacts/app-internal.aab"
+          echo "WORKFLOW: ${{ github.workflow }}"
+          echo "STATUS: ${PLAY_UPLOAD_STATUS:-PLAY_UPLOAD_NOT_COMPLETED}"

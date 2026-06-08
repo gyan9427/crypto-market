@@ -25,6 +25,7 @@ platform :android do
   lane :deploy_internal do |options|
     validate_play_credentials!
     aab_path = options[:aab_path] || UI.user_error!('aab_path required for deploy_internal')
+    UI.message('UPLOAD_STARTED')
     upload_to_play_store(
       track: 'internal',
       aab: aab_path,
@@ -33,6 +34,7 @@ platform :android do
       skip_upload_images: true,
       skip_upload_screenshots: true
     )
+    UI.success('UPLOAD_COMPLETED')
     UI.success("Uploaded #{aab_path} to Play Internal track")
   end
 
@@ -40,6 +42,7 @@ platform :android do
   lane :deploy_production do |options|
     validate_play_credentials!
     aab_path = options[:aab_path] || UI.user_error!('aab_path required for deploy_production')
+    UI.message('UPLOAD_STARTED')
     upload_to_play_store(
       track: 'production',
       aab: aab_path,
@@ -48,6 +51,7 @@ platform :android do
       skip_upload_images: true,
       skip_upload_screenshots: true
     )
+    UI.success('UPLOAD_COMPLETED')
     UI.success("Uploaded #{aab_path} to Play Production track")
   end
 end
