@@ -6,17 +6,32 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    # Expo SDK 54 pins react-native 0.81.x — use `npx expo install` for native deps, not Dependabot groups.
+    ignore:
+      - dependency-name: 'react-native'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'react-native-gesture-handler'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-native-reanimated'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'react-native-screens'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'react-native-safe-area-context'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'react-native-svg'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'react-native-webview'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'react-native-web'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'react-native-url-polyfill'
+        update-types: ['version-update:semver-major']
     groups:
       expo-ecosystem:
         patterns:
           - 'expo'
           - 'expo-*'
           - '@expo/*'
-      react-native-ecosystem:
-        patterns:
-          - 'react-native'
-          - 'react-native-*'
-          - '@react-native/*'
       testing:
         patterns:
           - 'vitest'
