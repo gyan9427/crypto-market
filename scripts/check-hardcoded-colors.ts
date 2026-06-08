@@ -38,29 +38,53 @@ function isAllowlisted(rel: string): boolean {
   return ALLOWLIST.some((a) => rel.includes(a));
 }
 
-function filesToCheck(): string[] {
-  if (baseRef) {
+function resolveGitRef(ref: string): string | null {
+  const candidates = [
+    ref,
+    ref.startsWith('origin/') ? ref.slice('origin/'.length) : `origin/${ref}`,
+  ];
+  for (const candidate of candidates) {
     try {
-      const out = execSync(`git diff --name-only ${baseRef}...HEAD -- src/`, {
-        cwd: ROOT,
-        encoding: 'utf8',
-      });
-      const changed = out
-        .trim()
-        .split('\n')
-        .filter((f) => f && /\.(tsx?|jsx?)$/.test(f))
-        .map((f) => join(ROOT, f));
-      if (changed.length > 0) {
-        console.log(`Color lint: checking ${changed.length} file(s) changed vs ${baseRef}`);
-        return changed;
-      }
-      console.log(`Color lint: no src changes vs ${baseRef}; skipping.`);
-      return [];
-    } catch (e) {
-      console.warn(`Color lint: could not diff against ${baseRef}; scanning all src files.`);
+      execSync(`git rev-parse --verify ${candidate}`, { cwd: ROOT, stdio: 'pipe' });
+      return candidate;
+    } catch {
+      // try next candidate
     }
   }
-  return walk(SRC);
+  return null;
+}
+
+function filesToCheck(): string[] {
+  if (!baseRef) return walk(SRC);
+
+  const resolved = resolveGitRef(baseRef);
+  if (!resolved) {
+    console.error(
+      `Color lint: base ref "${baseRef}" not found. In CI, fetch it first (e.g. git fetch origin <base>).`
+    );
+    process.exit(1);
+  }
+
+  try {
+    const out = execSync(`git diff --name-only ${resolved}...HEAD -- src/`, {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    const changed = out
+      .trim()
+      .split('\n')
+      .filter((f) => f && /\.(tsx?|jsx?)$/.test(f))
+      .map((f) => join(ROOT, f));
+    if (changed.length > 0) {
+      console.log(`Color lint: checking ${changed.length} file(s) changed vs ${resolved}`);
+      return changed;
+    }
+    console.log(`Color lint: no src changes vs ${resolved}; skipping.`);
+    return [];
+  } catch {
+    console.error(`Color lint: could not diff against ${resolved}.`);
+    process.exit(1);
+  }
 }
 
 let violations = 0;
