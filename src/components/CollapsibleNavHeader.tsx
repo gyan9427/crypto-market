@@ -19,7 +19,7 @@ export function CollapsibleNavHeader(props: NavHeaderSearchProps) {
   };
 
   const clipStyle = useAnimatedStyle(() => ({
-    height: Math.max(insets.top + maxHeaderOffset.value - headerOffset.value, 0),
+    height: Math.max(maxHeaderOffset.value - headerOffset.value, 0),
   }));
 
   const contentStyle = useAnimatedStyle(() => ({

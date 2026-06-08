@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,10 +17,14 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { AuthInput } from '@/src/components/auth/AuthInput';
+import { PasswordStrengthField } from '@/src/components/auth/PasswordStrengthField';
 import { getAuthPaletteFromTokens } from '@/src/design-system/theme/authPaletteFromTokens';
 import { AuthHeader } from '@/src/components/auth/AuthHeader';
+import { AuthPrivacyLinks } from '@/src/components/auth/AuthPrivacyLinks';
 import { signup } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
+import { usePasswordStrength } from '@/src/hooks/usePasswordStrength';
+import { trackAuthEvent } from '@/src/utils/trackEvent';
 
 export default function RegisterScreen() {
   const { t } = useTranslation();
@@ -30,6 +34,7 @@ export default function RegisterScreen() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isDark = effectiveScheme === 'dark';
   const palette = useMemo(() => getAuthPaletteFromTokens(tokens), [tokens]);
+  const scrollRef = useRef<ScrollView>(null);
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -37,14 +42,28 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shakeToken, setShakeToken] = useState(0);
+
+  const strength = usePasswordStrength(password, { email: email.trim(), username: username.trim() }, { isDark });
+
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.replace('/(tabs)' as never);
+    if (!isAuthenticated) return;
+    if (user?.emailVerified !== true) {
+      router.replace('/verify-email' as never);
+      return;
     }
-  }, [isAuthenticated, router]);
+    router.replace('/(tabs)' as never);
+  }, [isAuthenticated, user?.emailVerified, router]);
 
   const clearError = useCallback(() => setError(null), []);
+
+  const canSubmit =
+    Boolean(username && email && password && confirmPassword) &&
+    strength.isAcceptable &&
+    password === confirmPassword &&
+    !loading;
 
   const handleRegister = async () => {
     if (!username || !email || !password) {
@@ -52,8 +71,18 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (password.length < 6) {
-      setError(t('auth.errorPasswordLength'));
+    if (!strength.isAcceptable) {
+      const message =
+        strength.level === 'low'
+          ? t('auth.errorPasswordAlmost')
+          : t('auth.errorPasswordWeak');
+      setError(message);
+      setShakeToken((v) => v + 1);
+      trackAuthEvent('weak_password_attempt', {
+        strengthLevel: strength.level === 'strong' ? 'low' : strength.level,
+        violationCount: strength.violations.length,
+      });
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
 
@@ -66,7 +95,7 @@ export default function RegisterScreen() {
       setLoading(true);
       setError(null);
       await signup(email.trim(), password, username.trim());
-      router.replace('/(tabs)' as never);
+      router.replace('/verify-email' as never);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('auth.errorSignUpFailed'));
     } finally {
@@ -87,6 +116,7 @@ export default function RegisterScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
         <ScrollView
+          ref={scrollRef}
           keyboardShouldPersistTaps="always"
           keyboardDismissMode="on-drag"
           contentContainerStyle={styles.scrollContent}
@@ -134,44 +164,43 @@ export default function RegisterScreen() {
               editable={!loading}
             />
 
-            <AuthInput
+            <PasswordStrengthField
               palette={palette}
-              label={t('auth.password')}
-              value={password}
-              onChangeText={(text) => { setPassword(text); clearError(); }}
-              secure
-              autoCapitalize="none"
-              placeholder={t('auth.passwordDots')}
+              password={password}
+              onChangePassword={(text) => { setPassword(text); clearError(); }}
+              confirmPassword={confirmPassword}
+              onChangeConfirmPassword={(text) => { setConfirmPassword(text); clearError(); }}
+              email={email.trim()}
+              username={username.trim()}
+              passwordLabel={t('auth.password')}
+              confirmLabel={t('auth.confirmPassword')}
+              passwordPlaceholder={t('auth.passwordDots')}
+              confirmPlaceholder={t('auth.passwordDots')}
               editable={!loading}
-            />
-
-            <AuthInput
-              palette={palette}
-              label={t('auth.confirmPassword')}
-              value={confirmPassword}
-              onChangeText={(text) => { setConfirmPassword(text); clearError(); }}
-              secure
-              autoCapitalize="none"
-              placeholder={t('auth.passwordDots')}
-              editable={!loading}
+              isDark={isDark}
+              mismatchHint={t('auth.errorPasswordMismatch')}
+              shakeToken={shakeToken}
             />
 
             <TouchableOpacity
               onPress={handleRegister}
-              disabled={loading}
+              disabled={!canSubmit}
               accessibilityRole="button"
               accessibilityLabel={t('auth.signUpAccessibility')}
+              accessibilityState={{ disabled: !canSubmit }}
               style={styles.btnWrapper}
             >
               <LinearGradient
-                colors={loading ? ['#a855f7', '#a855f7'] : ['#a855f7', '#d946ef']}
+                colors={loading || !canSubmit ? ['#a855f7', '#a855f7'] : ['#a855f7', '#d946ef']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[styles.btn, { opacity: loading ? 0.65 : 1 }]}
+                style={[styles.btn, { opacity: loading || !canSubmit ? 0.5 : 1 }]}
               >
                 <Text style={styles.btnText}>{loading ? '…' : t('auth.signUp')}</Text>
               </LinearGradient>
             </TouchableOpacity>
+
+            <AuthPrivacyLinks palette={palette} />
           </Animated.View>
 
           <Animated.View

@@ -13,11 +13,12 @@ import { AuthHeader } from '@/src/components/auth/AuthHeader';
 import { AuthInput } from '@/src/components/auth/AuthInput';
 import { PrimaryButton } from '@/src/components/auth/PrimaryButton';
 import { GoogleButton } from '@/src/components/auth/GoogleButton';
+import { AuthPrivacyLinks } from '@/src/components/auth/AuthPrivacyLinks';
 import { getAuthPaletteFromTokens } from '@/src/design-system/theme/authPaletteFromTokens';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { login, loginWithGoogle } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
-import { trackEvent } from '@/src/utils/trackEvent';
+import { trackAuthEvent } from '@/src/utils/trackEvent';
 
 const PASSWORD_RESET_URL =
   process.env.EXPO_PUBLIC_PASSWORD_RESET_URL ?? 'https://nayft.com';
@@ -27,6 +28,7 @@ export default function LoginScreen() {
   const { tokens, effectiveScheme } = useAppTheme();
   const router = useRouter();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
   const isDark = effectiveScheme === 'dark';
   const palette = useMemo(() => getAuthPaletteFromTokens(tokens), [tokens]);
 
@@ -37,10 +39,13 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.replace('/(tabs)' as never);
+    if (!isAuthenticated) return;
+    if (user?.emailVerified !== true) {
+      router.replace('/verify-email' as never);
+      return;
     }
-  }, [isAuthenticated, router]);
+    router.replace('/(tabs)' as never);
+  }, [isAuthenticated, user?.emailVerified, router]);
 
   const handleGoogleSignIn = async () => {
     if (googleLoading || loading) return;
@@ -48,15 +53,17 @@ export default function LoginScreen() {
     try {
       await GoogleSignin.hasPlayServices();
       setGoogleLoading(true);
-      trackEvent({ featureKey: 'auth', eventType: 'google_login_attempt', metadata: {} });
+      trackAuthEvent('google_login_attempt');
       const userInfo = await GoogleSignin.signIn();
       const idToken = userInfo.data?.idToken;
       if (!idToken) {
         setError(t('auth.errorGoogleUnavailable'));
         return;
       }
-      await loginWithGoogle(idToken);
-      router.replace('/(tabs)' as never);
+      const result = await loginWithGoogle(idToken);
+      router.replace(
+        (result.user.emailVerified !== true ? '/verify-email' : '/(tabs)') as never
+      );
     } catch (err: unknown) {
       const code = (err as any)?.code;
       if (code === statusCodes.SIGN_IN_CANCELLED) {
@@ -79,13 +86,15 @@ export default function LoginScreen() {
       return;
     }
 
-    trackEvent({ featureKey: 'auth', eventType: 'login_attempt', metadata: {} });
+    trackAuthEvent('login_attempt');
 
     try {
       setLoading(true);
       setError(null);
-      await login(email.trim(), password);
-      router.replace('/(tabs)' as never);
+      const result = await login(email.trim(), password);
+      router.replace(
+        (result.user.emailVerified !== true ? '/verify-email' : '/(tabs)') as never
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('auth.errorLoginFailed'));
     } finally {
@@ -94,7 +103,7 @@ export default function LoginScreen() {
   }, [email, password, router, t]);
 
   const goToRegister = () => {
-    trackEvent({ featureKey: 'auth', eventType: 'navigate_to_register', metadata: {} });
+    trackAuthEvent('navigate_to_register');
     router.push('/register' as never);
   };
 
@@ -179,6 +188,8 @@ export default function LoginScreen() {
             loading={googleLoading}
             disabled={loading || googleLoading}
           />
+
+          <AuthPrivacyLinks palette={palette} />
         </Animated.View>
 
         <Animated.View

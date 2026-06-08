@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { resolveApiBaseUrl } from '@/src/config/apiBaseUrl';
 import { Holdings, WalletEvent, TxStatus } from '../types';
 import { usePortfolioStore } from '../state/usePortfolioStore';
+import { invalidatePortfolioContextCache } from '@/src/services/piApi';
+import { useAuthStore } from '@/src/state/useAuthStore';
 
 const HEARTBEAT_STALE_MS = 45000;
 const HEARTBEAT_CHECK_MS = 5000;
@@ -55,13 +57,22 @@ interface PortfolioHoldingsDeltaMessage {
   };
 }
 
+interface PortfolioAnalyticsRevisionMessage {
+  type: 'analytics_revision';
+  seq: number;
+  emittedAt: string;
+  revision: number;
+  stale?: boolean;
+}
+
 type PortfolioInboundMessage =
   | PortfolioHeartbeatMessage
   | PortfolioSyncReadyMessage
   | PortfolioSubscribedMessage
   | PortfolioWalletEventMessage
   | PortfolioWalletStatusMessage
-  | PortfolioHoldingsDeltaMessage;
+  | PortfolioHoldingsDeltaMessage
+  | PortfolioAnalyticsRevisionMessage;
 
 interface UsePortfolioLiveStreamOptions {
   addresses: string[];
@@ -83,6 +94,7 @@ function normalizeAddresses(addresses: string[]): string[] {
 
 export function usePortfolioLiveStream(options: UsePortfolioLiveStreamOptions): { isConnected: boolean } {
   const { enabled = true } = options;
+  const token = useAuthStore((s) => s.token);
   const addresses = useMemo(() => normalizeAddresses(options.addresses), [options.addresses]);
   const addressesKey = addresses.join('|');
 
@@ -181,12 +193,21 @@ export function usePortfolioLiveStream(options: UsePortfolioLiveStreamOptions): 
         }
         case 'holdings_delta': {
           applyHoldingsDelta(message.delta.holdings);
+          return;
+        }
+        case 'analytics_revision': {
+          if (message.stale !== true) {
+            invalidatePortfolioContextCache({ refetch: true });
+          } else {
+            invalidatePortfolioContextCache();
+          }
+          return;
         }
       }
     };
 
     const connect = (): void => {
-      if (disposedRef.current || !enabled || addresses.length === 0) return;
+      if (disposedRef.current || !enabled || addresses.length === 0 || !token) return;
 
       closeSocket();
       const ws = new WebSocket(resolveWsUrl());
@@ -196,6 +217,7 @@ export function usePortfolioLiveStream(options: UsePortfolioLiveStreamOptions): 
         if (disposedRef.current) return;
         setIsConnected(true);
         lastHeartbeatRef.current = Date.now();
+        ws.send(JSON.stringify({ type: 'ws_auth', token, protocol: 2 }));
         ws.send(JSON.stringify({ type: 'portfolio_subscribe', addresses }));
       };
 
@@ -220,7 +242,7 @@ export function usePortfolioLiveStream(options: UsePortfolioLiveStreamOptions): 
       };
     };
 
-    if (enabled && addresses.length > 0) {
+    if (enabled && addresses.length > 0 && token) {
       setSessionMode('bootstrap');
       connect();
     } else {
@@ -264,6 +286,7 @@ export function usePortfolioLiveStream(options: UsePortfolioLiveStreamOptions): 
     setSessionMode,
     setStreamHealthy,
     addresses,
+    token,
   ]);
 
   return { isConnected };

@@ -5,9 +5,12 @@ export interface User {
   id: string;
   name: string;
   username: string;
+  email?: string;
   avatar?: string;
   verified?: boolean;
+  emailVerified?: boolean;
   preferredLanguage?: SupportedLanguage | null;
+  coinOnboardingCompleted?: boolean;
 }
 
 export interface Coin {
@@ -20,6 +23,7 @@ export interface Coin {
   sparklineData?: number[];
   marketCap?: number;
   volume24h?: number;
+  marketCapRank?: number;
   isFollowing?: boolean;
 }
 
@@ -78,6 +82,44 @@ export const REACTIONS: ReadonlyArray<{
   { type: 'debatable', emoji: '\u{1F504}', label: 'Debatable' },
 ];
 
+export type RelevanceBadgeKey =
+  | 'high_risk_movement'
+  | 'search_match'
+  | 'sentiment_shock'
+  | 'following'
+  | 'regime_alert';
+
+export type CoinContextScoreBreakdown = {
+  searchedBoost?: number;
+  followBoost?: number;
+  rrsWeight?: number;
+  crsDeltaWeight?: number;
+  sentimentShock?: number;
+  recency?: number;
+  repetitionPenalty?: number;
+  marketRegimeWeight?: number;
+  engagementWeight?: number;
+};
+
+export type PrimaryCoinRelevanceReason =
+  | 'search_match'
+  | 'highest_rrs'
+  | 'followed_rrs'
+  | 'fallback_article_order';
+
+export type ResolvedCoinContext = {
+  primaryCoin: Coin;
+  orderedCoins: Coin[];
+  relevanceReason: PrimaryCoinRelevanceReason;
+  prioritySource: 'search' | 'rrs';
+  priorityScore?: number;
+};
+
+export type FeedPriorityScore = {
+  total: number;
+  breakdown: CoinContextScoreBreakdown;
+};
+
 export interface NewsItem {
   id: string;
   title: string;
@@ -101,6 +143,8 @@ export interface NewsItem {
   url?: string;
   reactions?: ReactionCounts;
   userReaction?: ReactionType | null;
+  coinContext?: ResolvedCoinContext;
+  feedScore?: FeedPriorityScore;
 }
 
 export interface NewsBoard {
@@ -297,6 +341,8 @@ export interface AppState {
   likedNews: string[];
   savedNews: string[];
   followingCoins: string[];
+  /** Uppercase ticker symbols synced from GET /follow/coins (for feed matching). */
+  followingSymbols: string[];
   boards: NewsBoard[];
   newsReactions: Record<string, ReactionType>;
   /** Phase 2: last successful GET /api/market/snapshot (parallel with trending for A/B). */

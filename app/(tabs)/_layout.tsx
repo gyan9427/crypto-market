@@ -13,6 +13,7 @@ import { CollapsibleNavHeaderProvider } from '@/src/hooks/useCollapsibleNavHeade
 import { View, Image, StyleSheet } from 'react-native';
 import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
 import { useAuthStore } from '@/src/state/useAuthStore';
+import { NotificationsGatewayHost } from '@/src/components/NotificationsGatewayHost';
 
 function ProfileTabIcon({ color, size }: { color: string; size: number }) {
   const user = useAuthStore((s) => s.user);
@@ -108,6 +109,8 @@ export default function TabsLayout() {
     useFeaturesStore.getState().refetchFeatures();
   }, []);
 
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
   const getHeaderTitle = useCallback(
     (routeName: string, params?: Record<string, unknown>) => {
       if (routeName === 'index' || routeName === 'market' || routeName === 'profile') return '';
@@ -159,6 +162,7 @@ export default function TabsLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
       <StatusBar style={effectiveScheme === 'dark' ? 'light' : 'dark'} />
+      {isAuthenticated ? <NotificationsGatewayHost /> : null}
       <QuickActionsProvider>
       <CollapsibleNavHeaderProvider>
       <Tabs screenOptions={mergedScreenOptions as never}>

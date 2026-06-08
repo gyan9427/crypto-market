@@ -1,0 +1,224 @@
+# frozen_string_literal: true
+
+default_platform(:android)
+
+def project_root
+  File.expand_path('..', __dir__)
+end
+
+def validate_ci_secrets!(require_play: false)
+  UI.user_error!('EXPO_TOKEN is required') if ENV['CI'] && ENV['EXPO_TOKEN'].to_s.empty?
+  return unless require_play
+
+  UI.user_error!('PLAY_STORE_JSON_KEY_PATH or PLAY_STORE_SERVICE_ACCOUNT_JSON is required') if ENV['PLAY_STORE_JSON_KEY_PATH'].to_s.empty? && ENV['PLAY_STORE_SERVICE_ACCOUNT_JSON'].to_s.empty?
+end
+
+def setup_play_json!
+  return if ENV['PLAY_STORE_JSON_KEY_PATH'] && File.exist?(ENV['PLAY_STORE_JSON_KEY_PATH'])
+  return if ENV['PLAY_STORE_SERVICE_ACCOUNT_JSON'].to_s.empty?
+
+  path = File.join(Dir.tmpdir, "play-store-#{Process.pid}.json")
+  File.write(path, ENV['PLAY_STORE_SERVICE_ACCOUNT_JSON'])
+  File.chmod(0o600, path)
+  ENV['PLAY_STORE_JSON_KEY_PATH'] = path
+end
+
+def read_app_version
+  app = JSON.parse(File.read(File.join(project_root, 'app.json')))
+  {
+    version: app.dig('expo', 'version'),
+    version_code: app.dig('expo', 'android', 'versionCode')
+  }
+end
+
+def eas_build_profile(profile:, platform: 'android')
+  validate_ci_secrets!
+  artifacts_dir = File.join(project_root, 'artifacts')
+  FileUtils.mkdir_p(artifacts_dir)
+
+  info = read_app_version
+  sha = ENV['GITHUB_SHA']&.slice(0, 7) || 'local'
+  output = File.join(
+    artifacts_dir,
+    "nayft-market-#{info[:version]}-#{info[:version_code]}-#{sha}-#{profile}.aab"
+  )
+
+  Dir.chdir(project_root) do
+    sh(
+      'npx', 'eas-cli', 'build',
+      '--platform', platform,
+      '--profile', profile,
+      '--non-interactive',
+      '--wait'
+    )
+  end
+
+  list_json = nil
+  Dir.chdir(project_root) do
+    list_json = `npx eas-cli build:list --platform #{platform} --limit 1 --json --non-interactive`
+  end
+  builds = JSON.parse(list_json)
+  build = builds.is_a?(Array) ? builds.first : builds
+  build_id = build&.[]('id')
+  UI.user_error!('Could not resolve EAS build id') if build_id.to_s.empty?
+
+  ENV['EAS_BUILD_ID'] = build_id
+  ENV['EAS_BUILD_ID_OUTPUT'] = build_id
+
+  Dir.chdir(project_root) do
+    sh('npx', 'eas-cli', 'build:download', '--id', build_id, '--output', output)
+  end
+
+  UI.success("EAS build #{build_id} downloaded to #{output}")
+  output
+end
+
+platform :android do
+  before_all do
+    setup_play_json!
+  end
+
+  desc 'Run ESLint and color checks'
+  lane :lint do
+    Dir.chdir(project_root) do
+      sh('npm', 'run', 'lint')
+      sh('npm', 'run', 'check:colors')
+    end
+  end
+
+  desc 'Run typecheck and unit tests'
+  lane :test do
+    Dir.chdir(project_root) do
+      sh('npm', 'run', 'typecheck')
+      sh('npm', 'run', 'test')
+    end
+  end
+
+  desc 'EAS development build'
+  lane :build_dev do
+    eas_build_profile(profile: 'development')
+  end
+
+  desc 'EAS staging build (internal AAB)'
+  lane :build_staging do
+    eas_build_profile(profile: 'staging')
+  end
+
+  desc 'EAS production build (store AAB)'
+  lane :build_prod do
+    eas_build_profile(profile: 'production')
+  end
+
+  desc 'Upload AAB to Play Internal track'
+  lane :deploy_internal do |options|
+    validate_ci_secrets!(require_play: true)
+    aab_path = options[:aab_path] || eas_build_profile(profile: 'staging')
+    skip_meta = options.fetch(:skip_upload_metadata, ENV['CI'] == 'true')
+
+    retry_count = 0
+    begin
+      upload_to_play_store(
+        track: 'internal',
+        aab: aab_path,
+        release_status: 'completed',
+        skip_upload_metadata: skip_meta,
+        skip_upload_images: true,
+        skip_upload_screenshots: true
+      )
+    rescue StandardError => e
+      retry_count += 1
+      raise e unless retry_count < 3
+
+      UI.important("Play upload failed (attempt #{retry_count}), retrying...")
+      sleep(2**retry_count)
+      retry
+    end
+
+    verify_deployment(track: 'internal', version_code: read_app_version[:version_code])
+    aab_path
+  end
+
+  desc 'Upload AAB to Play beta track'
+  lane :deploy_beta do |options|
+    validate_ci_secrets!(require_play: true)
+    aab_path = options[:aab_path] || UI.user_error!('aab_path required for deploy_beta')
+    upload_to_play_store(
+      track: 'beta',
+      aab: aab_path,
+      release_status: 'completed',
+      rollout: options[:rollout] || '1.0',
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc 'Upload AAB to Play production with staged rollout'
+  lane :deploy_production do |options|
+    validate_ci_secrets!(require_play: true)
+    aab_path = options[:aab_path] || UI.user_error!('aab_path required for deploy_production')
+    rollout = options[:rollout] || '0.01'
+
+    upload_to_play_store(
+      track: 'production',
+      aab: aab_path,
+      release_status: 'completed',
+      rollout: rollout,
+      skip_upload_metadata: options.fetch(:skip_upload_metadata, true),
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    verify_deployment(track: 'production', version_code: read_app_version[:version_code])
+  end
+
+  desc 'Verify deployed versionCode on Play track'
+  lane :verify_deployment do |options|
+    validate_ci_secrets!(require_play: true)
+    track = options[:track] || 'internal'
+    expected = options[:version_code] || read_app_version[:version_code]
+    codes = google_play_track_version_codes(track: track)
+    UI.user_error!("Expected versionCode #{expected} on #{track}, found #{codes}") unless codes.map(&:to_i).include?(expected.to_i)
+    UI.success("Verified versionCode #{expected} on #{track}")
+
+    api_url = ENV['EXPO_PUBLIC_API_BASE_URL'] || 'https://api.nayft.com/api'
+    hints_url = api_url.sub(%r{/api\z}, '') + '/api/public/runtime-hints'
+    hints_url = 'https://api.nayft.com/api/public/runtime-hints' if api_url.include?('api.nayft.com')
+    sh('curl', '-sf', hints_url, '-o', '/dev/null') if ENV['SKIP_API_SMOKE'] != 'true'
+  end
+
+  desc 'Rollback: halt rollout or promote previous AAB'
+  lane :rollback_release do |options|
+    validate_ci_secrets!(require_play: true)
+    action = options[:action] || 'halt_rollout'
+
+    case action
+    when 'halt_rollout'
+      upload_to_play_store(
+        track: options[:track] || 'production',
+        rollout: '0',
+        skip_upload_aab: true,
+        skip_upload_metadata: true,
+        skip_upload_images: true,
+        skip_upload_screenshots: true,
+        skip_upload_changelogs: true
+      )
+      UI.success('Staged rollout halted')
+    when 'promote_previous'
+      aab_path = options[:aab_path] || UI.user_error!('aab_path required for promote_previous')
+      upload_to_play_store(
+        track: options[:track] || 'production',
+        aab: aab_path,
+        release_status: 'completed',
+        rollout: options[:rollout] || '0.01',
+        skip_upload_metadata: true,
+        skip_upload_images: true,
+        skip_upload_screenshots: true
+      )
+    when 'force_upgrade'
+      UI.important('Bump backend minAppVersion via API/admin — see docs/FAILED_ROLLOUT_CHECKLIST.md')
+    else
+      UI.user_error!("Unknown rollback action: #{action}")
+    end
+  end
+end

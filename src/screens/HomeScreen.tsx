@@ -1,5 +1,17 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, RefreshControl, Text, Modal } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  View,
+  StyleSheet,
+  RefreshControl,
+  Text,
+  Modal,
+  ActivityIndicator,
+  Platform,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type ViewToken,
+} from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
 import { useRouter } from 'expo-router';
@@ -14,14 +26,35 @@ import { CommentTray } from '../components/CommentTray';
 import { useAppStore } from '../state/useAppStore';
 import { fetchNews, toggleReaction } from '../services/api';
 import { NewsItem, ReactionType } from '../types';
+import { useFeedOrchestrator } from '../hooks/useFeedOrchestrator';
+import { useFeedIntentStore } from '../state/useFeedIntentStore';
 import { NewsDetailModal } from './NewsDetailModal';
 import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { buildAppWsUrl } from '@/src/config/wsBaseUrl';
+import { shareNewsById } from '../utils/share';
+import { navigateToCoin } from '../navigation/coinNavigation';
 
 /** After this many article cards, insert the Featured carousel (sixth vertical block). */
 const FEATURE_INSERT_AFTER = 5;
+
+/** Articles fetched per page for Following / Explore infinite scroll. */
+const FEED_PAGE_SIZE = 20;
+
+/** Distance from list bottom (px) that triggers the next page fetch. */
+const END_REACH_OFFSET_PX = 320;
+
+/** Minimum gap between pagination requests. */
+const LOAD_MORE_COOLDOWN_MS = 400;
+
+/** Fire load-more when a row this close to the end becomes visible. */
+const VIEWABILITY_END_BUFFER = 2;
+
+const FEED_VIEWABILITY_CONFIG = {
+  itemVisiblePercentThreshold: 25,
+  minimumViewTime: 100,
+};
 
 type FeaturedRow = { type: 'featured' };
 type FeedRow = NewsItem | FeaturedRow | null;
@@ -55,66 +88,210 @@ export const HomeScreen: React.FC = () => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildHomeStyles(tokens), [tokens]);
-  const collapsibleScrollHandlers = useCollapsibleNavHeaderScrollHandlers();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newsData, setNewsData] = useState<NewsItem[]>([]);
-  const [featuredNews, setFeaturedNews] = useState<NewsItem[]>([]);
+  const [rawNewsData, setRawNewsData] = useState<NewsItem[]>([]);
+  const [rawFeaturedNews, setRawFeaturedNews] = useState<NewsItem[]>([]);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [isDetailVisible, setIsDetailVisible] = useState(false);
   const [savingNewsId, setSavingNewsId] = useState<string | null>(null);
   const [commentingNewsId, setCommentingNewsId] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   const feedFilter = useAppStore((state) => state.feedFilter);
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
   const setReaction = useAppStore((state) => state.setReaction);
   const newsReactions = useAppStore((state) => state.newsReactions);
+  const recordSearchCoin = useFeedIntentStore((s) => s.recordSearchCoin);
+  const recordArticleRead = useFeedIntentStore((s) => s.recordArticleRead);
+
+  const { articles: newsData, isPending: feedPending } = useFeedOrchestrator(rawNewsData, feedFilter);
+  const { articles: featuredNews } = useFeedOrchestrator(rawFeaturedNews, 'explore');
+
+  const loadGenerationRef = useRef(0);
+  const pageRef = useRef(1);
+  const loadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
+  const loadingRef = useRef(false);
+  const rawCountRef = useRef(0);
+  const lastLoadMoreAtRef = useRef(0);
+  const listViewportHeightRef = useRef(0);
+  const listContentHeightRef = useRef(0);
+  const loadMoreRef = useRef<() => Promise<void>>(async () => {});
+  const tryFillShortListRef = useRef<() => void>(() => {});
+  const feedRowCountRef = useRef(0);
+  const showFeedLoading = loading || feedPending;
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    rawCountRef.current = rawNewsData.length;
+  }, [rawNewsData.length]);
+
+  const attachFeedItemState = useCallback((items: NewsItem[]): NewsItem[] => {
+    const { newsReactions: reactions, isSavedToAnyBoard: savedFn } = useAppStore.getState();
+    return items.map((item) => ({
+      ...item,
+      userReaction: reactions[item.id] ?? item.userReaction ?? null,
+      isSaved: savedFn(item.id),
+    }));
+  }, []);
 
   const loadNews = useCallback(async (options?: { background?: boolean }) => {
     const isBackground = options?.background === true;
+    const generation = loadGenerationRef.current;
+    const filter = useAppStore.getState().feedFilter;
+
     try {
       if (!isBackground) {
         setLoading(true);
         setError(null);
       }
-      const news = await fetchNews(feedFilter, 1, 50, []);
-      const { newsReactions: reactions, isSavedToAnyBoard: savedFn } = useAppStore.getState();
 
-      const newsWithState = news.map((item) => ({
-        ...item,
-        userReaction: reactions[item.id] ?? item.userReaction ?? null,
-        isSaved: savedFn(item.id),
-      }));
+      pageRef.current = 1;
+      hasMoreRef.current = true;
+      setHasMore(true);
 
-      setNewsData(newsWithState);
+      const featuredLimit = 3;
+      const [news, exploreTop] = await Promise.all([
+        fetchNews(filter, 1, FEED_PAGE_SIZE, []),
+        filter === 'following'
+          ? fetchNews('explore', 1, featuredLimit, [])
+          : Promise.resolve(null),
+      ]);
+      if (generation !== loadGenerationRef.current) return;
 
-      if (feedFilter === 'explore') {
-        setFeaturedNews(newsWithState.slice(0, 3));
-      } else {
-        try {
-          const exploreTop = await fetchNews('explore', 1, 3, []);
-          setFeaturedNews(exploreTop.slice(0, 3));
-        } catch (err: any) {
-          console.error('Error loading featured news:', err);
-        }
+      const newsWithState = attachFeedItemState(news);
+      setRawNewsData(newsWithState);
+      hasMoreRef.current = news.length >= FEED_PAGE_SIZE;
+      setHasMore(hasMoreRef.current);
+
+      if (filter === 'explore') {
+        setRawFeaturedNews(newsWithState);
+      } else if (exploreTop) {
+        setRawFeaturedNews(attachFeedItemState(exploreTop));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      if (generation !== loadGenerationRef.current) return;
       if (!isBackground) {
-        setError(err.message || t('errors.failedToLoadNews'));
+        const message = err instanceof Error ? err.message : t('errors.failedToLoadNews');
+        setError(message);
       }
       console.error('Error loading news:', err);
     } finally {
-      if (!isBackground) {
+      if (generation === loadGenerationRef.current && !isBackground) {
         setLoading(false);
+        setTimeout(() => tryFillShortListRef.current(), 300);
       }
     }
-  }, [feedFilter, t]);
+  }, [t, attachFeedItemState]);
+
+  const loadMore = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastLoadMoreAtRef.current < LOAD_MORE_COOLDOWN_MS) return;
+    if (loadingMoreRef.current || !hasMoreRef.current || loadingRef.current) return;
+    if (rawCountRef.current === 0) return;
+
+    lastLoadMoreAtRef.current = now;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+
+    try {
+      const filter = useAppStore.getState().feedFilter;
+      const nextPage = pageRef.current + 1;
+      const news = await fetchNews(filter, nextPage, FEED_PAGE_SIZE, []);
+
+      if (news.length === 0) {
+        hasMoreRef.current = false;
+        setHasMore(false);
+        return;
+      }
+
+      pageRef.current = nextPage;
+      const withState = attachFeedItemState(news);
+
+      setRawNewsData((prev) => {
+        const seen = new Set(prev.map((item) => item.id));
+        const unique = withState.filter((item) => !seen.has(item.id));
+        return unique.length > 0 ? [...prev, ...unique] : prev;
+      });
+
+      if (news.length < FEED_PAGE_SIZE) {
+        hasMoreRef.current = false;
+        setHasMore(false);
+      }
+    } catch (err: unknown) {
+      console.error('Error loading more news:', err);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+      setTimeout(() => tryFillShortListRef.current(), 300);
+    }
+  }, [attachFeedItemState]);
+
+  loadMoreRef.current = loadMore;
+
+  const tryLoadMoreFromScroll = useCallback(() => {
+    void loadMoreRef.current();
+  }, []);
+
+  const handleScrollNearEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+      if (contentSize.height <= 0) return;
+      const visibleBottom = layoutMeasurement.height + contentOffset.y;
+      const distanceFromEnd = contentSize.height - visibleBottom;
+      if (distanceFromEnd <= END_REACH_OFFSET_PX) {
+        void loadMore();
+      }
+    },
+    [loadMore]
+  );
+
+  const tryFillShortList = useCallback(() => {
+    const viewport = listViewportHeightRef.current;
+    const content = listContentHeightRef.current;
+    if (viewport <= 0 || content <= 0) return;
+    if (content <= viewport + 48 && hasMoreRef.current) {
+      void loadMore();
+    }
+  }, [loadMore]);
+
+  const handleContentSizeChange = useCallback(
+    (_width: number, height: number) => {
+      listContentHeightRef.current = height;
+      tryFillShortList();
+    },
+    [tryFillShortList]
+  );
+
+  const handleListLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      listViewportHeightRef.current = event.nativeEvent.layout.height;
+      tryFillShortList();
+    },
+    [tryFillShortList]
+  );
+
+  tryFillShortListRef.current = tryFillShortList;
+
+  const collapsibleScrollHandlers = useCollapsibleNavHeaderScrollHandlers({
+    onNearEnd: tryLoadMoreFromScroll,
+    endReachOffsetPx: END_REACH_OFFSET_PX,
+  });
 
   useEffect(() => {
     loadNews();
-  }, [loadNews]);
+  }, [feedFilter, loadNews]);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -184,8 +361,16 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleSegmentChange = useCallback((index: number) => {
-    setFeedFilter(index === 0 ? 'following' : 'explore');
-  }, [setFeedFilter]);
+    const next = index === 0 ? 'following' : 'explore';
+    if (next === feedFilter) return;
+    loadGenerationRef.current += 1;
+    pageRef.current = 1;
+    setHasMore(true);
+    setLoading(true);
+    setRawNewsData([]);
+    setRawFeaturedNews([]);
+    setFeedFilter(next);
+  }, [feedFilter, setFeedFilter]);
 
   const handleReact = useCallback(async (newsId: string, type: ReactionType) => {
     const currentReaction = newsReactions[newsId] ?? null;
@@ -206,7 +391,7 @@ export const HomeScreen: React.FC = () => {
       return { ...item, userReaction: newReaction, reactions: prev };
     };
 
-    setNewsData((prev) => prev.map(optimisticUpdate));
+    setRawNewsData((prev) => prev.map(optimisticUpdate));
 
     try {
       const result = await toggleReaction(newsId, type);
@@ -217,10 +402,10 @@ export const HomeScreen: React.FC = () => {
             ? { ...item, reactions: result.reactions, userReaction: result.userReaction }
             : item
         );
-      setNewsData((prev) => applyServer(prev));
+      setRawNewsData((prev) => applyServer(prev));
     } catch (error) {
       setReaction(newsId, currentReaction);
-      setNewsData((prev) =>
+      setRawNewsData((prev) =>
         prev.map((item) =>
           item.id === newsId ? { ...item, userReaction: currentReaction } : item
         )
@@ -236,7 +421,7 @@ export const HomeScreen: React.FC = () => {
   const handleSaved = useCallback((newsId: string, saveCount: number) => {
     const update = (item: NewsItem) =>
       item.id === newsId ? { ...item, isSaved: true, saveCount } : item;
-    setNewsData((prev) => prev.map(update));
+    setRawNewsData((prev) => prev.map(update));
     setSavingNewsId(null);
   }, []);
 
@@ -247,15 +432,16 @@ export const HomeScreen: React.FC = () => {
   const handleCommentCountChange = useCallback((newsId: string, count: number) => {
     const update = (item: NewsItem) =>
       item.id === newsId ? { ...item, comments: count } : item;
-    setNewsData((prev) => prev.map(update));
+    setRawNewsData((prev) => prev.map(update));
   }, []);
 
   const handleShare = useCallback((newsId: string) => {
-    console.log('Share:', newsId);
-  }, []);
+    void shareNewsById(newsId, [...newsData, ...featuredNews]);
+  }, [newsData, featuredNews]);
 
   const openNewsDetailById = useCallback((newsId: string) => {
-    const allNewsSources: NewsItem[] = [...newsData, ...featuredNews];
+    recordArticleRead(newsId);
+    const allNewsSources: NewsItem[] = [...newsData, ...featuredNews.slice(0, 3)];
 
     const newsItem = allNewsSources.find((item) => item.id === newsId);
     if (!newsItem) {
@@ -273,7 +459,7 @@ export const HomeScreen: React.FC = () => {
       content: newsItem.content || `${newsItem.snippet}\n\n${dummyBody}`,
     });
     setIsDetailVisible(true);
-  }, [newsData, featuredNews]);
+  }, [newsData, featuredNews, recordArticleRead]);
 
   const handleFeaturedNewsPress = useCallback(
     (newsId: string) => {
@@ -287,14 +473,44 @@ export const HomeScreen: React.FC = () => {
     setSelectedNews(null);
   }, []);
 
-  const handleCoinPress = useCallback((coinId: string) => {
-    router.push(`/coins/${coinId}` as never);
-  }, [router]);
+  const handleCoinPress = useCallback(
+    (coinId: string) => {
+      const fromFeed = [...newsData, ...featuredNews].find((n) =>
+        n.coins.some((c) => c.id === coinId)
+      );
+      const coin =
+        fromFeed?.coinContext?.primaryCoin.id === coinId
+          ? fromFeed.coinContext.primaryCoin
+          : fromFeed?.coins.find((c) => c.id === coinId);
+      if (coin?.symbol) recordSearchCoin(coin.symbol);
+      navigateToCoin(router, coinId, 'home');
+    },
+    [router, newsData, featuredNews, recordSearchCoin]
+  );
 
-  const hasFeaturedContent = featuredNews.length > 0;
+  const displayFeatured = useMemo(() => featuredNews.slice(0, 3), [featuredNews]);
+
+  const hasFeaturedContent = displayFeatured.length > 0;
   const feedRows = useMemo(
-    () => buildFeedRows(newsData, hasFeaturedContent, loading && newsData.length === 0),
-    [newsData, hasFeaturedContent, loading]
+    () => buildFeedRows(newsData, hasFeaturedContent, showFeedLoading && newsData.length === 0),
+    [newsData, hasFeaturedContent, showFeedLoading]
+  );
+
+  useEffect(() => {
+    feedRowCountRef.current = feedRows.length;
+  }, [feedRows.length]);
+
+  const handleViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (!viewableItems.length || feedRowCountRef.current === 0) return;
+      const maxIndex = Math.max(
+        ...viewableItems.map((item) => (item.index == null ? -1 : item.index))
+      );
+      if (maxIndex >= feedRowCountRef.current - VIEWABILITY_END_BUFFER) {
+        void loadMoreRef.current();
+      }
+    },
+    []
   );
 
   const listHeaderComponent = useMemo(
@@ -317,7 +533,7 @@ export const HomeScreen: React.FC = () => {
 
   const renderItem = useCallback(
     ({ item, index }: { item: FeedRow; index: number }) => {
-      if (loading && newsData.length === 0) {
+      if (showFeedLoading && newsData.length === 0) {
         return <NewsCardSkeleton key={`skeleton-${index}`} />;
       }
       if (item === null) {
@@ -327,7 +543,7 @@ export const HomeScreen: React.FC = () => {
         return featuredNews.length === 0 ? (
           <FeaturedCarouselSkeleton />
         ) : (
-          <FeaturedCarousel items={featuredNews} onItemPress={handleFeaturedNewsPress} />
+          <FeaturedCarousel items={displayFeatured} onItemPress={handleFeaturedNewsPress} />
         );
       }
       return (
@@ -343,9 +559,9 @@ export const HomeScreen: React.FC = () => {
       );
     },
     [
-      loading,
+      showFeedLoading,
       newsData.length,
-      featuredNews,
+      displayFeatured,
       handleFeaturedNewsPress,
       handleReact,
       handleComment,
@@ -362,7 +578,7 @@ export const HomeScreen: React.FC = () => {
     return item.id;
   }, []);
 
-  if (error && newsData.length === 0) {
+  if (error && newsData.length === 0 && !showFeedLoading) {
     return (
       <View style={styles.container}>
         <ServiceUnavailableState onRetry={loadNews} />
@@ -373,13 +589,20 @@ export const HomeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <Animated.FlatList
+        style={styles.list}
         data={feedRows}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         ListHeaderComponent={listHeaderComponent}
         {...collapsibleScrollHandlers}
+        onLayout={handleListLayout}
+        onContentSizeChange={handleContentSizeChange}
+        onMomentumScrollEnd={handleScrollNearEnd}
+        onScrollEndDrag={handleScrollNearEnd}
+        onViewableItemsChanged={handleViewableItemsChanged}
+        viewabilityConfig={FEED_VIEWABILITY_CONFIG}
         ListEmptyComponent={
-          !loading && newsData.length === 0 ? (
+          !showFeedLoading && newsData.length === 0 && rawNewsData.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>{t('home.noResults')}</Text>
             </View>
@@ -389,8 +612,17 @@ export const HomeScreen: React.FC = () => {
         initialNumToRender={10}
         maxToRenderPerBatch={5}
         windowSize={5}
-        removeClippedSubviews={true}
+        removeClippedSubviews={Platform.OS !== 'web'}
         showsVerticalScrollIndicator={false}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.15}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator size="small" color={tokens.colors.primary[500]} />
+            </View>
+          ) : null
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -440,6 +672,9 @@ function buildHomeStyles(tokens: ThemeTokens) {
       flex: 1,
       backgroundColor: tokens.bg,
     },
+    list: {
+      flex: 1,
+    },
     errorBanner: {
       backgroundColor: tokens.colors.error[50],
       padding: s.md,
@@ -464,6 +699,10 @@ function buildHomeStyles(tokens: ThemeTokens) {
     listContent: {
       paddingTop: s.sm,
       paddingBottom: 120,
+    },
+    footerLoader: {
+      paddingVertical: s.lg,
+      alignItems: 'center',
     },
   });
 }

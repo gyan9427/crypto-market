@@ -2,8 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { FeedCardProps } from '@/src/types';
-import { CoinStackAvatars } from './CoinStackAvatars';
-import { CoinChip } from '../CoinChip';
+import { NewsCoinTags } from './NewsCoinTags';
 
 type Props = {
   item: FeedCardProps['item'];
@@ -14,18 +13,13 @@ export function NewsCardGrid({ item, styles }: Props) {
   const { t } = useTranslation();
   return (
     <View style={[styles.container, styles.gridContainer]}>
-      {item.coins.length > 0 ? (
-        <>
-          <CoinStackAvatars coins={item.coins} maxVisible={3} />
-          <View style={[styles.coinsRow, { marginTop: 8 }]}>
-            {item.coins.slice(0, 2).map((coin) => (
-              <CoinChip key={coin.id} coin={coin} />
-            ))}
-          </View>
-        </>
-      ) : (
+      {item.coins.length === 0 ? (
         <Text style={styles.gridSource}>{t('news.defaultAttribution')}</Text>
-      )}
+      ) : null}
+      <NewsCoinTags
+        coins={(item.coinContext?.orderedCoins ?? item.coins).slice(0, 4)}
+        style={{ marginBottom: 8 }}
+      />
       <Text style={styles.gridTitle} numberOfLines={2}>
         {item.title}
       </Text>

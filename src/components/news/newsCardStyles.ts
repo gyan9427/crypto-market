@@ -97,6 +97,7 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     fontSize: typography.fontSizes.xs,
     fontFamily: typography.fontFamilies.sans,
     color: tokens.textMuted,
+    marginTop: spacing.xs,
     marginBottom: spacing.xs,
   },
   coinsRow: {
@@ -112,8 +113,31 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     alignSelf: 'center',
     marginLeft: spacing.xs,
   },
+  cardTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  cardTopBarLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  cardTopBarSymbol: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamilies.sansSemiBold,
+    fontWeight: typography.fontWeights.semibold,
+    color: tokens.text,
+    textTransform: 'uppercase',
+    letterSpacing: typography.letterSpacing.caption,
+  },
   heroOuter: {
-    position: 'relative',
     width: '100%',
   },
   heroPressable: {
@@ -144,30 +168,27 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     fontFamily: typography.fontFamilies.sansBold,
     color: tokens.isDark ? c.primary[700] : c.primary[200],
   },
-  heroFollowButton: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    zIndex: 2,
+  followButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.button,
     backgroundColor: c.primary[500],
     borderWidth: 1,
     borderColor: c.primary[500],
+    flexShrink: 0,
   },
-  heroFollowButtonFollowing: {
+  followButtonFollowing: {
     backgroundColor: tokens.surface,
     borderColor: tokens.borderStrong,
   },
-  heroFollowText: {
+  followText: {
     fontSize: typography.fontSizes.xs,
     fontWeight: typography.fontWeights.semibold,
     fontFamily: typography.fontFamilies.sansSemiBold,
     color: c.white,
     letterSpacing: typography.letterSpacing.button,
   },
-  heroFollowTextFollowing: {
+  followTextFollowing: {
     color: tokens.text,
   },
   content: {

@@ -400,6 +400,18 @@ const toggleDarkMode = useAppStore((state) => state.toggleDarkMode);
 - Ensure GestureHandlerRootView wraps the app
 - Check that @gorhom/bottom-sheet is properly installed
 
+## CI/CD
+
+Android releases use **GitHub Actions + EAS Build + Fastlane**.
+
+| Command | Purpose |
+|---------|---------|
+| `npm run ci:validate` | Local PR checks (typecheck, lint, test, colors) |
+| `npm run build:android` | EAS staging AAB |
+| `npm run build:android:prod` | EAS production AAB |
+
+See `docs/CI_CD_RUNBOOK.md`, `docs/GITHUB_SECRETS_SETUP.md`, and `BUILD_ANDROID.md`.
+
 ## License
 
 MIT

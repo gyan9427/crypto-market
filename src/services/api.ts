@@ -5,6 +5,7 @@ import { isSupportedLanguage } from '@/src/constants/languages';
 import { useAuthStore } from '../state/useAuthStore';
 import { getApiLocaleLanguage } from '@/src/services/apiLocale';
 import { resolveApiBaseUrl } from '../config/apiBaseUrl';
+import { getAppVersion } from '../config/appVersion';
 import { fetchJsonCached } from './requestCache';
 import { resolveNewsItemCoins } from '../components/news/newsCardUtils';
 
@@ -51,6 +52,7 @@ interface BackendCoin {
   marketCap?: number;
   volume24h?: number;
   image?: string;
+  marketCapRank?: number;
 }
 
 interface BackendUser {
@@ -60,8 +62,18 @@ interface BackendUser {
   followingCoins?: string[];
   rewardPoints?: number;
   preferredLanguage?: string | null;
+  emailVerified?: boolean;
+  coinOnboardingCompleted?: boolean;
   createdAt?: string;
 }
+
+export type VerificationStatus = {
+  emailVerified: boolean;
+  canResend: boolean;
+  cooldownSecondsRemaining: number;
+  codeExpiresAt: string | null;
+  locked: boolean;
+};
 
 interface BackendFollowUser {
   id: string;
@@ -142,6 +154,9 @@ export async function apiRequest<T>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept-Language': getApiLocaleLanguage(),
+    'X-Nayft-App-Version': getAppVersion(),
+    'X-Nayft-WS-Protocol': '2',
+    'X-Nayft-Schema-Version': '1',
     ...(options.headers as Record<string, string>),
   };
 
@@ -176,14 +191,19 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok || !data.success) {
-    // Handle 401 unauthorized
+    const errMsg = data.error || `HTTP error! status: ${response.status}`;
     if (response.status === 401) {
       await useAuthStore.getState().logout();
       const { useAppStore } = await import('../state/useAppStore');
       useAppStore.getState().setFeedFilter('explore');
       throw new Error('Unauthorized. Please login again.');
     }
-    throw new Error(data.error || `HTTP error! status: ${response.status}`);
+    if (response.status === 403 && errMsg.includes('EMAIL_NOT_VERIFIED')) {
+      const { router } = await import('expo-router');
+      router.replace('/verify-email' as never);
+      throw new Error('EMAIL_NOT_VERIFIED');
+    }
+    throw new Error(errMsg);
   }
 
   return data.data as T;
@@ -239,10 +259,24 @@ function transformBackendCoin(backendCoin: BackendCoin, isFollowing: boolean = f
     change24h: backendCoin.percentChange24h,
     marketCap: backendCoin.marketCap,
     volume24h: backendCoin.volume24h,
+    marketCapRank: backendCoin.marketCapRank ?? backendCoin.rank,
     logo: backendCoin.image,
     isFollowing,
     sparklineData: undefined, // Backend doesn't provide sparkline data
   };
+}
+
+/** Collect unique related-coin refs across a news page and hydrate in one batch request. */
+async function hydrateBatchCoinsForNews(backendNews: BackendNews[]): Promise<Coin[]> {
+  const refs = new Set<string>();
+  for (const article of backendNews) {
+    for (const ref of article.relatedCoins ?? []) {
+      const trimmed = ref.trim();
+      if (trimmed) refs.add(trimmed);
+    }
+  }
+  if (refs.size === 0) return [];
+  return fetchCoinsByIds([...refs]);
 }
 
 function transformBackendTrendingCoin(
@@ -259,14 +293,20 @@ function transformBackendTrendingCoin(
 
 function transformBackendUser(backendUser: BackendUser): User {
   const pl = backendUser.preferredLanguage;
+  const emailVerified = backendUser.emailVerified === true;
   const user: User = {
     id: backendUser._id,
-    name: backendUser.username, // Backend doesn't have separate name field
+    name: backendUser.username,
     username: backendUser.username,
-    verified: false, // Backend doesn't track verification
+    email: backendUser.email,
+    verified: emailVerified,
+    emailVerified,
   };
   if (pl != null && pl !== '' && isSupportedLanguage(pl)) {
     user.preferredLanguage = pl;
+  }
+  if (backendUser.coinOnboardingCompleted === true) {
+    user.coinOnboardingCompleted = true;
   }
   return user;
 }
@@ -316,23 +356,10 @@ export const fetchNews = async (
         : `/news?page=${page}&limit=${limit}${categoryParam}`;
     
     const response = await apiRequest<{ news: BackendNews[] }>(endpoint);
-    
-    const coinIds = new Set<string>();
-    response.news.forEach((news) => {
-      news.relatedCoins.forEach((coinId) => coinIds.add(coinId));
-    });
 
-    const coinIdArray = Array.from(coinIds).slice(0, 50);
-    let coins: Coin[] = [];
-    if (coinIdArray.length > 0) {
-      try {
-        coins = await fetchCoinsByIds(coinIdArray);
-      } catch (e) {
-        console.warn('fetchCoinsByIds failed:', e);
-      }
-    }
-
-    return response.news.map((news) => transformBackendNews(news, coins));
+    const batchCoins = await hydrateBatchCoinsForNews(response.news);
+    const mapped = response.news.map((news) => transformBackendNews(news, batchCoins));
+    return mapped;
   } catch (error: any) {
     throw new Error(`Failed to fetch news: ${error.message}`);
   }
@@ -405,6 +432,18 @@ export const fetchMarketSnapshot = async (): Promise<MarketSnapshotV2> => {
   return apiRequest<MarketSnapshotV2>('/market/snapshot');
 };
 
+/** Load snapshot into global store (secondary CoinIcon lookup + sparkline enrichment). */
+export async function hydrateMarketSnapshotStore(): Promise<void> {
+  const { useAppStore } = await import('../state/useAppStore');
+  try {
+    const snapshot = await fetchMarketSnapshot();
+    useAppStore.getState().setMarketSnapshot(snapshot);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load market snapshot';
+    useAppStore.getState().setMarketSnapshot(null, message);
+  }
+}
+
 export interface MarketAnalysisResponse {
   coins: MarketAnalysisCoin[];
   generatedAt: string;
@@ -466,6 +505,38 @@ export async function fetchActiveCoinsPage(
     ),
     nextCursor: response.nextCursor ?? null,
   };
+}
+
+/**
+ * Load all labeled active coins (paginates until exhausted).
+ */
+export async function fetchAllActiveCoins(): Promise<TrendingCoin[]> {
+  const all: TrendingCoin[] = [];
+  let cursor: number | null | undefined = undefined;
+  do {
+    const { coins, nextCursor } = await fetchActiveCoinsPage(cursor, 50, 'trending');
+    all.push(...coins);
+    cursor = nextCursor;
+  } while (cursor != null);
+  return all;
+}
+
+/**
+ * POST /api/onboarding/complete — follow selected coins and mark onboarding done.
+ */
+export async function completeCoinOnboarding(coinIds: string[]): Promise<User> {
+  const response = await apiRequest<{ user: BackendUser }>('/onboarding/complete', {
+    method: 'POST',
+    body: JSON.stringify({ coinIds }),
+  });
+  const user = transformBackendUser(response.user);
+  useAuthStore.getState().setUser(user);
+  return user;
+}
+
+/** DELETE /api/user/me — permanently delete the authenticated account and all associated data. */
+export async function deleteAccount(): Promise<void> {
+  await apiRequest<{ deleted: boolean }>('/user/me', { method: 'DELETE' });
 }
 
 /**
@@ -668,11 +739,17 @@ export const unfollowCoin = async (coinId: string): Promise<void> => {
   }
 };
 
+let getWishlistInflight: Promise<Coin[]> | null = null;
+
 /**
- * Get wishlist (following coins)
+ * Get wishlist (following coins) — in-flight deduped.
  */
 export const getWishlist = async (): Promise<Coin[]> => {
-  return getFollowedCoins();
+  if (getWishlistInflight) return getWishlistInflight;
+  getWishlistInflight = getFollowedCoins().finally(() => {
+    getWishlistInflight = null;
+  });
+  return getWishlistInflight;
 };
 
 export const getFollowedCoins = async (): Promise<Coin[]> => {
@@ -918,6 +995,38 @@ export const signup = async (
 /**
  * Sign in / sign up via Google OAuth id_token (issued to your mobile OAuth client IDs).
  */
+export const verifyEmail = async (
+  code: string
+): Promise<{ user: User; token: string }> => {
+  const response = await apiRequest<{ user: BackendUser; token: string }>('/auth/verify-email', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+  const user = transformBackendUser(response.user);
+  return { user, token: response.token };
+};
+
+export const resendVerification = async (): Promise<{ message: string }> => {
+  return apiRequest<{ message: string }>('/auth/resend-verification', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+};
+
+export const getVerificationStatus = async (): Promise<VerificationStatus> => {
+  return apiRequest<VerificationStatus>('/auth/verification-status');
+};
+
+export const changePassword = async (
+  currentPassword: string,
+  newPassword: string
+): Promise<void> => {
+  await apiRequest<{ message: string }>('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+};
+
 export const loginWithGoogle = async (
   idToken: string
 ): Promise<{ user: User; token: string }> => {
@@ -987,32 +1096,47 @@ export const getBoardNews = async (boardId: string): Promise<NewsItem[]> => {
 };
 
 /**
- * Get current user
+ * Get current user (in-flight deduped).
  */
+let getCurrentUserInflight: Promise<User> | null = null;
+
 export const getCurrentUser = async (): Promise<User> => {
-  try {
-    const response = await apiRequest<{ user: BackendUser }>('/auth/me');
-    const user = transformBackendUser(response.user);
-    useAuthStore.getState().setUser(user);
-    return user;
-  } catch (error: any) {
-    throw new Error(`Failed to get current user: ${error.message}`);
-  }
+  if (getCurrentUserInflight) return getCurrentUserInflight;
+  getCurrentUserInflight = (async () => {
+    try {
+      const response = await apiRequest<{ user: BackendUser }>('/auth/me');
+      const user = transformBackendUser(response.user);
+      useAuthStore.getState().setUser(user);
+      return user;
+    } catch (error: any) {
+      throw new Error(`Failed to get current user: ${error.message}`);
+    } finally {
+      getCurrentUserInflight = null;
+    }
+  })();
+  return getCurrentUserInflight;
 };
 
 export const getUserPreferences = async (): Promise<{
   preferredLanguage: string | null;
+  personalizationEnabled?: boolean;
 }> => {
-  return apiRequest<{ preferredLanguage: string | null }>('/user/preferences');
+  return apiRequest<{ preferredLanguage: string | null; personalizationEnabled?: boolean }>(
+    '/user/preferences'
+  );
 };
 
-export const patchUserPreferences = async (
-  preferredLanguage: SupportedLanguage
-): Promise<{ preferredLanguage: string }> => {
-  return apiRequest<{ preferredLanguage: string }>('/user/preferences', {
-    method: 'PATCH',
-    body: JSON.stringify({ preferredLanguage }),
-  });
+export const patchUserPreferences = async (patch: {
+  preferredLanguage?: SupportedLanguage;
+  personalizationEnabled?: boolean;
+}): Promise<{ preferredLanguage?: string; personalizationEnabled?: boolean }> => {
+  return apiRequest<{ preferredLanguage?: string; personalizationEnabled?: boolean }>(
+    '/user/preferences',
+    {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }
+  );
 };
 
 // ── Comments ────────────────────────────────────────────────────────

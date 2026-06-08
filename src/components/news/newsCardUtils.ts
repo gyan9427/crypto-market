@@ -28,33 +28,48 @@ export function coinHeaderTitle(coin: { name: string; symbol: string }): string 
   return `${coin.name}${coin.symbol ? ` · ${coin.symbol}` : ''}`;
 }
 
-/** Map API relatedCoins refs (ids or symbols) to Coin objects for display. */
+function findHydratedCoin(ref: string, batchCoins: Coin[]): Coin | undefined {
+  const key = ref.trim();
+  if (!key) return undefined;
+  const lower = key.toLowerCase();
+  const upper = key.toUpperCase();
+
+  return (
+    batchCoins.find((c) => c.id === key) ||
+    batchCoins.find((c) => c.id.toLowerCase() === lower) ||
+    batchCoins.find((c) => c.symbol.toUpperCase() === upper) ||
+    batchCoins.find((c) => c.symbol.toLowerCase() === lower)
+  );
+}
+
+/** Map API relatedCoins refs to hydrated canonical coins (batch-resolved from `coin_market_snapshots`). */
 export function resolveNewsItemCoins(relatedRefs: string[], batchCoins: Coin[] = []): Coin[] {
   const resolved: Coin[] = [];
   const seen = new Set<string>();
 
   for (const ref of relatedRefs) {
+    const match = findHydratedCoin(ref, batchCoins);
+    if (match) {
+      const dedupeKey = (match.symbol || match.id).toUpperCase();
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      resolved.push(match);
+      continue;
+    }
+
     const key = ref.trim();
     if (!key) continue;
     const upper = key.toUpperCase();
-
-    const match =
-      batchCoins.find((c) => c.id === key || c.id === upper) ||
-      batchCoins.find((c) => c.symbol.toUpperCase() === upper);
-
-    const coin: Coin =
-      match ?? {
-        id: upper,
-        symbol: upper,
-        name: upper,
-        price: 0,
-        change24h: 0,
-      };
-
-    const dedupeKey = (coin.symbol || coin.id).toUpperCase();
+    const dedupeKey = upper;
     if (seen.has(dedupeKey)) continue;
     seen.add(dedupeKey);
-    resolved.push(coin);
+    resolved.push({
+      id: upper,
+      symbol: upper,
+      name: upper,
+      price: 0,
+      change24h: 0,
+    });
   }
 
   return resolved;
@@ -90,12 +105,19 @@ export function areNewsCardPropsEqual(prev: FeedCardProps, next: FeedCardProps):
   if (a.snippet !== b.snippet) return false;
   if (a.subtitle !== b.subtitle) return false;
   if (a.imageUrl !== b.imageUrl) return false;
-  if (a.coins.length !== b.coins.length) return false;
-  for (let i = 0; i < a.coins.length; i++) {
-    const ac = a.coins[i];
-    const bc = b.coins[i];
+  const aPrimary = a.coinContext?.primaryCoin?.id ?? a.coins[0]?.id ?? '';
+  const bPrimary = b.coinContext?.primaryCoin?.id ?? b.coins[0]?.id ?? '';
+  if (aPrimary !== bPrimary) return false;
+
+  const aOrdered = a.coinContext?.orderedCoins ?? a.coins;
+  const bOrdered = b.coinContext?.orderedCoins ?? b.coins;
+  if (aOrdered.length !== bOrdered.length) return false;
+  for (let i = 0; i < aOrdered.length; i++) {
+    const ac = aOrdered[i];
+    const bc = bOrdered[i];
     if ((ac?.id ?? '') !== (bc?.id ?? '')) return false;
     if ((ac?.symbol ?? '') !== (bc?.symbol ?? '')) return false;
+    if ((ac?.logo ?? '') !== (bc?.logo ?? '')) return false;
     if ((ac?.isFollowing ?? false) !== (bc?.isFollowing ?? false)) return false;
   }
   return true;

@@ -1,6 +1,15 @@
-import { create } from 'zustand';
+import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from 'zustand';
 import { User } from '../types';
+import { cacheRegistry } from '@/src/runtime/cacheRegistry';
+import { resetAuthBackgroundSync } from '@/src/services/authBackgroundSync';
+import { bumpGeneration, createRequestGuard } from '@/src/runtime/asyncRequestGuard';
+
+const TOKEN_KEY = 'nayft_auth_token_secure';
+const LEGACY_TOKEN_KEY = '@crypto_auth_token';
+const USER_KEY = '@crypto_user';
+const MIGRATION_KEY = '@nayft_secure_token_migrated';
 
 interface AuthState {
   token: string | null;
@@ -11,10 +20,62 @@ interface AuthState {
   setToken: (token: string | null) => Promise<void>;
   setUser: (user: User | null) => void;
   initialize: () => Promise<void>;
+  migrateTokenToSecureStore: () => Promise<void>;
 }
 
-const TOKEN_KEY = '@crypto_auth_token';
-const USER_KEY = '@crypto_user';
+/** Tier 1 fast path — read only, no migration write. */
+async function readTokenFast(): Promise<string | null> {
+  try {
+    const secure = await SecureStore.getItemAsync(TOKEN_KEY);
+    if (secure) return secure;
+  } catch {
+    /* SecureStore unavailable on web — fall back */
+  }
+  return AsyncStorage.getItem(LEGACY_TOKEN_KEY);
+}
+
+async function migrateTokenToSecureStoreInternal(): Promise<void> {
+  const migrated = await AsyncStorage.getItem(MIGRATION_KEY);
+  if (migrated === '1') return;
+  const legacy = await AsyncStorage.getItem(LEGACY_TOKEN_KEY);
+  if (!legacy) return;
+  try {
+    await SecureStore.setItemAsync(TOKEN_KEY, legacy);
+    await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
+    await AsyncStorage.setItem(MIGRATION_KEY, '1');
+  } catch {
+    /* keep legacy */
+  }
+}
+
+async function writeToken(token: string | null): Promise<void> {
+  if (token) {
+    try {
+      await SecureStore.setItemAsync(TOKEN_KEY, token);
+      await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
+    } catch {
+      await AsyncStorage.setItem(LEGACY_TOKEN_KEY, token);
+    }
+  } else {
+    try {
+      await SecureStore.deleteItemAsync(TOKEN_KEY);
+    } catch {
+      /* ignore */
+    }
+    await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
+  }
+}
+
+function parseUser(raw: string | null): User | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as User;
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.id !== 'string') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
@@ -22,23 +83,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
 
   login: async (token: string, user: User) => {
-    await AsyncStorage.setItem(TOKEN_KEY, token);
+    await writeToken(token);
     await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
     set({ token, user, isAuthenticated: true });
   },
 
   logout: async () => {
-    await AsyncStorage.removeItem(TOKEN_KEY);
+    bumpGeneration('auth:token');
+    bumpGeneration('auth:bg-sync');
+    resetAuthBackgroundSync();
+    cacheRegistry.purgeUserScoped();
+    await writeToken(null);
     await AsyncStorage.removeItem(USER_KEY);
     set({ token: null, user: null, isAuthenticated: false });
   },
 
   setToken: async (token: string | null) => {
     if (token) {
-      await AsyncStorage.setItem(TOKEN_KEY, token);
-    } else {
-      await AsyncStorage.removeItem(TOKEN_KEY);
+      cacheRegistry.purgeOnAuthChange(token);
     }
+    await writeToken(token);
     set({ token, isAuthenticated: !!token });
   },
 
@@ -51,16 +115,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user });
   },
 
+  migrateTokenToSecureStore: async () => {
+    const guard = createRequestGuard('auth:token');
+    await migrateTokenToSecureStoreInternal();
+    if (guard.isStale()) return;
+  },
+
   initialize: async () => {
     try {
-      const [token, userStr] = await Promise.all([
-        AsyncStorage.getItem(TOKEN_KEY),
-        AsyncStorage.getItem(USER_KEY),
-      ]);
-
-      if (token && userStr) {
-        const user = JSON.parse(userStr) as User;
+      const [token, userStr] = await Promise.all([readTokenFast(), AsyncStorage.getItem(USER_KEY)]);
+      const user = parseUser(userStr);
+      if (token && user) {
         set({ token, user, isAuthenticated: true });
+      } else if (token && !user) {
+        await writeToken(null);
+        set({ token: null, user: null, isAuthenticated: false });
       }
     } catch (error) {
       console.error('Failed to initialize auth:', error);

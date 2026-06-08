@@ -9,8 +9,8 @@ expo-env.d.ts
 
 # native
 # native (prebuild-generated)
-android/
-ios/
+/android/
+/ios/
 *.orig.*
 *.jks
 *.p8
@@ -36,6 +36,14 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# CI artifacts (generated per build)
+artifacts/
+!artifacts/.gitkeep
+
+# Ruby / Fastlane
+vendor/bundle/
+.fastlane/
 
 # local Android / SDK downloads (never commit)
 commandlinetools-linux-*_latest.zip

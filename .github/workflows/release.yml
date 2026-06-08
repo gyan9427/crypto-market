@@ -1,0 +1,73 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: internal-deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version-file: '.ruby-version'
+          bundler-cache: true
+
+      - name: Validate version tag
+        run: node scripts/validate-version-tag.js "${{ github.ref_name }}"
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Setup Play Store JSON
+        run: |
+          PLAY_PATH=$(bash scripts/setup-play-json.sh)
+          echo "PLAY_STORE_JSON_KEY_PATH=$PLAY_PATH" >> "$GITHUB_ENV"
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Generate changelog
+        run: |
+          VERSION_CODE=$(node -p "require('./app.json').expo.android.versionCode")
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          bash scripts/generate-changelog.sh "$VERSION_CODE" "$PREV_TAG" HEAD
+
+      - name: EAS production build
+        run: bundle exec fastlane android build_prod
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+        # Requires EXPO_TOKEN in repository secrets
+
+      - name: Write release manifest
+        run: |
+          AAB=$(ls -1 artifacts/*.aab | head -1)
+          node scripts/write-release-manifest.js "$AAB"
+        env:
+          PLAY_TRACK: production
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          files: |
+            artifacts/*
+          generate_release_notes: true

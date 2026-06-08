@@ -1,0 +1,66 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - 'RELEASE_NOTES.md'
+
+concurrency:
+  group: pr-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify lockfile consistency
+        run: |
+          npm ci --ignore-scripts
+          git diff --exit-code package-lock.json
+
+      - name: Block lockfile drift
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          git diff --exit-code package-lock.json
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Color lint
+        run: npm run check:colors
+
+      - name: Expo doctor
+        run: npx expo-doctor
+
+      - name: Expo SDK compatibility
+        run: node scripts/check-expo-sdk-compat.js
+
+      - name: Native drift check
+        run: bash scripts/check-native-drift.sh origin/${{ github.base_ref }}
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+        continue-on-error: true

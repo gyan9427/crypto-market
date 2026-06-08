@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { TrendingCoin } from '../types';
+import { CoinIcon } from './CoinIcon';
 import { formatPrice, formatPercentage } from '../utils/format';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
@@ -39,7 +40,6 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, liveQ
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildTrendingCoinCardStyles(tokens), [tokens]);
   const c = tokens.colors;
-  const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   const rawLivePrice = liveQuote?.price;
   const livePrice = typeof rawLivePrice === 'number' && Number.isFinite(rawLivePrice)
@@ -59,11 +59,6 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, liveQ
     return FLAT_SPARKLINE;
   }, [coin.sparklineData]);
   const sparklineColor = isPositive ? c.success[500] : c.danger[500];
-  const showCoinLogo = Boolean(coin.logo) && !imageLoadFailed;
-
-  useEffect(() => {
-    setImageLoadFailed(false);
-  }, [coin.logo]);
 
   return (
     <TouchableOpacity
@@ -78,18 +73,7 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, liveQ
         <Text style={styles.rank}>{coin.rank}</Text>
       )}
 
-      <View style={styles.coinIconWrap}>
-        {showCoinLogo ? (
-          <Image
-            source={{ uri: coin.logo }}
-            style={styles.coinIcon}
-            resizeMode="cover"
-            onError={() => setImageLoadFailed(true)}
-          />
-        ) : (
-          <Text style={styles.coinIconFallback}>{coin.symbol.slice(0, 3)}</Text>
-        )}
-      </View>
+      <CoinIcon coin={coin} size={36} style={styles.coinIconMargin} />
 
       <View style={styles.identity}>
         <Text style={styles.coinName} numberOfLines={1}>{coin.name}</Text>
@@ -145,27 +129,8 @@ function buildTrendingCoinCardStyles(tokens: ThemeTokens) {
       letterSpacing: typo.letterSpacing.caption,
       fontVariant: ['tabular-nums'],
     },
-    coinIconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: tokens.isDark ? 'rgba(168,85,247,0.12)' : c.primary[100],
-      borderWidth: 1,
-      borderColor: tokens.border,
+    coinIconMargin: {
       marginRight: s.sm,
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
-    },
-    coinIcon: {
-      width: '100%',
-      height: '100%',
-    },
-    coinIconFallback: {
-      fontSize: 9,
-      fontWeight: typo.fontWeights.bold,
-      fontFamily: typo.fontFamilies.sansBold,
-      color: c.primary[600],
     },
     identity: {
       flex: 1,

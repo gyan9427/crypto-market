@@ -1,0 +1,38 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "UTC",
+  "schedule": ["before 10am on Monday"],
+  "prConcurrentLimit": 3,
+  "packageRules": [
+    {
+      "description": "Expo ecosystem — manual review",
+      "matchPackagePatterns": ["^expo", "^@expo/"],
+      "groupName": "expo-ecosystem",
+      "automerge": false
+    },
+    {
+      "description": "React Native ecosystem — manual review",
+      "matchPackagePatterns": ["^react-native", "^@react-native/"],
+      "groupName": "react-native-ecosystem",
+      "automerge": false
+    },
+    {
+      "description": "EAS CLI — manual review",
+      "matchPackageNames": ["eas-cli"],
+      "automerge": false
+    },
+    {
+      "description": "Dev deps patch auto-merge",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "GitHub Actions — manual review",
+      "matchManagers": ["github-actions"],
+      "automerge": false
+    }
+  ]
+}

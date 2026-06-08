@@ -6,9 +6,11 @@ import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { SearchSegment } from '@/src/services/api';
+import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
 import { UnifiedSearch } from '@/src/components/UnifiedSearch';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { navigateToCoin } from '@/src/navigation/coinNavigation';
 
 const ALL_SEGMENTS: SearchSegment[] = [
   'all',
@@ -54,11 +56,14 @@ export default function SearchScreen() {
     }
   }, [params.segment]);
 
+  const recordSearchCoin = useFeedIntentStore((s) => s.recordSearchCoin);
+
   const handleCoinPress = React.useCallback(
-    (coinId: string) => {
-      router.push(`/coins/${coinId}` as never);
+    (coinId: string, symbol?: string) => {
+      if (symbol) recordSearchCoin(symbol);
+      navigateToCoin(router, coinId, 'search');
     },
-    [router]
+    [router, recordSearchCoin]
   );
 
   const handleNewsPress = React.useCallback(

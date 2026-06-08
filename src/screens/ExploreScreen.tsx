@@ -23,6 +23,7 @@ import { useAppStore } from '../state/useAppStore';
 import { fetchActiveCoinsPage, fetchMarketSnapshot, enrichTrendingCoinsWithSnapshot } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
 import { usePollingEffect } from '../hooks/usePollingEffect';
+import { navigateToCoin } from '../navigation/coinNavigation';
 import { LivePriceQuote, useMarketPriceStream, useSparklineHistory, seedPriceHistory } from '../hooks/useMarketPriceStream';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
@@ -104,6 +105,7 @@ export const ExploreScreen: React.FC = () => {
 
   const exploreCategory = useAppStore((state) => state.exploreCategory);
   const setExploreCategory = useAppStore((state) => state.setExploreCategory);
+  const setMarketSnapshot = useAppStore((state) => state.setMarketSnapshot);
 
   const categories: ExploreCategory[] = ['trending', 'top'];
 
@@ -118,6 +120,7 @@ export const ExploreScreen: React.FC = () => {
         fetchActiveCoinsPage(undefined, 20, cat),
         fetchMarketSnapshot().catch(() => null),
       ]);
+      if (snapshot) setMarketSnapshot(snapshot);
       setCoins(enrichTrendingCoinsWithSnapshot(pageCoins, snapshot));
       setNextCursor(cursor);
     } catch (err: any) {
@@ -143,6 +146,7 @@ export const ExploreScreen: React.FC = () => {
         fetchActiveCoinsPage(undefined, 20, cat),
         fetchMarketSnapshot().catch(() => null),
       ]);
+      if (snapshot) setMarketSnapshot(snapshot);
       const enriched = enrichTrendingCoinsWithSnapshot(pageCoins, snapshot);
       setCoins((prev) => {
         if (prev.length === 0) return enriched;
@@ -184,7 +188,7 @@ export const ExploreScreen: React.FC = () => {
   }, [loadingMore, nextCursor, exploreCategory]);
 
   const handleCoinPress = (coinId: string) => {
-    router.push(`/coin/${coinId}` as never);
+    navigateToCoin(router, coinId, 'market');
   };
 
   const onMarketGraphLayout = (e: LayoutChangeEvent) => {

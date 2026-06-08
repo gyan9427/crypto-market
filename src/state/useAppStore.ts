@@ -44,6 +44,7 @@ export const useAppStore = create<AppState>((set, get) => {
     likedNews: [],
     savedNews: [],
     followingCoins: [],
+    followingSymbols: [],
     boards: [],
     newsReactions: {},
     marketSnapshot: null,
@@ -106,7 +107,7 @@ export const useAppStore = create<AppState>((set, get) => {
       }
       try {
         const { patchUserPreferences } = await import('../services/api');
-        await patchUserPreferences(lang);
+        await patchUserPreferences({ preferredLanguage: lang });
         await AsyncStorage.removeItem(LANGUAGE_SYNC_PENDING_KEY);
         const user = useAuthStore.getState().user;
         if (user) {
@@ -144,7 +145,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const lang = get().language;
       try {
         const { patchUserPreferences } = await import('../services/api');
-        await patchUserPreferences(lang);
+        await patchUserPreferences({ preferredLanguage: lang });
         await AsyncStorage.removeItem(LANGUAGE_SYNC_PENDING_KEY);
         const user = useAuthStore.getState().user;
         if (user) {
@@ -222,13 +223,16 @@ export const useAppStore = create<AppState>((set, get) => {
 
     syncFollowingCoins: async () => {
       if (!useAuthStore.getState().isAuthenticated) {
-        set({ followingCoins: [] });
+        set({ followingCoins: [], followingSymbols: [] });
         return;
       }
 
       try {
         const wishlist = await getWishlist();
-        set({ followingCoins: wishlist.map(coin => coin.id) });
+        set({
+          followingCoins: wishlist.map((coin) => coin.id),
+          followingSymbols: wishlist.map((coin) => coin.symbol.toUpperCase()),
+        });
       } catch (error) {
         console.error('Failed to sync following coins:', error);
       }
