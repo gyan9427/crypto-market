@@ -35,13 +35,6 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      - name: Setup Play Store JSON
-        run: |
-          PLAY_PATH=$(bash scripts/setup-play-json.sh)
-          echo "PLAY_STORE_JSON_KEY_PATH=$PLAY_PATH" >> "$GITHUB_ENV"
-        env:
-          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
-
       - name: Generate changelog
         run: |
           VERSION_CODE=$(node -p "require('./app.json').expo.android.versionCode")
