@@ -645,7 +645,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                     />
                   </ScrollView>
                 ) : (
-                  <CandleSvg
+                  <MemoCandleSvg
                     klines={klines}
                     green={chartColors.green}
                     red={chartColors.red}
