@@ -54,6 +54,47 @@ function resolveGitRef(ref: string): string | null {
   return null;
 }
 
+function parseChangedLineNumbers(diff: string): Map<string, Set<number>> {
+  const changed = new Map<string, Set<number>>();
+  let currentFile: string | null = null;
+
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('+++ b/')) {
+      currentFile = line.slice('+++ b/'.length);
+      continue;
+    }
+    if (!currentFile || !line.startsWith('@@')) continue;
+
+    const match = line.match(/\+(\d+)(?:,(\d+))?/);
+    if (!match) continue;
+
+    const start = Number(match[1]);
+    const count = match[2] ? Number(match[2]) : 1;
+    if (count === 0) continue;
+
+    const lines = changed.get(currentFile) ?? new Set<number>();
+    for (let i = 0; i < count; i += 1) {
+      lines.add(start + i);
+    }
+    changed.set(currentFile, lines);
+  }
+
+  return changed;
+}
+
+function changedLinesByFile(resolved: string): Map<string, Set<number>> | null {
+  try {
+    const diff = execSync(`git diff -U0 ${resolved}...HEAD -- src/`, {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    return parseChangedLineNumbers(diff);
+  } catch {
+    console.error(`Color lint: could not diff against ${resolved}.`);
+    process.exit(1);
+  }
+}
+
 function filesToCheck(): string[] {
   if (!baseRef) return walk(SRC);
 
@@ -65,41 +106,37 @@ function filesToCheck(): string[] {
     process.exit(1);
   }
 
-  try {
-    const out = execSync(`git diff --name-only ${resolved}...HEAD -- src/`, {
-      cwd: ROOT,
-      encoding: 'utf8',
-    });
-    const changed = out
-      .trim()
-      .split('\n')
-      .filter((f) => f && /\.(tsx?|jsx?)$/.test(f))
-      .map((f) => join(ROOT, f));
-    if (changed.length > 0) {
-      console.log(`Color lint: checking ${changed.length} file(s) changed vs ${resolved}`);
-      return changed;
-    }
+  const changed = changedLinesByFile(resolved);
+  if (!changed || changed.size === 0) {
     console.log(`Color lint: no src changes vs ${resolved}; skipping.`);
     return [];
-  } catch {
-    console.error(`Color lint: could not diff against ${resolved}.`);
-    process.exit(1);
   }
+
+  console.log(`Color lint: checking ${changed.size} file(s) changed vs ${resolved}`);
+  return [...changed.keys()]
+    .filter((f) => /\.(tsx?|jsx?)$/.test(f))
+    .map((f) => join(ROOT, f));
 }
 
 let violations = 0;
+const files = filesToCheck();
+const lineFilter =
+  baseRef && resolveGitRef(baseRef) ? changedLinesByFile(resolveGitRef(baseRef)!) : null;
 
-for (const file of filesToCheck()) {
+for (const file of files) {
   const rel = relative(ROOT, file);
   if (isAllowlisted(rel)) continue;
   const content = readFileSync(file, 'utf8');
   const lines = content.split('\n');
+  const changedLines = lineFilter?.get(rel);
   lines.forEach((line, i) => {
+    const lineNo = i + 1;
+    if (changedLines && !changedLines.has(lineNo)) return;
     if (line.trim().startsWith('//') || line.includes('eslint-disable')) return;
     const hex = line.match(HEX_PATTERN);
     const rgba = line.match(RGBA_PATTERN);
     if (hex?.length || rgba?.length) {
-      console.error(`${rel}:${i + 1}: hardcoded color — ${line.trim().slice(0, 80)}`);
+      console.error(`${rel}:${lineNo}: hardcoded color — ${line.trim().slice(0, 80)}`);
       violations += 1;
     }
   });
