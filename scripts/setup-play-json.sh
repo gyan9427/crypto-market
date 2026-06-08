@@ -3,7 +3,7 @@
 set -euo pipefail
 
 if [ -z "${PLAY_STORE_SERVICE_ACCOUNT_JSON:-}" ]; then
-  echo "PLAY_STORE_SERVICE_ACCOUNT_JSON is not set"
+  echo "::error::PLAY_STORE_SERVICE_ACCOUNT_JSON is not set. Add it to the GitHub environment (internal-deploy or production-release). See docs/GITHUB_SECRETS_SETUP.md"
   exit 1
 fi
 
