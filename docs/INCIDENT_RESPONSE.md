@@ -12,11 +12,11 @@
 
 1. **Assess scope** — Sentry, Play Console vitals, support tickets
 2. **Halt rollout** if staged production deploy active:
-   - Actions → **Rollback Release** → `halt_rollout`
+   - Play Console → Production release → pause/stop rollout
 3. **Block bad clients** (fastest):
    - Bump backend `minAppVersion` via runtime-hints API
 4. **Rollback binary** if needed:
-   - **Rollback Release** → `promote_previous` with last good tag
+   - Promote previous known-good release in Play Console or upload known-good AAB manually
 5. **Communicate** — status to team + users if widespread
 6. **Post-mortem** within 48 hr
 
@@ -37,7 +37,7 @@
 
 ## Evidence to collect
 
-- `release-manifest.json` for affected release
+- Play Console release IDs and rollout history for affected release
 - Sentry issue links
 - Play Console ANR/crash clusters
 - GitHub Actions run URL

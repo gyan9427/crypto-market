@@ -1,19 +1,18 @@
 # Go-Live Readiness Checklist
 
-Complete before first **production** staged rollout.
+Complete before first **production** deploy.
 
 ## Pipeline verification
 
-- [ ] Play Internal deployment verified (`develop-build.yml` → `deploy_internal` → `verify_deployment`)
-- [ ] Version/tag validation working (`release.yml` rejects tag ≠ `app.json` version)
+- [ ] Play Internal deployment verified (`deploy-internal.yml` push trigger on `develop`)
+- [ ] Production manual trigger verified (`deploy-production.yml` via `workflow_dispatch` only)
 - [ ] Production approval gate tested (`production-release` environment)
 - [ ] PR validation passing on `main`
 
 ## Recovery & provenance
 
-- [ ] Rollback tested once on Internal track
-- [ ] Release artifact recovery tested (download AAB from GitHub Release)
-- [ ] `release-manifest.json` attached to test GitHub Release
+- [ ] Manual rollback tested in Play Console once
+- [ ] Last known-good production release documented for emergency promotion
 - [ ] EAS credentials backed up to org vault
 
 ## Security & access
@@ -37,6 +36,6 @@ Complete before first **production** staged rollout.
 
 ## Production rehearsal (required)
 
-- [ ] **Fake production rehearsal:** `release.yml` → `production-release.yml` against Internal/Closed track
+- [ ] **Fake production rehearsal:** `deploy-internal.yml` then `deploy-production.yml` on a controlled release window
 - [ ] Deploy + rollback drill with ≥2 maintainers
 - [ ] Post-drill gaps documented in `docs/CI_CD_RUNBOOK.md`

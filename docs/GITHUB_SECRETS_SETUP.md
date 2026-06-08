@@ -6,8 +6,10 @@ Configure these in the **crypto-market** GitHub repository before running deploy
 
 | Secret | How to create | Used by |
 |--------|---------------|---------|
-| `EXPO_TOKEN` | https://expo.dev/settings/access-tokens → Create token (`nayft_user`) | EAS build workflows |
+| `EXPO_TOKEN` | https://expo.dev/settings/access-tokens → Create token (`nayft_user`) | EAS build in deploy workflows |
 | `PLAY_STORE_SERVICE_ACCOUNT_JSON` | Full contents of `secrets/play-store-key.json` (see `secrets/README.md`) | Fastlane `upload_to_play_store` |
+
+Only these two secret names are supported in deployment workflows. Do not add aliases.
 
 ## GitHub Environments
 
@@ -15,16 +17,16 @@ Create environments in **Settings → Environments**:
 
 ### `internal-deploy`
 
-Used by: `develop-build.yml`, `release.yml`
+Used by: `deploy-internal.yml`
 
 - `EXPO_TOKEN`
 - `PLAY_STORE_SERVICE_ACCOUNT_JSON`
 
 ### `production-release`
 
-Used by: `production-release.yml`, `rollback.yml`
+Used by: `deploy-production.yml`
 
-- `EXPO_TOKEN` (optional if deploy-only reuses release AAB)
+- `EXPO_TOKEN`
 - `PLAY_STORE_SERVICE_ACCOUNT_JSON`
 - **Required reviewers:** ≥1
 - Deployment branches: `main` only
@@ -63,5 +65,5 @@ npx eas-cli whoami
 
 # Play JSON
 export PLAY_STORE_JSON_KEY_PATH=/path/to/key.json
-bundle exec fastlane run google_play_track_version_codes package_name:com.nayft.app track:internal json_key:$PLAY_STORE_JSON_KEY_PATH
+bundle exec fastlane android deploy_internal aab_path:/tmp/example.aab
 ```
