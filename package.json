@@ -90,7 +90,7 @@
     "@babel/core": "^7.29.0",
     "@types/react": "~19.2.14",
     "babel-plugin-transform-remove-console": "^6.9.4",
-    "baseline-browser-mapping": "^2.10.0",
+    "baseline-browser-mapping": "^2.10.34",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~56.0.4",
     "patch-package": "^8.0.1",
