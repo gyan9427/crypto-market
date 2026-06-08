@@ -10,7 +10,6 @@ config.watchFolders = [passwordPolicyRoot];
 
 config.resolver = {
   ...config.resolver,
-  unstable_enableSymlinks: true,
   extraNodeModules: {
     '@nayft/password-policy': passwordPolicyRoot,
   },

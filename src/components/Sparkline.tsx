@@ -24,13 +24,13 @@ function areSparklinePropsEqual(prev: SparklineProps, next: SparklineProps): boo
   return true;
 }
 
-export const Sparkline = React.memo<SparklineProps>(({
+function Sparkline({
   data,
   width = 60,
   height = 24,
   lineColor,
   isPositive = true,
-}) => {
+}: SparklineProps) {
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildSparklineStyles(), []);
 
@@ -69,7 +69,10 @@ export const Sparkline = React.memo<SparklineProps>(({
       </Svg>
     </View>
   );
-}, areSparklinePropsEqual);
+}
+Sparkline.displayName = 'Sparkline';
+export const MemoizedSparkline = React.memo(Sparkline, areSparklinePropsEqual);
+export { MemoizedSparkline as Sparkline };
 
 function buildSparklineStyles() {
   return StyleSheet.create({

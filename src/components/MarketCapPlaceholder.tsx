@@ -124,7 +124,7 @@ interface ChartSvgProps {
   gridStroke: string;
 }
 
-const ChartSvg = memo<ChartSvgProps>(({
+function ChartSvg({
   view,
   gradientId,
   isDark,
@@ -133,7 +133,8 @@ const ChartSvg = memo<ChartSvgProps>(({
   crosshairStroke,
   markerStroke,
   gridStroke,
-}) => (
+}: ChartSvgProps) {
+  return (
   <Svg
     style={svgStyle}
     preserveAspectRatio="none"
@@ -203,12 +204,16 @@ const ChartSvg = memo<ChartSvgProps>(({
       </>
     ) : null}
   </Svg>
-));
+  );
+}
+ChartSvg.displayName = 'ChartSvg';
+const MemoChartSvg = memo(ChartSvg);
 
 const svgStyle = { width: '100%' as const, height: '100%' as const };
 
 // ─── Chart-type icons ─────────────────────────────────────────────────────────
-const LineIcon = memo(({ color }: { color: string }) => (
+function LineIcon({ color }: { color: string }) {
+  return (
   <Svg width={16} height={16} viewBox="0 0 16 16">
     <Path
       d="M1 12 L5 6 L9 9 L15 3"
@@ -219,18 +224,31 @@ const LineIcon = memo(({ color }: { color: string }) => (
       strokeLinejoin="round"
     />
   </Svg>
-));
+  );
+}
+LineIcon.displayName = 'LineIcon';
+const MemoLineIcon = memo(LineIcon);
 
-const CandleIcon = memo(
-  ({ color, green, red }: { color: string; green: string; red: string }) => (
+function CandleIcon({
+  color,
+  green,
+  red,
+}: {
+  color: string;
+  green: string;
+  red: string;
+}) {
+  return (
     <Svg width={16} height={16} viewBox="0 0 16 16">
       <Line x1="5" y1="2" x2="5" y2="14" stroke={color} strokeWidth="1.2" />
       <Rect x="3" y="5" width="4" height="5" fill={red} rx="0.5" />
       <Line x1="11" y1="3" x2="11" y2="13" stroke={color} strokeWidth="1.2" />
       <Rect x="9" y="6" width="4" height="5" fill={green} rx="0.5" />
     </Svg>
-  )
-);
+  );
+}
+CandleIcon.displayName = 'CandleIcon';
+const MemoCandleIcon = memo(CandleIcon);
 
 // ─── Candlestick SVG ──────────────────────────────────────────────────────────
 interface CandleSvgProps {
@@ -243,7 +261,7 @@ interface CandleSvgProps {
   totalSvgW: number;
 }
 
-const CandleSvg = memo<CandleSvgProps>(({
+function CandleSvg({
   klines,
   green,
   red,
@@ -251,7 +269,7 @@ const CandleSvg = memo<CandleSvgProps>(({
   activeIndex,
   crosshairStroke,
   totalSvgW,
-}) => {
+}: CandleSvgProps) {
   const n = klines.length;
   if (n === 0) return null;
 
@@ -307,7 +325,9 @@ const CandleSvg = memo<CandleSvgProps>(({
       ) : null}
     </Svg>
   );
-});
+}
+CandleSvg.displayName = 'CandleSvg';
+const MemoCandleSvg = memo(CandleSvg);
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface MarketCapPlaceholderProps {
@@ -326,9 +346,9 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     () => buildMarketCapStyles(tokens, chartColors),
     [tokens, chartColors]
   );
-  const chartCrosshairStroke = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
-  const chartMarkerStroke    = isDark ? '#ffffff' : tokens.surface;
-  const chartGridStroke      = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+  const chartCrosshairStroke = chartColors.crosshair;
+  const chartMarkerStroke = chartColors.marker;
+  const chartGridStroke = chartColors.grid;
 
   const gradientId = useRef(`mcpGrad_${Math.random().toString(36).slice(2, 8)}`).current;
 
@@ -555,14 +575,14 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
               onPress={() => setChartType('line')}
               activeOpacity={0.7}
             >
-              <LineIcon color={chartType === 'line' ? chartColors.line : tokens.textMuted} />
+              <MemoLineIcon color={chartType === 'line' ? chartColors.line : tokens.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.viewToggleBtn, chartType === 'candle' && styles.viewToggleBtnActive]}
               onPress={() => setChartType('candle')}
               activeOpacity={0.7}
             >
-              <CandleIcon
+              <MemoCandleIcon
                 color={chartType === 'candle' ? chartColors.line : tokens.textMuted}
                 green={chartColors.green}
                 red={chartColors.red}
@@ -595,7 +615,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
             ) : chartView ? (
               <>
                 {chartType === 'line' ? (
-                  <ChartSvg
+                  <MemoChartSvg
                     view={chartView}
                     gradientId={gradientId}
                     isDark={isDark}
@@ -614,7 +634,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                     contentContainerStyle={{ width: candleTotalPixelW }}
                     onScroll={(e) => { candleScrollOffsetRef.current = e.nativeEvent.contentOffset.x; }}
                   >
-                    <CandleSvg
+                    <MemoCandleSvg
                       klines={klines}
                       green={chartColors.green}
                       red={chartColors.red}
@@ -625,7 +645,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                     />
                   </ScrollView>
                 ) : (
-                  <CandleSvg
+                  <MemoCandleSvg
                     klines={klines}
                     green={chartColors.green}
                     red={chartColors.red}

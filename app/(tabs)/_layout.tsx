@@ -10,12 +10,12 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { QuickActionsProvider, useQuickActions } from '@/src/components/FAB';
 import { CollapsibleNavHeader } from '@/src/components/CollapsibleNavHeader';
 import { CollapsibleNavHeaderProvider } from '@/src/hooks/useCollapsibleNavHeader';
-import { View, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet, type ColorValue } from 'react-native';
 import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { NotificationsGatewayHost } from '@/src/components/NotificationsGatewayHost';
 
-function ProfileTabIcon({ color, size }: { color: string; size: number }) {
+function ProfileTabIcon({ color, size }: { color: ColorValue; size: number }) {
   const user = useAuthStore((s) => s.user);
   if (user?.avatar) {
     return (
@@ -34,12 +34,13 @@ const tabStyles = StyleSheet.create({
   },
 });
 
-function QuickActionsTabButton(props: BottomTabBarButtonProps) {
+function QuickActionsTabButton({ pressColor, ...props }: BottomTabBarButtonProps) {
   const { t } = useTranslation();
   const { open } = useQuickActions();
   return (
     <PlatformPressable
       {...props}
+      pressColor={typeof pressColor === 'string' ? pressColor : undefined}
       onPress={open}
       accessibilityRole="button"
       accessibilityLabel={t('fab.addAction')}

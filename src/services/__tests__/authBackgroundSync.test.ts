@@ -1,13 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import {
-  runAuthBackgroundSync,
-  runAuthBackgroundSyncDebounced,
-  resetAuthBackgroundSync,
-} from '@/src/services/authBackgroundSync';
 
 const syncLanguageFromServer = vi.fn().mockResolvedValue(undefined);
 const retryLanguageSync = vi.fn().mockResolvedValue(undefined);
 const syncFollowingCoins = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('@/src/services/api', () => ({
+  getCurrentUser: vi.fn().mockResolvedValue(null),
+}));
 
 vi.mock('@/src/state/useAuthStore', () => ({
   useAuthStore: {
@@ -24,6 +23,12 @@ vi.mock('@/src/state/useAppStore', () => ({
     })),
   },
 }));
+
+import {
+  runAuthBackgroundSync,
+  runAuthBackgroundSyncDebounced,
+  resetAuthBackgroundSync,
+} from '@/src/services/authBackgroundSync';
 
 describe('authBackgroundSync', () => {
   beforeEach(() => {

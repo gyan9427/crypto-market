@@ -10,8 +10,10 @@ import Animated, {
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react-native';
 import type { AuthPalette } from '@/src/components/auth/authPalette';
+import { getThemeTokens } from '@/src/design-system/theme/getThemeTokens';
 // @ts-expect-error Metro resolves SkiaProgressBar.{ios,android,web}; tsc has no extension map
-import { SkiaProgressBar } from '@/src/components/SkiaProgressBar';
+// eslint-disable-next-line import/no-unresolved
+import { SkiaProgressBar } from '../SkiaProgressBar';
 import type { PasswordEvaluationResult } from '@nayft/password-policy';
 
 type Props = {
@@ -57,7 +59,7 @@ export function PasswordStrengthMeter({
 
   if (!visible) return null;
 
-  const successColor = isDark ? '#4ade80' : '#22c55e';
+  const successColor = getThemeTokens(isDark).colors.success[500];
 
   return (
     <Animated.View

@@ -1,12 +1,15 @@
 /**
- * CI guard: fails when new hardcoded color literals appear outside allowlisted paths.
- * Run: npx tsx scripts/check-hardcoded-colors.ts
+ * CI guard: fails when hardcoded color literals appear outside allowlisted paths.
+ * With a git base ref (e.g. origin/main), only changed files under src/ are scanned.
+ * Run: npx tsx scripts/check-hardcoded-colors.ts [baseRef]
  */
+import { execSync } from 'child_process';
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 
 const ROOT = join(__dirname, '..');
 const SRC = join(ROOT, 'src');
+const baseRef = process.argv[2];
 
 const ALLOWLIST = [
   'design-system/tokens/',
@@ -35,9 +38,58 @@ function isAllowlisted(rel: string): boolean {
   return ALLOWLIST.some((a) => rel.includes(a));
 }
 
+function resolveGitRef(ref: string): string | null {
+  const candidates = [
+    ref,
+    ref.startsWith('origin/') ? ref.slice('origin/'.length) : `origin/${ref}`,
+  ];
+  for (const candidate of candidates) {
+    try {
+      execSync(`git rev-parse --verify ${candidate}`, { cwd: ROOT, stdio: 'pipe' });
+      return candidate;
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
+}
+
+function filesToCheck(): string[] {
+  if (!baseRef) return walk(SRC);
+
+  const resolved = resolveGitRef(baseRef);
+  if (!resolved) {
+    console.error(
+      `Color lint: base ref "${baseRef}" not found. In CI, fetch it first (e.g. git fetch origin <base>).`
+    );
+    process.exit(1);
+  }
+
+  try {
+    const out = execSync(`git diff --name-only ${resolved}...HEAD -- src/`, {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    const changed = out
+      .trim()
+      .split('\n')
+      .filter((f) => f && /\.(tsx?|jsx?)$/.test(f))
+      .map((f) => join(ROOT, f));
+    if (changed.length > 0) {
+      console.log(`Color lint: checking ${changed.length} file(s) changed vs ${resolved}`);
+      return changed;
+    }
+    console.log(`Color lint: no src changes vs ${resolved}; skipping.`);
+    return [];
+  } catch {
+    console.error(`Color lint: could not diff against ${resolved}.`);
+    process.exit(1);
+  }
+}
+
 let violations = 0;
 
-for (const file of walk(SRC)) {
+for (const file of filesToCheck()) {
   const rel = relative(ROOT, file);
   if (isAllowlisted(rel)) continue;
   const content = readFileSync(file, 'utf8');

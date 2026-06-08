@@ -1,9 +1,9 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, type ColorValue } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
 type TabBarMenuIconProps = {
-  color: string;
+  color: ColorValue;
   size: number;
 };
 

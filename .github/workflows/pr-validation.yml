@@ -21,6 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch for diff checks
+        run: git fetch origin ${{ github.base_ref }} --no-tags --depth=1
 
       - uses: actions/setup-node@v4
         with:
@@ -53,7 +58,7 @@ jobs:
         run: npm run test
 
       - name: Color lint
-        run: npm run check:colors
+        run: npm run check:colors -- origin/${{ github.base_ref }}
 
       - name: Expo doctor
         run: npx expo-doctor
