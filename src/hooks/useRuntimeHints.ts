@@ -62,7 +62,7 @@ export function useRuntimeHints(isReady = true): {
     if (!isReady) return;
     if (cachedHints && Date.now() - cachedAt < CLIENT_TTL_MS) {
       setHints(cachedHints);
-      setForceUpgrade(isAppVersionBelowMin(cachedHints.minAppVersion));
+      setForceUpgrade(!__DEV__ && isAppVersionBelowMin(cachedHints.minAppVersion));
       return;
     }
     const guard = createRequestGuard('runtime:hints');
@@ -70,7 +70,7 @@ export function useRuntimeHints(isReady = true): {
       const h = await fetchHints(guard.signal);
       if (guard.isStale()) return;
       setHints(h);
-      setForceUpgrade(isAppVersionBelowMin(h.minAppVersion));
+      setForceUpgrade(!__DEV__ && isAppVersionBelowMin(h.minAppVersion));
     } catch {
       /* keep last known */
     }

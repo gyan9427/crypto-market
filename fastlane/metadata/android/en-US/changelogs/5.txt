@@ -1,0 +1,2 @@
+- Initial CI/CD managed release pipeline
+- Bug fixes and performance improvements

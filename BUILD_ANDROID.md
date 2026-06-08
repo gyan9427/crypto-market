@@ -1,46 +1,46 @@
-# Building Android APK for Testing
+# Building Android with EAS
 
-This project is configured to generate APK files for testing using EAS Build. The `google-services.json` (Firebase) is wired for package `com.nayft.market`.
+This project uses **Expo managed workflow** with cloud builds via EAS. Native `android/` is prebuild-generated and not committed.
+
+## Package & versioning
+
+- **Package:** `com.nayft.app` (`app.json` → `android.package`)
+- **Firebase:** `./google-services.json` (must match package name)
+- **Version source:** `app.json` (`version`, `android.versionCode`)
+- **EAS profiles:** `staging` (internal AAB), `production` (store AAB with `autoIncrement`)
 
 ## Prerequisites
 
-1. **Expo account** – Sign up at [expo.dev](https://expo.dev) if needed
-2. **EAS CLI** – Use `npx eas-cli` (the package is `eas-cli`, not `eas`)
+1. Expo account — [expo.dev](https://expo.dev)
+2. EAS CLI — `npm run eas` or `npx eas-cli`
+3. `EXPO_TOKEN` for CI (see `docs/GITHUB_SECRETS_SETUP.md`)
 
-## Build APK
+## Build commands
 
 ```bash
-# Preview APK (for internal testing, installable on device/emulator)
+# Internal / staging AAB (Play Internal track via CI)
 npm run build:android
 
-# Or directly:
-npx eas-cli build -p android --profile preview
+# Production store AAB
+npm run build:android:prod
+
+# Direct EAS
+npx eas-cli build -p android --profile staging --non-interactive
 ```
 
 ## First-time setup
 
-1. **Log in to Expo:**
-   ```bash
-   npx eas-cli login
-   ```
-
-2. **Configure the project** (if prompted):
-   ```bash
-   npx eas-cli build:configure
-   ```
-
-3. **Run the build:**
-   ```bash
-   npm run build:android
-   ```
+```bash
+npx eas-cli login
+npx eas-cli build:configure   # if prompted
+```
 
 ## After the build
 
-- EAS Build runs in the cloud; you’ll get a URL to download the APK when it finishes
-- Install on a device: open the URL on the device and download/install the APK
-- Install on an emulator: `npx eas-cli build:run -p android --latest`
+- Cloud build URL appears in terminal and [expo.dev](https://expo.dev) dashboard
+- CI downloads AAB and deploys to Play Internal via Fastlane
+- Install on device: use EAS build URL or `npx eas-cli build:run -p android --latest`
 
-## Configuration
+## CI/CD
 
-- **app.json** – `android.package`: `com.nayft.market`, `googleServicesFile`: `./google-services.json`
-- **eas.json** – `preview` profile uses `buildType: "apk"` for direct installation
+See `docs/CI_CD_RUNBOOK.md` for GitHub Actions + Fastlane deployment.

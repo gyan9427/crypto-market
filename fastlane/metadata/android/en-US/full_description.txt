@@ -1,0 +1,5 @@
+NAYFT Market brings crypto news, real-time market data, coin profiles, and portfolio tools together in one app.
+
+Features include personalized news feeds, market watchlists, coin detail screens, and secure account management.
+
+Built for traders and enthusiasts who want timely information and a clean mobile experience.

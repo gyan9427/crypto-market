@@ -1,0 +1,42 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      expo-ecosystem:
+        patterns:
+          - 'expo'
+          - 'expo-*'
+          - '@expo/*'
+      react-native-ecosystem:
+        patterns:
+          - 'react-native'
+          - 'react-native-*'
+          - '@react-native/*'
+      testing:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+      dev-tooling:
+        dependency-type: development
+        update-types:
+          - patch
+          - minor
+
+  - package-ecosystem: bundler
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3

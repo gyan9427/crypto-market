@@ -1,7 +1,8 @@
 import Constants from 'expo-constants';
+import appJson from '../../app.json';
 
 export function getAppVersion(): string {
-  return Constants.expoConfig?.version ?? '1.0.0';
+  return appJson.expo.version ?? Constants.expoConfig?.version ?? '1.0.0';
 }
 
 export function parseSemver(v: string): number[] {

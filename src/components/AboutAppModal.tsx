@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Modal,
   View,
@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react-native';
 import type { ThemeTokens } from '@/src/theme/theme';
+import { formatBuildInfoLine, getBuildInfo } from '@/src/config/buildInfo';
 
 export type AboutAppModalProps = {
   visible: boolean;
@@ -23,6 +24,8 @@ export function AboutAppModal({ visible, onClose, tokens }: AboutAppModalProps) 
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => buildStyles(tokens), [tokens]);
+  const [showBuildDetails, setShowBuildDetails] = useState(false);
+  const buildInfo = useMemo(() => getBuildInfo(), []);
 
   return (
     <Modal
@@ -49,7 +52,20 @@ export function AboutAppModal({ visible, onClose, tokens }: AboutAppModalProps) 
                 </TouchableOpacity>
               </View>
               <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-                <Text style={styles.version}>{t('profile.aboutVersion')}</Text>
+                <TouchableOpacity
+                  onLongPress={() => setShowBuildDetails((v) => !v)}
+                  activeOpacity={0.8}
+                  accessibilityRole="text"
+                >
+                  <Text style={styles.version}>
+                    {t('profile.aboutVersion')} · {formatBuildInfoLine()}
+                  </Text>
+                  {showBuildDetails ? (
+                    <Text style={styles.buildMeta}>
+                      {`env: ${buildInfo.environment}\nbuild: ${buildInfo.buildProfile}\nsha: ${buildInfo.gitSha}\neas: ${buildInfo.easBuildId ?? 'n/a'}`}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
                 <Text style={styles.body}>{t('profile.aboutBody')}</Text>
                 <Text style={styles.tagline}>{t('profile.aboutTagline')}</Text>
               </ScrollView>
@@ -100,6 +116,13 @@ function buildStyles(tokens: ThemeTokens) {
       fontFamily: tokens.typography.fontFamilies.sansMedium,
       marginBottom: tokens.spacing.md,
       letterSpacing: 0.3,
+    },
+    buildMeta: {
+      fontSize: tokens.typography.fontSizes.xs,
+      color: tokens.textMuted,
+      fontFamily: tokens.typography.fontFamilies.mono,
+      marginBottom: tokens.spacing.md,
+      lineHeight: 18,
     },
     body: {
       fontSize: tokens.typography.fontSizes.md,

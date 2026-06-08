@@ -2,7 +2,7 @@
   "expo": {
     "name": "NAYFT Market",
     "slug": "nayft-crypto-market",
-    "version": "1.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "nayft",
@@ -10,7 +10,7 @@
     "android": {
       "package": "com.nayft.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 2,
+      "versionCode": 5,
       "compileSdkVersion": 34,
       "targetSdkVersion": 34,
       "minSdkVersion": 24,
