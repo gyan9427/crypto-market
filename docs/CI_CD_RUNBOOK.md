@@ -15,21 +15,32 @@
 | `deploy-production.yml` | Manual (`workflow_dispatch`) | EAS production build → Play Production |
 | `dependency-audit.yml` | Weekly Monday | `npm audit` |
 
+## Deployment success criteria (mandatory)
+
+A deployment is successful only when all checks below are true:
+
+1. The executed workflow is **Deploy Internal** or **Deploy Production**.
+2. Workflow logs contain `UPLOAD_COMPLETED`.
+3. Play Console shows a new release number on the target track.
+
+If any check is missing, treat the run as **not deployed** even if GitHub Actions shows green.
+
 ## Common operations
 
 ### Internal deploy (automatic)
 
 1. Ensure `EXPO_TOKEN` and `PLAY_STORE_SERVICE_ACCOUNT_JSON` in `internal-deploy` environment
 2. Push commit to `develop`
-3. Actions → verify **Deploy Internal** succeeds
-4. Confirm build is visible in Play Internal testing track
+3. Actions → verify **Deploy Internal** runs and logs show `UPLOAD_COMPLETED`
+4. Confirm new release number is visible in Play Internal testing track
 
 ### Production release
 
 1. Validate internal deployment on target commit
 2. Actions → run **Deploy Production** manually
-3. Wait for successful upload to Play Production
-4. Monitor Play Console vitals and Sentry for at least 30 minutes
+3. Verify logs show `UPLOAD_COMPLETED`
+4. Confirm new release number is visible in Play Production
+5. Monitor Play Console vitals and Sentry for at least 30 minutes
 
 ## EAS outage fallback (emergency only)
 
