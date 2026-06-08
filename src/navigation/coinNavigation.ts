@@ -1,4 +1,6 @@
-import type { Router } from 'expo-router';
+import type { useRouter } from 'expo-router';
+
+type Router = ReturnType<typeof useRouter>;
 
 /** Tab routes used when leaving coin detail via the header back button. */
 export const COIN_RETURN_ROUTES = {
