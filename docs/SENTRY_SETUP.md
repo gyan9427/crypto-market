@@ -22,7 +22,7 @@ npx @sentry/wizard@latest -i reactNative
 | Internal | ≥ 98% |
 | Production promotion | ≥ 99% |
 
-## Workflow hook (add to `production-release.yml` when ready)
+## Workflow hook (add to `deploy-production.yml` when ready)
 
 ```yaml
 - name: Sentry release

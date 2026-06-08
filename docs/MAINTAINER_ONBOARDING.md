@@ -35,7 +35,7 @@
 
 ## First tasks for new maintainer
 
-- [ ] Observe one Internal deploy (`develop-build.yml`)
+- [ ] Observe one Internal deploy (`deploy-internal.yml`)
 - [ ] Participate in deploy + rollback drill
 - [ ] Verify access to Expo builds dashboard
 - [ ] Confirm listed as backup release owner

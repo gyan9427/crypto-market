@@ -4,7 +4,7 @@
 
 - [ ] Version bumped in `app.json` and `package.json` (same semver)
 - [ ] `RELEASE_NOTES.md` updated
-- [ ] PR validation green on release branch
+- [ ] PR validation green on release commit
 - [ ] No active backend migration or infrastructure incident
 - [ ] Not Friday evening (production releases)
 - [ ] Release owner + backup maintainer available for 2 hr post-deploy
@@ -20,28 +20,26 @@ Internal/staging deploys OK during freeze.
 
 ## Tag & build
 
-- [ ] Tag matches version: `v1.2.0` → `app.json` `version: "1.2.0"`
-- [ ] Push tag → **Release Build** workflow completes
-- [ ] GitHub Release has AAB + `release-manifest.json`
-- [ ] Changelog generated in `fastlane/metadata/android/en-US/changelogs/{versionCode}.txt`
+- [ ] Target commit deployed to Internal successfully (`deploy-internal.yml`)
+- [ ] Production environment approval reviewers available
+- [ ] `EXPO_TOKEN` and `PLAY_STORE_SERVICE_ACCOUNT_JSON` confirmed valid
 
 ## Deploy
 
-- [ ] **Production Release** workflow with approval gate
-- [ ] Start staged rollout at 1% (`rollout: 0.01`)
-- [ ] `verify_deployment` passes
-- [ ] API smoke: `/public/runtime-hints` returns 200
+- [ ] Run **Deploy Production** workflow manually (`deploy-production.yml`)
+- [ ] Confirm Play Production release contains the new binary
+- [ ] Confirm no deploy ran from non-manual trigger
 
 ## Post-release monitoring
 
 | Checkpoint | Action |
 |------------|--------|
 | T+30 min | Play crash/ANR review; Sentry new issues |
-| T+2 hr | Crash-free sessions ≥ 99%; promote to 10% if OK |
-| T+24 hr | Soak at 50% before 100% |
+| T+2 hr | Verify stability trend remains normal |
+| T+24 hr | Confirm no latent crash spike |
 
 ## Rollout pause triggers
 
 - Crash-free sessions drop >1% below baseline
 - Sentry P0 or Play ANR spike >2× baseline
-→ Halt rollout (`rollback.yml` → `halt_rollout`)
+→ Pause rollout in Play Console and execute manual rollback SOP from `docs/CI_CD_RUNBOOK.md`

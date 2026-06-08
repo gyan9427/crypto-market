@@ -1,0 +1,92 @@
+name: Deploy Internal
+
+on:
+  push:
+    branches:
+      - develop
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+
+concurrency:
+  group: internal-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-internal:
+    name: Build and deploy to Play Internal
+    runs-on: ubuntu-latest
+    environment: internal-deploy
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version-file: ".ruby-version"
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Play Store credentials
+        run: |
+          set -euo pipefail
+          echo "::group::Setup Play JSON"
+          PLAY_PATH=$(bash scripts/setup-play-json.sh)
+          echo "PLAY_STORE_JSON_KEY_PATH=$PLAY_PATH" >> "$GITHUB_ENV"
+          echo "::endgroup::"
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Build Android AAB with EAS
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          echo "::group::EAS build"
+          BUILD_JSON=$(npx eas-cli build --platform android --profile staging --non-interactive --wait --json)
+          printf '%s\n' "$BUILD_JSON" > artifacts/eas-build.json
+          echo "::endgroup::"
+
+          echo "::group::Parse EAS build id"
+          BUILD_ID=$(node -e "const fs=require('fs');const p='artifacts/eas-build.json';const raw=fs.readFileSync(p,'utf8');let data;try{data=JSON.parse(raw);}catch(e){process.exit(2)}const id=(Array.isArray(data)?data[0]?.id:data?.id)||'';if(!id||id==='null'||id==='undefined'){process.exit(3)}process.stdout.write(String(id));")
+          if [ -z "${BUILD_ID}" ]; then
+            echo "Failed to parse EAS build id from EAS JSON output"
+            exit 1
+          fi
+          echo "EAS_BUILD_ID=${BUILD_ID}" >> "$GITHUB_ENV"
+          echo "::endgroup::"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: "true"
+
+      - name: Download deterministic AAB artifact
+        run: |
+          set -euo pipefail
+          echo "::group::Download AAB"
+          npx eas-cli build:download --id "${EAS_BUILD_ID}" --output artifacts/app-internal.aab --non-interactive
+          test -f artifacts/app-internal.aab
+          echo "::endgroup::"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Upload AAB to Play Internal
+        run: |
+          set -euo pipefail
+          echo "::group::Fastlane upload"
+          bundle exec fastlane android deploy_internal aab_path:"artifacts/app-internal.aab"
+          echo "::endgroup::"
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          PLAY_STORE_JSON_KEY_PATH: ${{ env.PLAY_STORE_JSON_KEY_PATH }}
+          CI: "true"

@@ -1,90 +1,11 @@
-name: Develop Build
+name: Develop Build (deprecated)
 
 on:
   workflow_dispatch:
-    inputs:
-      skip_deploy:
-        description: 'Build only — skip Play upload'
-        required: false
-        default: 'false'
-        type: boolean
-  push:
-    branches: [develop]
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
-
-concurrency:
-  group: develop-build
-  cancel-in-progress: true
-
-permissions:
-  contents: read
 
 jobs:
-  build-and-deploy:
+  disabled:
+    if: ${{ false }}
     runs-on: ubuntu-latest
-    environment: internal-deploy
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: npm
-
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version-file: '.ruby-version'
-          bundler-cache: true
-
-      - name: Install Node dependencies
-        run: npm ci
-
-      - name: Setup Play Store JSON
-        run: |
-          PLAY_PATH=$(bash scripts/setup-play-json.sh)
-          echo "PLAY_STORE_JSON_KEY_PATH=$PLAY_PATH" >> "$GITHUB_ENV"
-        env:
-          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
-
-      - name: EAS staging build
-        run: bundle exec fastlane android build_staging
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          CI: 'true'
-
-      - name: Deploy to Play Internal
-        if: github.event_name == 'push' || inputs.skip_deploy != true
-        run: |
-          AAB=$(ls -1 artifacts/*.aab | head -1)
-          bundle exec fastlane android deploy_internal aab_path:"$AAB" skip_upload_metadata:true
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
-          PLAY_STORE_JSON_KEY_PATH: ${{ env.PLAY_STORE_JSON_KEY_PATH }}
-          CI: 'true'
-          PLAY_TRACK: internal
-
-      - name: Write release manifest
-        run: |
-          AAB=$(ls -1 artifacts/*.aab 2>/dev/null | head -1 || echo "")
-          node scripts/write-release-manifest.js "$AAB"
-        env:
-          PLAY_TRACK: internal
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-staging-${{ github.sha }}
-          path: |
-            artifacts/
-          retention-days: 90
-
-      - name: Notify on failure
-        if: failure() && vars.SLACK_WEBHOOK_URL != ''
-        run: |
-          curl -sf -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"Develop build failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
-            "${{ vars.SLACK_WEBHOOK_URL }}"
-        continue-on-error: true
+      - run: echo "Deprecated workflow. Use deploy-internal.yml."

@@ -6,8 +6,9 @@
 
 1. `npx eas-cli token:create` on dedicated machine account
 2. Update GitHub secret `EXPO_TOKEN` in `internal-deploy` environment
-3. Revoke old token: `npx eas-cli token:revoke <id>`
-4. Verify: re-run **Develop Build** workflow
+3. Update GitHub secret `EXPO_TOKEN` in `production-release` environment
+4. Revoke old token: `npx eas-cli token:revoke <id>`
+5. Verify: re-run **Deploy Internal** workflow
 
 ## Play service account JSON
 
@@ -16,7 +17,7 @@
 1. Google Cloud Console → IAM → Service account → Keys → Create new JSON
 2. Update `PLAY_STORE_SERVICE_ACCOUNT_JSON` in GitHub environments
 3. Delete old key in GCP
-4. Verify: `bundle exec fastlane android verify_deployment track:internal`
+4. Verify: re-run **Deploy Internal** workflow
 
 ## EAS Secrets (`EXPO_PUBLIC_*`)
 

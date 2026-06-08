@@ -1,78 +1,11 @@
-name: Rollback Release
+name: Rollback Release (deprecated)
 
 on:
   workflow_dispatch:
-    inputs:
-      action:
-        description: 'Rollback action'
-        required: true
-        type: choice
-        options:
-          - halt_rollout
-          - promote_previous
-          - force_upgrade
-      tag:
-        description: 'GitHub release tag for previous AAB (promote_previous only)'
-        required: false
-        type: string
-      track:
-        description: 'Play track'
-        required: false
-        default: 'production'
-        type: choice
-        options:
-          - production
-          - beta
-          - internal
-      rollout:
-        description: 'Rollout fraction when promoting previous'
-        required: false
-        default: '0.01'
-        type: string
-
-concurrency:
-  group: rollback-${{ github.run_id }}
-  cancel-in-progress: false
-
-permissions:
-  contents: read
 
 jobs:
-  rollback:
+  disabled:
+    if: ${{ false }}
     runs-on: ubuntu-latest
-    environment: production-release
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version-file: '.ruby-version'
-          bundler-cache: true
-
-      - name: Setup Play Store JSON
-        run: |
-          PLAY_PATH=$(bash scripts/setup-play-json.sh)
-          echo "PLAY_STORE_JSON_KEY_PATH=$PLAY_PATH" >> "$GITHUB_ENV"
-        env:
-          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
-
-      - name: Download previous AAB
-        if: inputs.action == 'promote_previous'
-        run: |
-          mkdir -p artifacts
-          gh release download "${{ inputs.tag }}" --pattern '*.aab' --dir artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Execute rollback
-        run: |
-          if [ "${{ inputs.action }}" = "promote_previous" ]; then
-            AAB=$(ls -1 artifacts/*.aab | head -1)
-            bundle exec fastlane android rollback_release action:promote_previous aab_path:"$AAB" track:"${{ inputs.track }}" rollout:"${{ inputs.rollout }}"
-          else
-            bundle exec fastlane android rollback_release action:"${{ inputs.action }}" track:"${{ inputs.track }}"
-          fi
-        env:
-          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
-          PLAY_STORE_JSON_KEY_PATH: ${{ env.PLAY_STORE_JSON_KEY_PATH }}
-          CI: 'true'
+      - run: echo "Deprecated workflow. Follow manual rollback SOP in docs."

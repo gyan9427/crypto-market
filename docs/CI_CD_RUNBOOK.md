@@ -3,40 +3,33 @@
 ## Architecture
 
 - **GitHub Actions** — orchestration
-- **EAS Build** — signed AAB production (cloud)
-- **Fastlane** — Play Store upload, verification, rollback
+- **EAS Build** — Android AAB build only
+- **Fastlane** — Play Store upload only
 
 ## Workflows
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `pr-validation.yml` | PR → `develop`/`main` | Lint, test, lockfile, expo-doctor |
-| `develop-build.yml` | `workflow_dispatch` or push `develop` | EAS staging build → Play Internal |
-| `release.yml` | Tag `v*.*.*` | EAS production build + GitHub Release |
-| `production-release.yml` | Manual | Deploy AAB to Play (staged rollout) |
-| `rollback.yml` | Manual | Halt rollout / promote previous AAB |
+| `deploy-internal.yml` | Push to `develop` | EAS staging build → Play Internal |
+| `deploy-production.yml` | Manual (`workflow_dispatch`) | EAS production build → Play Production |
 | `dependency-audit.yml` | Weekly Monday | `npm audit` |
 
 ## Common operations
 
-### Internal deploy (manual)
+### Internal deploy (automatic)
 
 1. Ensure `EXPO_TOKEN` and `PLAY_STORE_SERVICE_ACCOUNT_JSON` in `internal-deploy` environment
-2. Actions → **Develop Build** → Run workflow
-3. Verify `verify_deployment` step passes
+2. Push commit to `develop`
+3. Actions → verify **Deploy Internal** succeeds
+4. Confirm build is visible in Play Internal testing track
 
 ### Production release
 
-1. Merge release to `main`, bump `app.json` version
-2. Tag: `git tag v1.0.0 && git push origin v1.0.0`
-3. Wait for **Release Build** workflow
-4. Actions → **Production Release** → select tag, rollout `0.01`
-5. Monitor Sentry + Play Console for 30 min before increasing rollout
-
-### Resume failed deploy (no rebuild)
-
-1. Re-run **Production Release** with same tag
-2. Or use `resume_from: deploy` input
+1. Validate internal deployment on target commit
+2. Actions → run **Deploy Production** manually
+3. Wait for successful upload to Play Production
+4. Monitor Play Console vitals and Sentry for at least 30 minutes
 
 ## EAS outage fallback (emergency only)
 
@@ -45,7 +38,7 @@
 | EAS Build outage | Check [status.expo.dev](https://status.expo.dev); wait 30 min |
 | Auth failure | Rotate `EXPO_TOKEN`; re-run job |
 | Queue >60 min | Do not start duplicate builds |
-| Download failure | Retry 3×; use GitHub Release AAB |
+| Download failure | Re-run workflow; it rebuilds and downloads by exact build ID |
 
 ### Local emergency build
 
@@ -56,10 +49,46 @@ npx eas-cli build -p android --profile production --local
 
 Then manual Play upload or `bundle exec fastlane android deploy_internal aab_path:<path>`.
 
+## Manual rollback SOP (no rollback automation)
+
+1. Play Console → App releases → Production.
+2. Pause or stop rollout for the affected release.
+3. Promote last known-good release in Play Console, or upload last known-good AAB manually.
+4. If incident is severe, activate release freeze and require incident lead approval before any new deploy.
+5. Document timeline, decision, and final state in post-mortem.
+
+## Validation matrix
+
+### Internal validation
+
+- Push to `develop` triggers `deploy-internal.yml`.
+- Workflow uploads `artifacts/app-internal.aab` to Play Internal.
+- Internal testers receive the build.
+- Concurrent pushes cancel older internal deploy runs.
+
+### Production validation
+
+- Only manual `workflow_dispatch` can run production deploy.
+- Workflow uploads `artifacts/app-production.aab` to Play Production.
+- No internal/beta track path exists in production workflow.
+- No deployment-time version comparison gates against `app.json`.
+
+## Explicit non-goals (stability phase)
+
+- Rollback automation
+- Staged rollout automation
+- Beta deployment pipeline
+- Release manifest orchestration
+- Metadata/images/screenshots uploads
+- Changelog automation in deployment path
+- Auto production deploy
+- Artifact promotion chains
+- Multi-track dynamic deployment logic
+
 ## Secrets
 
 See `docs/GITHUB_SECRETS_SETUP.md` and `docs/CREDENTIAL_ROTATION_SOP.md`.
 
 ## Go-live checklist
 
-See plan §16 — complete before first production rollout.
+See `docs/GO_LIVE_READINESS.md` before first production rollout.

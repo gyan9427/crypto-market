@@ -2,7 +2,7 @@
 
 ## Immediate (first 15 min)
 
-- [ ] Halt staged rollout: **Rollback Release** → `halt_rollout` on `production`
+- [ ] Halt staged rollout in Play Console on `production`
 - [ ] Check Sentry for new crash clusters tied to release tag
 - [ ] Check Play Console → Android vitals → crashes/ANRs
 - [ ] Confirm scope: rollout % vs 100% users
@@ -10,12 +10,12 @@
 ## Contain
 
 - [ ] If critical: bump backend `minAppVersion` (blocks old + bad clients)
-- [ ] If binary bad: **promote_previous** with last known-good GitHub Release tag
-- [ ] Verify SHA-256 of rollback AAB against `release-manifest.json`
+- [ ] If binary bad: promote previous known-good production release in Play Console
+- [ ] Verify release ID/versionCode matches known-good release record
 
 ## Recover
 
-- [ ] Re-run `verify_deployment` on rollback `versionCode`
+- [ ] Confirm rollback release is active in Play Console
 - [ ] Confirm crash rate returns to baseline (T+30 min)
 - [ ] Document incident in post-mortem
 
