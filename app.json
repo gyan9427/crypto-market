@@ -11,9 +11,6 @@
       "package": "com.nayft.app",
       "googleServicesFile": "./google-services.json",
       "versionCode": 5,
-      "compileSdkVersion": 34,
-      "targetSdkVersion": 34,
-      "minSdkVersion": 24,
       "permissions": [],
       "allowBackup": false
     },
@@ -34,7 +31,17 @@
       "expo-font",
       "expo-web-browser",
       "expo-localization",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "minSdkVersion": 24
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
