@@ -34,13 +34,17 @@ const tabStyles = StyleSheet.create({
   },
 });
 
-function QuickActionsTabButton({ pressColor, ...props }: BottomTabBarButtonProps) {
+type QuickActionsTabButtonProps = Omit<BottomTabBarButtonProps, 'pressColor'> & {
+  pressColor?: string;
+};
+
+function QuickActionsTabButton({ pressColor, ...props }: QuickActionsTabButtonProps) {
   const { t } = useTranslation();
   const { open } = useQuickActions();
   return (
     <PlatformPressable
       {...props}
-      pressColor={typeof pressColor === 'string' ? pressColor : undefined}
+      pressColor={pressColor}
       onPress={open}
       accessibilityRole="button"
       accessibilityLabel={t('fab.addAction')}
@@ -207,7 +211,12 @@ export default function TabsLayout() {
           options={{
             title: t('nav.menu'),
             tabBarIcon: ({ color, size }) => <TabBarMenuIcon color={color} size={size} />,
-            tabBarButton: (props) => <QuickActionsTabButton {...props} />,
+            tabBarButton: ({ pressColor, ...props }) => (
+              <QuickActionsTabButton
+                {...props}
+                pressColor={typeof pressColor === 'string' ? pressColor : undefined}
+              />
+            ),
           }}
           listeners={{
             tabPress: (e) => {
