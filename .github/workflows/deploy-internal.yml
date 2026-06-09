@@ -74,11 +74,17 @@ jobs:
 
           echo "::group::Parse EAS build id"
           BUILD_ID=$(node -e "const fs=require('fs');const p='artifacts/eas-build.json';const raw=fs.readFileSync(p,'utf8');let data;try{data=JSON.parse(raw);}catch(e){process.exit(2)}const id=(Array.isArray(data)?data[0]?.id:data?.id)||'';if(!id||id==='null'||id==='undefined'){process.exit(3)}process.stdout.write(String(id));")
+          BUILD_URL=$(node -e "const fs=require('fs');const p='artifacts/eas-build.json';const raw=fs.readFileSync(p,'utf8');let data;try{data=JSON.parse(raw);}catch(e){process.exit(2)}const url=(Array.isArray(data)?data[0]?.artifacts?.buildUrl:data?.artifacts?.buildUrl)||'';if(!url||url==='null'||url==='undefined'){process.exit(3)}process.stdout.write(String(url));")
           if [ -z "${BUILD_ID}" ]; then
             echo "Failed to parse EAS build id from EAS JSON output"
             exit 1
           fi
+          if [ -z "${BUILD_URL}" ]; then
+            echo "Failed to parse EAS artifact URL from EAS JSON output"
+            exit 1
+          fi
           echo "EAS_BUILD_ID=${BUILD_ID}" >> "$GITHUB_ENV"
+          echo "EAS_BUILD_ARTIFACT_URL=${BUILD_URL}" >> "$GITHUB_ENV"
           echo "::endgroup::"
         env:
           CI: "true"
@@ -87,7 +93,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "::group::Download AAB"
-          npx eas-cli build:download --id "${EAS_BUILD_ID}" --output artifacts/app-internal.aab --non-interactive
+          curl -fL "${EAS_BUILD_ARTIFACT_URL}" -o artifacts/app-internal.aab
           echo "::endgroup::"
       - name: Verify AAB artifact integrity
         run: |
