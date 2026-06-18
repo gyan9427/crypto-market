@@ -1,7 +1,7 @@
 import '@/src/i18n';
 import '@/src/polyfills/devtools';
 import { useEffect, useState } from 'react';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { configureGoogleSignIn } from '@/src/services/googleSignIn';
 import { Stack, useRouter, useSegments, type Href } from 'expo-router';
 import { AppState, Platform, View } from 'react-native';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -21,6 +21,7 @@ import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
 import { useConsentStore } from '@/src/privacy/consentStore';
 import { useRuntimeHints } from '@/src/hooks/useRuntimeHints';
 import { ForceUpgradeGate } from '@/src/components/ForceUpgradeGate';
+import { ShareCardCaptureHost } from '@/src/components/share/ShareCardCaptureHost';
 import { isTieredStartupEnabled } from '@/src/config/featureFlags';
 import {
   markStartupTier1Begin,
@@ -85,7 +86,7 @@ export default function RootLayout() {
   useFrameworkReady();
 
   useEffect(() => {
-    GoogleSignin.configure({
+    configureGoogleSignIn({
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
       offlineAccess: true,
     });
@@ -203,6 +204,7 @@ export default function RootLayout() {
 
   return (
     <RootView style={{ flex: 1 }}>
+      <ShareCardCaptureHost />
       <GlobalErrorBoundary>
         <ThemeProvider>
           <BottomSheetModalProvider>

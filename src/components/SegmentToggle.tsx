@@ -10,6 +10,10 @@ interface SegmentToggleProps {
   onSelect: (index: number) => void;
   /** Omit default horizontal margins (e.g. nested in a card) */
   flush?: boolean;
+  /** Optional subtitle for each option (enables tab-bar style layout) */
+  subtitles?: string[];
+  /** Optional icon element for each option */
+  icons?: React.ReactNode[];
 }
 
 export const SegmentToggle: React.FC<SegmentToggleProps> = ({
@@ -17,9 +21,12 @@ export const SegmentToggle: React.FC<SegmentToggleProps> = ({
   selectedIndex,
   onSelect,
   flush = false,
+  subtitles,
+  icons,
 }) => {
   const { tokens } = useAppTheme();
-  const styles = useMemo(() => buildStyles(tokens, flush), [tokens, flush]);
+  const hasRichTabs = Boolean(subtitles?.length);
+  const styles = useMemo(() => buildStyles(tokens, flush, hasRichTabs), [tokens, flush, hasRichTabs]);
   const [containerWidth, setContainerWidth] = useState(0);
   const translateX = useRef(new Animated.Value(0)).current;
 
@@ -39,6 +46,58 @@ export const SegmentToggle: React.FC<SegmentToggleProps> = ({
     const { width } = event.nativeEvent.layout;
     setContainerWidth(width);
   };
+
+  if (hasRichTabs) {
+    return (
+      <View style={styles.richContainer} onLayout={handleLayout}>
+        {options.map((option, index) => {
+          const isActive = selectedIndex === index;
+          return (
+            <TouchableOpacity
+              key={option}
+              style={[
+                styles.richSegment,
+                isActive ? styles.richSegmentActive : styles.richSegmentInactive,
+              ]}
+              onPress={() => onSelect(index)}
+              accessibilityRole="button"
+              accessibilityLabel={option}
+              accessibilityState={{ selected: isActive }}
+              activeOpacity={0.7}
+            >
+              {/* Icon + label pill row */}
+              <View style={[styles.richPill, isActive && styles.richPillActive]}>
+                {icons?.[index] && (
+                  <View style={styles.richIcon}>{icons[index]}</View>
+                )}
+                <AppText
+                  variant="body-s"
+                  style={[
+                    styles.richLabel,
+                    isActive ? styles.richLabelActive : styles.richLabelInactive,
+                  ]}
+                >
+                  {option}
+                </AppText>
+              </View>
+              {subtitles?.[index] && (
+                <AppText
+                  variant="caption"
+                  style={[
+                    styles.richSubtitle,
+                    isActive ? styles.richSubtitleActive : styles.richSubtitleInactive,
+                  ]}
+                >
+                  {subtitles[index]}
+                </AppText>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container} onLayout={handleLayout}>
@@ -78,8 +137,12 @@ export const SegmentToggle: React.FC<SegmentToggleProps> = ({
   );
 };
 
-function buildStyles(tokens: ThemeTokens, flush: boolean) {
+function buildStyles(tokens: ThemeTokens, flush: boolean, hasRichTabs: boolean) {
+  const c = tokens.colors;
+  const primaryColor = c.primary[tokens.isDark ? 400 : 600];
+
   return StyleSheet.create({
+    // ── Standard pill toggle ─────────────────────────────────────────────────
     container: {
       flexDirection: 'row',
       backgroundColor: tokens.surfaceMuted,
@@ -122,9 +185,77 @@ function buildStyles(tokens: ThemeTokens, flush: boolean) {
       letterSpacing: tokens.typography.letterSpacing.button,
     },
     segmentTextActive: {
-      color: tokens.colors.primary[tokens.isDark ? 400 : 600],
+      color: primaryColor,
       fontWeight: tokens.typography.fontWeights.semibold,
       fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+    },
+
+    // ── Rich tab-bar style toggle ────────────────────────────────────────────
+    richContainer: {
+      flexDirection: 'row',
+      position: 'relative',
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: tokens.borderSubtle,
+      backgroundColor: tokens.bg,
+      marginBottom: 16,
+      paddingHorizontal: 16,
+      paddingTop: 4,
+      paddingBottom: 0,
+      gap: 3,
+    },
+    richSegment: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 6,
+      paddingHorizontal: 6,
+      gap: 1,
+      borderRadius: 5,
+    },
+    richSegmentActive: {
+      backgroundColor: tokens.surface,
+      borderBottomWidth: 2,
+      borderBottomColor: primaryColor,
+      shadowColor: tokens.isDark ? '#000' : 'rgba(0,0,0,0.07)',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 1,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    richSegmentInactive: {
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+    },
+    richPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    richPillActive: {},
+    richIcon: {},
+    richLabel: {
+      fontSize: 13,
+      fontFamily: tokens.typography.fontFamilies.sansSemiBold,
+      fontWeight: tokens.typography.fontWeights.semibold,
+    },
+    richLabelActive: {
+      color: primaryColor,
+    },
+    richLabelInactive: {
+      color: tokens.textMuted,
+    },
+    richSubtitle: {
+      fontSize: 10,
+      fontFamily: tokens.typography.fontFamilies.sans,
+      textAlign: 'center',
+      lineHeight: 13,
+    },
+    richSubtitleActive: {
+      color: tokens.textMuted,
+    },
+    richSubtitleInactive: {
+      color: tokens.textMuted,
+      opacity: 0.55,
     },
   });
 }

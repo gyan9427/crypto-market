@@ -9,8 +9,9 @@ import {
 import { Image } from 'expo-image';
 import { openInAppBrowser } from '../utils/browser';
 import { useTranslation } from 'react-i18next';
-import { trackArticleOpened } from '../utils/trackEvent';
+import { trackArticleOpened, trackSourceClicked } from '../utils/trackEvent';
 import { ExternalLink, FileText, Check, Bookmark, Share2 } from 'lucide-react-native';
+import { SourceBadge } from './news/SourceBadge';
 import { FeedCardProps } from '../types';
 import { formatTimeAgo } from '../utils/format';
 import type { ThemeTokens } from '../theme/theme';
@@ -258,9 +259,14 @@ export const NewsCard = React.memo<FeedCardProps>(({
             <ExternalLink size={30} color={c.primary[tokens.isDark ? 400 : 500]} />
             <View style={styles.openSiteTextWrap}>
               <Text style={styles.openSiteText}>{t('news.sourceArticle')}</Text>
-              {item.source ? (
-                <Text style={styles.openSiteSourceName}>{item.source}</Text>
-              ) : null}
+              <SourceBadge
+                sourceInfo={item.sourceInfo}
+                sourceName={item.source}
+                onPress={() => {
+                  trackSourceClicked(item.id, item.sourceInfo?.sourceKey ?? '', 'card');
+                  openInAppBrowser(item.url || item.sourceUrl!);
+                }}
+              />
             </View>
           </TouchableOpacity>
         )}

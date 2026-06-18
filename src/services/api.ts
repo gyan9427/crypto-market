@@ -24,12 +24,21 @@ interface BackendNewsCategory {
   name: string;
 }
 
+interface BackendNewsSourceInfo {
+  sourceKey: string;
+  name: string;
+  domain: string;
+  logoUrl: string | null;
+  trustCategory: 'verified' | 'trusted' | 'community' | 'unknown';
+}
+
 interface BackendNews {
   id: string;
   title: string;
   summary: string;
   subtitle?: string;
   source: string;
+  sourceInfo?: BackendNewsSourceInfo;
   url: string;
   sourceUrl?: string;
   image?: string;
@@ -233,6 +242,7 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
     subtitle: description,
     imageUrl: backendNews.image,
     source: backendNews.source,
+    sourceInfo: backendNews.sourceInfo,
     sourceUrl,
     publishedAt,
     coins: relatedCoins,
@@ -1006,8 +1016,8 @@ export const verifyEmail = async (
   return { user, token: response.token };
 };
 
-export const resendVerification = async (): Promise<{ message: string }> => {
-  return apiRequest<{ message: string }>('/auth/resend-verification', {
+export const resendVerification = async (): Promise<{ message: string; emailDeliveryStatus: 'queued' | 'skipped' }> => {
+  return apiRequest<{ message: string; emailDeliveryStatus: 'queued' | 'skipped' }>('/auth/resend-verification', {
     method: 'POST',
     body: JSON.stringify({}),
   });

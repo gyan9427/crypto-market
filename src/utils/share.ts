@@ -1,7 +1,30 @@
 import { Platform, Share } from 'react-native';
-import type { NewsItem } from '@/src/types';
+import type { NewsItem, NewsSourceInfo } from '@/src/types';
+import { getAppStoreUrl, getPlayStoreUrl } from '@/src/config/shareUrls';
+import { trackSourceShared } from '@/src/utils/trackEvent';
 
-type ShareableNews = Pick<NewsItem, 'title' | 'url' | 'sourceUrl'>;
+export type ShareableNews = Pick<
+  NewsItem,
+  | 'id'
+  | 'title'
+  | 'url'
+  | 'sourceUrl'
+  | 'source'
+  | 'sourceInfo'
+  | 'snippet'
+  | 'subtitle'
+  | 'publishedAt'
+  | 'categories'
+>;
+
+export interface SharePayload {
+  text: string;
+  title: string;
+  url?: string;
+  richCard?: { templateId: string; variables: Record<string, string> };
+}
+
+type ShareChannel = 'native_sheet' | 'clipboard' | 'web_share';
 
 function getArticleUrl(item: ShareableNews): string | undefined {
   const candidate = item.url ?? item.sourceUrl;
@@ -9,22 +32,62 @@ function getArticleUrl(item: ShareableNews): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-function buildShareMessage(item: ShareableNews): { title: string; message: string; articleUrl?: string } {
-  const title = item.title;
+function getShareSummary(item: ShareableNews): string {
+  const raw = item.snippet?.trim() || item.subtitle?.trim() || '';
+  if (!raw) return '';
+  return raw.length > 220 ? `${raw.slice(0, 217).trim()}…` : raw;
+}
+
+function getSourceName(item: ShareableNews): string {
+  return item.sourceInfo?.name ?? item.source?.trim() ?? 'Unknown';
+}
+
+export function formatSharePayload(item: ShareableNews): SharePayload {
+  const title = item.title.trim();
   const articleUrl = getArticleUrl(item);
-  const message = articleUrl ? `${title}\n${articleUrl}` : title;
-  return { title, message, articleUrl };
+  const sourceName = getSourceName(item);
+  const summary = getShareSummary(item);
+  const playStoreUrl = getPlayStoreUrl();
+  const appStoreUrl = getAppStoreUrl();
+
+  const lines: string[] = [title];
+
+  if (summary) {
+    lines.push('', summary);
+  }
+
+  lines.push('', `Source: ${sourceName}`, 'via NAYFT', '');
+
+  if (articleUrl) {
+    lines.push(articleUrl, '');
+  }
+
+  lines.push('Download NAYFT:', playStoreUrl, appStoreUrl);
+
+  return {
+    title,
+    text: lines.join('\n'),
+    url: articleUrl,
+  };
+}
+
+function trackShareSuccess(item: ShareableNews, channel: ShareChannel): void {
+  const newsId = item.id;
+  const sourceKey = item.sourceInfo?.sourceKey ?? '';
+  if (!newsId || !sourceKey) return;
+  trackSourceShared(newsId, sourceKey, channel);
 }
 
 async function shareOnWeb(item: ShareableNews): Promise<boolean> {
-  const { title, message, articleUrl } = buildShareMessage(item);
+  const { title, text, url: articleUrl } = formatSharePayload(item);
 
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
     try {
       const payload: ShareData = articleUrl
-        ? { title, text: title, url: articleUrl }
-        : { title, text: message };
+        ? { title, text, url: articleUrl }
+        : { title, text };
       await navigator.share(payload);
+      trackShareSuccess(item, 'web_share');
       return true;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -34,11 +97,14 @@ async function shareOnWeb(item: ShareableNews): Promise<boolean> {
   }
 
   if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(message);
+    await navigator.clipboard.writeText(text);
+    trackShareSuccess(item, 'clipboard');
     return true;
   }
 
-  return copyTextFallback(message);
+  const copied = await copyTextFallback(text);
+  if (copied) trackShareSuccess(item, 'clipboard');
+  return copied;
 }
 
 function copyTextFallback(text: string): Promise<boolean> {
@@ -62,20 +128,28 @@ function copyTextFallback(text: string): Promise<boolean> {
   return Promise.resolve(copied);
 }
 
+async function shareNative(item: ShareableNews): Promise<boolean> {
+  const { title, text } = formatSharePayload(item);
+
+  try {
+    const result = await Share.share({
+      title,
+      message: text,
+    });
+    const shared = result.action === Share.sharedAction;
+    if (shared) trackShareSuccess(item, 'native_sheet');
+    return shared;
+  } catch {
+    return false;
+  }
+}
+
 export async function shareNewsItem(item: ShareableNews): Promise<boolean> {
   if (Platform.OS === 'web') {
     return shareOnWeb(item);
   }
 
-  const { title, message, articleUrl } = buildShareMessage(item);
-
-  const result = await Share.share({
-    title,
-    message,
-    url: articleUrl,
-  });
-
-  return result.action === Share.sharedAction;
+  return shareNative(item);
 }
 
 export async function shareNewsById(
@@ -86,3 +160,5 @@ export async function shareNewsById(
   if (!item) return false;
   return shareNewsItem(item);
 }
+
+export type { NewsSourceInfo };

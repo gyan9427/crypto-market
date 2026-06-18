@@ -112,8 +112,12 @@ export default function VerifyEmailScreen() {
     try {
       setResendLoading(true);
       setError(null);
-      await resendVerification();
-      setSuccess(t('auth.verification.resent'));
+      const result = await resendVerification();
+      setSuccess(
+        result.emailDeliveryStatus === 'queued'
+          ? t('auth.verification.resent')
+          : 'Verification email queued is unavailable in this environment'
+      );
       setCooldown(60);
       AccessibilityInfo.announceForAccessibility(t('auth.verification.resent'));
     } catch (err: unknown) {

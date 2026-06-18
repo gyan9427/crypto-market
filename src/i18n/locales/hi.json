@@ -190,7 +190,9 @@
     },
     "feed": {
       "following": "फॉलोइंग",
-      "explore": "एक्सप्लोर"
+      "explore": "एक्सप्लोर",
+      "followingSubtitle": "आपके कॉइन की खबरें",
+      "exploreSubtitle": "ट्रेंडिंग देखें"
     },
     "errors": {
       "failedToLoadNews": "न्यूज़ लोड नहीं हो सकी",

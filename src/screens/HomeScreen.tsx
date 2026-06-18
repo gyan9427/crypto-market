@@ -16,6 +16,7 @@ import Animated from 'react-native-reanimated';
 import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { Users, Compass } from 'lucide-react-native';
 import { SegmentToggle } from '../components/SegmentToggle';
 import { NewsCard } from '../components/NewsCard';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
@@ -513,11 +514,18 @@ export const HomeScreen: React.FC = () => {
     []
   );
 
+  const feedIcons = useMemo(() => [
+    <Users size={14} color={feedFilter === 'following' ? tokens.colors.primary[tokens.isDark ? 400 : 600] : tokens.textMuted} strokeWidth={2} />,
+    <Compass size={14} color={feedFilter === 'explore' ? tokens.colors.primary[tokens.isDark ? 400 : 600] : tokens.textMuted} strokeWidth={2} />,
+  ], [feedFilter, tokens]);
+
   const listHeaderComponent = useMemo(
     () => (
       <>
         <SegmentToggle
           options={[t('feed.following'), t('feed.explore')]}
+          subtitles={[t('feed.followingSubtitle'), t('feed.exploreSubtitle')]}
+          icons={feedIcons}
           selectedIndex={feedFilter === 'following' ? 0 : 1}
           onSelect={handleSegmentChange}
         />
