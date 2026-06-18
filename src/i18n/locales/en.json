@@ -190,7 +190,9 @@
   },
   "feed": {
     "following": "Following",
-    "explore": "Explore"
+    "explore": "Explore",
+    "followingSubtitle": "News from coins you follow",
+    "exploreSubtitle": "Discover what's trending"
   },
   "errors": {
     "failedToLoadNews": "Failed to load news",
@@ -368,6 +370,14 @@
     "read": "Read",
     "fullArticle": "Full article",
     "readFullArticle": "Read full article",
+    "readSummary": "Read Summary",
+    "read": "Read Summary",
+    "summary": "Briefed",
+    "sourceArticle": "Source Article",
+    "aiSummary": "AI Summary",
+    "becauseYouFollow": "Because you follow {{symbol}}",
+    "saved": "saved",
+    "share": "Share",
     "byAuthor": "By {{author}}",
     "readNewsTitle": "Read: {{title}}",
     "openArticleTitle": "Open article: {{title}}",

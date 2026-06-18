@@ -10,7 +10,7 @@ import { Image } from 'expo-image';
 import { openInAppBrowser } from '../utils/browser';
 import { useTranslation } from 'react-i18next';
 import { trackArticleOpened } from '../utils/trackEvent';
-import { ChevronRight, ExternalLink } from 'lucide-react-native';
+import { ExternalLink, FileText, Check, Bookmark, Share2 } from 'lucide-react-native';
 import { FeedCardProps } from '../types';
 import { formatTimeAgo } from '../utils/format';
 import type { ThemeTokens } from '../theme/theme';
@@ -18,7 +18,7 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useHasFeature } from '../utils/features';
 import { useAppStore } from '../state/useAppStore';
 import { NewsCardGrid } from './news/NewsCardGrid';
-import { NewsCardActions } from './news/NewsCardActions';
+import { ReactionPicker } from './ReactionPicker';
 import { NewsCoinTags } from './news/NewsCoinTags';
 import { CoinIcon } from './CoinIcon';
 import {
@@ -95,6 +95,7 @@ export const NewsCard = React.memo<FeedCardProps>(({
 
   return (
     <View style={styles.container}>
+
       {displayCoins.length === 0 ? (
         <View style={styles.header}>
           <Text style={styles.sourceAttribution}>{t('news.defaultAttribution')}</Text>
@@ -117,21 +118,41 @@ export const NewsCard = React.memo<FeedCardProps>(({
                 </Text>
               </>
             ) : null}
+            <Text style={styles.cardTopBarSource} numberOfLines={1}>
+              {'· '}{formatTimeAgo(item.publishedAt)}
+            </Text>
           </View>
-          {hasFollow && primaryCoin != null ? (
+          <View style={styles.cardTopBarRight}>
             <TouchableOpacity
-              style={[styles.followButton, isFollowingCoin && styles.followButtonFollowing]}
-              onPress={handleFollowToggle}
-              disabled={followBusy}
-              activeOpacity={0.85}
+              onPress={() => onSave?.(item.id)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityRole="button"
-              accessibilityLabel={isFollowingCoin ? t('accessibility.unfollowCoin') : t('accessibility.followCoin')}
+              accessibilityLabel={isSaved ? t('accessibility.unsaveArticle') : t('accessibility.saveArticle')}
             >
-              <Text style={[styles.followText, isFollowingCoin && styles.followTextFollowing]}>
-                {followBusy ? t('common.ellipsis') : isFollowingCoin ? t('coin.following') : t('coin.follow')}
-              </Text>
+              <Bookmark
+                size={18}
+                color={isSaved ? c.primary[tokens.isDark ? 400 : 500] : tokens.textMuted}
+                fill={isSaved ? c.primary[tokens.isDark ? 400 : 500] : 'none'}
+              />
             </TouchableOpacity>
-          ) : null}
+            {hasFollow && primaryCoin != null ? (
+              <TouchableOpacity
+                style={[styles.followButton, isFollowingCoin && styles.followButtonFollowing]}
+                onPress={handleFollowToggle}
+                disabled={followBusy}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={isFollowingCoin ? t('accessibility.unfollowCoin') : t('accessibility.followCoin')}
+              >
+                {!followBusy && isFollowingCoin && (
+                  <Check size={11} color={c.primary[tokens.isDark ? 400 : 700]} strokeWidth={2.5} />
+                )}
+                <Text style={[styles.followText, isFollowingCoin && styles.followTextFollowing]}>
+                  {followBusy ? t('common.ellipsis') : isFollowingCoin ? t('coin.following') : t('coin.follow')}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
       )}
 
@@ -167,7 +188,26 @@ export const NewsCard = React.memo<FeedCardProps>(({
       </View>
 
       <View style={styles.content}>
-        <NewsCoinTags coins={displayCoins} onCoinPress={onCoinPress} />
+        <View style={styles.tagsActionsRow}>
+          <NewsCoinTags coins={displayCoins} onCoinPress={onCoinPress} style={styles.tagsActionsRowTags} />
+          <View style={styles.tagsActionsRowRight}>
+            <ReactionPicker
+              reactions={item.reactions}
+              userReaction={item.userReaction}
+              onReact={(type) => onReact?.(item.id, type)}
+            />
+            <TouchableOpacity
+              onPress={() => onShare?.(item.id)}
+              style={styles.shareButton}
+              accessibilityRole="button"
+              accessibilityLabel={t('accessibility.share')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Share2 size={16} color={tokens.textMuted} />
+              <Text style={styles.shareText}>{t('news.share')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
         <Pressable
           onPress={() => onPress?.(item.id)}
           disabled={!onPress}
@@ -181,7 +221,6 @@ export const NewsCard = React.memo<FeedCardProps>(({
           <Text style={styles.title} numberOfLines={TITLE_LINES_FEED}>
             {item.title}
           </Text>
-          <Text style={styles.timeAgo}>{formatTimeAgo(item.publishedAt)}</Text>
           {feedSnippet.length > 0 && (
             <Text style={styles.snippet} numberOfLines={SNIPPET_LINES_FEED}>
               {feedSnippet}
@@ -208,20 +247,6 @@ export const NewsCard = React.memo<FeedCardProps>(({
       </View>
 
       <View style={styles.footerRow}>
-        {onPress ? (
-          <TouchableOpacity
-            onPress={() => onPress(item.id)}
-            style={styles.primaryCta}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityLabel={t('accessibility.readArticle')}
-          >
-            <Text style={styles.primaryCtaText}>{t('news.read')}</Text>
-            <ChevronRight size={18} color={c.primary[600]} />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.footerSpacer} />
-        )}
         {(item.url || item.sourceUrl) && (
           <TouchableOpacity
             onPress={openExternalArticle}
@@ -230,23 +255,35 @@ export const NewsCard = React.memo<FeedCardProps>(({
             accessibilityRole="link"
             accessibilityLabel={t('accessibility.openInBrowser')}
           >
-            <ExternalLink size={16} color={c.primary[500]} />
-            <Text style={styles.openSiteText}>{t('news.fullArticle')}</Text>
+            <ExternalLink size={30} color={c.primary[tokens.isDark ? 400 : 500]} />
+            <View style={styles.openSiteTextWrap}>
+              <Text style={styles.openSiteText}>{t('news.sourceArticle')}</Text>
+              {item.source ? (
+                <Text style={styles.openSiteSourceName}>{item.source}</Text>
+              ) : null}
+            </View>
           </TouchableOpacity>
         )}
+        {(item.url || item.sourceUrl) && onPress ? (
+          <View style={styles.footerDivider} />
+        ) : null}
+        {onPress ? (
+          <TouchableOpacity
+            onPress={() => onPress(item.id)}
+            style={styles.primaryCta}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel={t('accessibility.readArticle')}
+          >
+            <FileText size={30} color={c.primary[tokens.isDark ? 400 : 500]} strokeWidth={2} />
+            <View style={styles.primaryCtaTextWrap}>
+              <Text style={styles.primaryCtaLabel}>{t('news.read')}</Text>
+              <Text style={styles.primaryCtaSubLabel}>{t('news.summary')}</Text>
+            </View>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
-      <NewsCardActions
-        item={item}
-        tokens={tokens}
-        styles={styles}
-        isSaved={isSaved}
-        articleSaveCount={articleSaveCount}
-        onReact={onReact}
-        onComment={onComment}
-        onShare={onShare}
-        onSave={onSave}
-      />
     </View>
   );
 }, areNewsCardPropsEqual);
