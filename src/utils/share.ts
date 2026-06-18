@@ -1,6 +1,6 @@
 import { Platform, Share } from 'react-native';
 import type { NewsItem, NewsSourceInfo } from '@/src/types';
-import { getAppStoreUrl, getPlayStoreUrl } from '@/src/config/shareUrls';
+import { buildNayftShareUrl } from '@/src/config/shareUrls';
 import { trackSourceShared } from '@/src/utils/trackEvent';
 
 export type ShareableNews = Pick<
@@ -11,6 +11,7 @@ export type ShareableNews = Pick<
   | 'sourceUrl'
   | 'source'
   | 'sourceInfo'
+  | 'shareMeta'
   | 'snippet'
   | 'subtitle'
   | 'publishedAt'
@@ -26,10 +27,18 @@ export interface SharePayload {
 
 type ShareChannel = 'native_sheet' | 'clipboard' | 'web_share';
 
-function getArticleUrl(item: ShareableNews): string | undefined {
-  const candidate = item.url ?? item.sourceUrl;
+function getPublisherUrl(item: ShareableNews): string | undefined {
+  const candidate = item.shareMeta?.publisherUrl ?? item.sourceUrl ?? item.url;
   const trimmed = candidate?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function getShareUrl(item: ShareableNews): string | undefined {
+  const fromMeta = item.shareMeta?.shareUrl?.trim();
+  if (fromMeta) return fromMeta;
+  const id = item.id?.trim();
+  if (id) return buildNayftShareUrl(id);
+  return getPublisherUrl(item);
 }
 
 function getShareSummary(item: ShareableNews): string {
@@ -44,11 +53,11 @@ function getSourceName(item: ShareableNews): string {
 
 export function formatSharePayload(item: ShareableNews): SharePayload {
   const title = item.title.trim();
-  const articleUrl = getArticleUrl(item);
+  const shareUrl = getShareUrl(item);
+  const publisherUrl = getPublisherUrl(item);
   const sourceName = getSourceName(item);
   const summary = getShareSummary(item);
-  const playStoreUrl = getPlayStoreUrl();
-  const appStoreUrl = getAppStoreUrl();
+  const previewUrl = publisherUrl ?? shareUrl;
 
   const lines: string[] = [title];
 
@@ -58,16 +67,20 @@ export function formatSharePayload(item: ShareableNews): SharePayload {
 
   lines.push('', `Source: ${sourceName}`, 'via NAYFT', '');
 
-  if (articleUrl) {
-    lines.push(articleUrl, '');
+  // Publisher URL first so WhatsApp/Telegram unfurl the source article image.
+  if (publisherUrl) {
+    lines.push(publisherUrl);
   }
-
-  lines.push('Download NAYFT:', playStoreUrl, appStoreUrl);
+  if (shareUrl && shareUrl !== publisherUrl) {
+    lines.push('', 'Get NAYFT:', shareUrl);
+  } else if (!publisherUrl && shareUrl) {
+    lines.push(shareUrl);
+  }
 
   return {
     title,
     text: lines.join('\n'),
-    url: articleUrl,
+    url: previewUrl,
   };
 }
 
@@ -79,12 +92,12 @@ function trackShareSuccess(item: ShareableNews, channel: ShareChannel): void {
 }
 
 async function shareOnWeb(item: ShareableNews): Promise<boolean> {
-  const { title, text, url: articleUrl } = formatSharePayload(item);
+  const { title, text, url: shareUrl } = formatSharePayload(item);
 
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
     try {
-      const payload: ShareData = articleUrl
-        ? { title, text, url: articleUrl }
+      const payload: ShareData = shareUrl
+        ? { title, text, url: shareUrl }
         : { title, text };
       await navigator.share(payload);
       trackShareSuccess(item, 'web_share');

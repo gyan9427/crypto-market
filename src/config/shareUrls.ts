@@ -25,3 +25,9 @@ export function resolveShareFooterLink(): string {
   if (Platform.OS === 'android') return getPlayStoreUrl();
   return getNayftDownloadUrl();
 }
+
+/** Canonical NAYFT share landing URL for an article (used when shareMeta is absent). */
+export function buildNayftShareUrl(articleId: string): string {
+  const base = getNayftDownloadUrl().replace(/\/+$/, '');
+  return `${base}/share/${encodeURIComponent(articleId)}`;
+}

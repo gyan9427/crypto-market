@@ -32,6 +32,12 @@ interface BackendNewsSourceInfo {
   trustCategory: 'verified' | 'trusted' | 'community' | 'unknown';
 }
 
+interface BackendNewsShareMeta {
+  shareUrl: string;
+  publisherUrl: string;
+  ogImageUrl?: string | null;
+}
+
 interface BackendNews {
   id: string;
   title: string;
@@ -39,6 +45,7 @@ interface BackendNews {
   subtitle?: string;
   source: string;
   sourceInfo?: BackendNewsSourceInfo;
+  shareMeta?: BackendNewsShareMeta;
   url: string;
   sourceUrl?: string;
   image?: string;
@@ -226,7 +233,7 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
 
   const relatedCoins: Coin[] = resolveNewsItemCoins(backendNews.relatedCoins || [], coins);
 
-  const sourceUrl = backendNews.sourceUrl || backendNews.url;
+  const sourceUrl = backendNews.sourceUrl || backendNews.shareMeta?.publisherUrl || backendNews.url;
   const description = backendNews.subtitle || backendNews.summary;
 
   const defaultReactions: ReactionCounts = {
@@ -243,6 +250,7 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
     imageUrl: backendNews.image,
     source: backendNews.source,
     sourceInfo: backendNews.sourceInfo,
+    shareMeta: backendNews.shareMeta,
     sourceUrl,
     publishedAt,
     coins: relatedCoins,

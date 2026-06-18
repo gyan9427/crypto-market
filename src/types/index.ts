@@ -128,6 +128,12 @@ export interface NewsSourceInfo {
   trustCategory: 'verified' | 'trusted' | 'community' | 'unknown';
 }
 
+export interface NewsShareMeta {
+  shareUrl: string;
+  publisherUrl: string;
+  ogImageUrl?: string | null;
+}
+
 export interface NewsItem {
   id: string;
   title: string;
@@ -137,6 +143,7 @@ export interface NewsItem {
   imageUrl?: string;
   source: string;
   sourceInfo?: NewsSourceInfo;
+  shareMeta?: NewsShareMeta;
   sourceUrl?: string;
   author?: string;
   publishedAt: Date;
