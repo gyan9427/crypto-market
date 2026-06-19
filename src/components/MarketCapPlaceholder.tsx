@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
   ScrollView,
   Platform,
+  Animated,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -80,6 +81,9 @@ const LIVE_POINT_VIEWPORT_RATIO = 0.75;
 const TRAILING_VIEWPORT_RATIO   = 0.25;
 const LIVE_EDGE_THRESHOLD_PX    = 20;
 const Y_PADDING_RATIO           = 0.05;
+const LAST_PRICE_LINE_OPACITY   = 0.72;
+const LAST_PRICE_PILL_H         = 20;
+const LAST_PRICE_ANIM_MS        = 220;
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -199,6 +203,21 @@ function computeViewportXLabelIndices(
   return indices.filter((idx, i) => i === 0 || idx !== indices[i - 1]);
 }
 
+type PriceDirection = 'up' | 'down' | 'neutral';
+
+interface LastVisibleAnchor {
+  index: number;
+  price: number;
+  pixelY: number;
+}
+
+function formatLastPriceLabel(price: number, direction: PriceDirection): string {
+  const formatted = fmtMarketShort(price);
+  if (direction === 'up') return `▲ ${formatted}`;
+  if (direction === 'down') return `▼ ${formatted}`;
+  return formatted;
+}
+
 // ─── Chart view type ─────────────────────────────────────────────────────────
 interface ChartView {
   linePath: string;
@@ -269,16 +288,6 @@ function ChartSvg({
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth="2"
-    />
-
-    {/* Live dot at end of curve */}
-    <Circle
-      cx={view.lastPoint.x}
-      cy={view.lastPoint.y}
-      r={3.5}
-      fill={lineColor}
-      stroke={markerStroke}
-      strokeWidth="1.5"
     />
 
     {/* Hover crosshair */}
@@ -425,6 +434,122 @@ function CandleSvg({
 }
 CandleSvg.displayName = 'CandleSvg';
 const MemoCandleSvg = memo(CandleSvg);
+
+// ─── Last price line overlay (viewport-fixed, TradingView-style) ─────────────
+interface LastPriceLineOverlayProps {
+  lineYAnim: Animated.Value;
+  lineOpacityAnim: Animated.Value;
+  width: number;
+  height: number;
+  lineColor: string;
+  pointX: number | null;
+  markerStroke: string;
+}
+
+function LastPriceLineOverlay({
+  lineYAnim,
+  lineOpacityAnim,
+  width,
+  height,
+  lineColor,
+  pointX,
+  markerStroke,
+}: LastPriceLineOverlayProps) {
+  const [lineY, setLineY] = useState(0);
+
+  useEffect(() => {
+    const id = lineYAnim.addListener(({ value }) => setLineY(value));
+    return () => lineYAnim.removeListener(id);
+  }, [lineYAnim]);
+
+  if (width <= 0 || height <= 0) return null;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[lastPriceOverlayStyle, { width, height, opacity: lineOpacityAnim }]}
+    >
+      <Svg width={width} height={height} style={svgStyle}>
+        <Line
+          x1={0}
+          y1={lineY}
+          x2={width}
+          y2={lineY}
+          stroke={lineColor}
+          strokeWidth={1}
+          strokeOpacity={LAST_PRICE_LINE_OPACITY}
+          strokeDasharray="4 4"
+        />
+        {pointX !== null && Number.isFinite(pointX) ? (
+          <>
+            <Circle
+              cx={pointX}
+              cy={lineY}
+              r={5}
+              fill={lineColor}
+              fillOpacity={0.25}
+            />
+            <Circle
+              cx={pointX}
+              cy={lineY}
+              r={3.5}
+              fill={lineColor}
+              stroke={markerStroke}
+              strokeWidth={1.5}
+            />
+          </>
+        ) : null}
+      </Svg>
+    </Animated.View>
+  );
+}
+LastPriceLineOverlay.displayName = 'LastPriceLineOverlay';
+const MemoLastPriceLineOverlay = memo(LastPriceLineOverlay);
+
+const lastPriceOverlayStyle = {
+  position: 'absolute' as const,
+  left: 0,
+  top: 0,
+  zIndex: 2,
+};
+
+interface LastPriceAxisMarkerProps {
+  lineYAnim: Animated.Value;
+  label: string;
+  backgroundColor: string;
+  scaleAnim: Animated.Value;
+  styles: ReturnType<typeof buildMarketCapStyles>;
+}
+
+function LastPriceAxisMarker({
+  lineYAnim,
+  label,
+  backgroundColor,
+  scaleAnim,
+  styles,
+}: LastPriceAxisMarkerProps) {
+  const markerTop = Animated.subtract(lineYAnim, LAST_PRICE_PILL_H / 2);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.lastPriceAxisMarker,
+        {
+          top: markerTop,
+          backgroundColor,
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+    >
+      <Text style={styles.lastPriceAxisMarkerText} numberOfLines={1}>
+        {label}
+      </Text>
+    </Animated.View>
+  );
+}
+LastPriceAxisMarker.displayName = 'LastPriceAxisMarker';
+const MemoLastPriceAxisMarker = memo(LastPriceAxisMarker);
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface MarketCapPlaceholderProps {
@@ -744,6 +869,138 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     return labels;
   }, [klines, visibleStartIndex, visibleEndIndex, activeRange]);
 
+  const activeYDomain = chartType === 'line' ? lineYDomain : candleYDomain;
+
+  const lastVisibleAnchor = useMemo<LastVisibleAnchor | null>(() => {
+    if (!activeYDomain || klines.length === 0) return null;
+    if (visibleEndIndex < 0 || visibleEndIndex >= klines.length) return null;
+
+    const kline = klines[visibleEndIndex];
+    if (!Number.isFinite(kline.close)) return null;
+
+    const svgY = mapYValue(kline.close, activeYDomain);
+    return {
+      index: visibleEndIndex,
+      price: kline.close,
+      pixelY: (svgY / SVG_H) * chartAreaHeight,
+    };
+  }, [activeYDomain, klines, visibleEndIndex, chartAreaHeight]);
+
+  const lastVisiblePointViewportX = useMemo(() => {
+    if (!lastVisibleAnchor || chartPixelWidth <= 0) return null;
+
+    let contentX: number;
+    if (chartType === 'line' && chartView) {
+      const pt = chartView.points[lastVisibleAnchor.index];
+      if (!pt) return null;
+      contentX = (pt.x / lineTotalSvgW) * chartTotalPixelW;
+    } else if (chartType === 'candle' && klines.length > 0) {
+      const innerW = candleTotalSvgW - PAD * 2;
+      const slotW = innerW / klines.length;
+      const svgX = PAD + lastVisibleAnchor.index * slotW + slotW / 2;
+      contentX = (svgX / candleTotalSvgW) * chartTotalPixelW;
+    } else {
+      return null;
+    }
+
+    const viewportX = contentX - scrollOffset;
+    if (viewportX < -6 || viewportX > chartPixelWidth + 6) return null;
+    return viewportX;
+  }, [
+    lastVisibleAnchor,
+    chartPixelWidth,
+    chartType,
+    chartView,
+    lineTotalSvgW,
+    chartTotalPixelW,
+    candleTotalSvgW,
+    klines.length,
+    scrollOffset,
+  ]);
+
+  const lineYAnim = useRef(new Animated.Value(0)).current;
+  const lineOpacityAnim = useRef(new Animated.Value(LAST_PRICE_LINE_OPACITY)).current;
+  const pillScaleAnim = useRef(new Animated.Value(1)).current;
+  const prevVisiblePriceRef = useRef<number | null>(null);
+  const [priceDirection, setPriceDirection] = useState<PriceDirection>('neutral');
+
+  useEffect(() => {
+    if (!lastVisibleAnchor) return;
+    Animated.timing(lineYAnim, {
+      toValue: lastVisibleAnchor.pixelY,
+      duration: LAST_PRICE_ANIM_MS,
+      useNativeDriver: false,
+    }).start();
+  }, [lastVisibleAnchor, lineYAnim]);
+
+  useEffect(() => {
+    if (!lastVisibleAnchor) return;
+
+    const prev = prevVisiblePriceRef.current;
+    if (prev !== null && prev !== lastVisibleAnchor.price) {
+      setPriceDirection(
+        lastVisibleAnchor.price > prev
+          ? 'up'
+          : lastVisibleAnchor.price < prev
+            ? 'down'
+            : 'neutral',
+      );
+      Animated.sequence([
+        Animated.timing(pillScaleAnim, {
+          toValue: 1.08,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        Animated.spring(pillScaleAnim, {
+          toValue: 1,
+          friction: 6,
+          tension: 180,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+
+    prevVisiblePriceRef.current = lastVisibleAnchor.price;
+  }, [lastVisibleAnchor, pillScaleAnim]);
+
+  useEffect(() => {
+    const breathe = Animated.loop(
+      Animated.sequence([
+        Animated.timing(lineOpacityAnim, {
+          toValue: 0.84,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(lineOpacityAnim, {
+          toValue: 0.6,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    breathe.start();
+    return () => breathe.stop();
+  }, [lineOpacityAnim]);
+
+  useLayoutEffect(() => {
+    prevVisiblePriceRef.current = null;
+    setPriceDirection('neutral');
+    pillScaleAnim.setValue(1);
+  }, [activeRange, chartType, pillScaleAnim]);
+
+  const lastPriceLabel = lastVisibleAnchor
+    ? formatLastPriceLabel(lastVisibleAnchor.price, priceDirection)
+    : '';
+
+  const lastPriceMarkerBg = useMemo(() => {
+    if (priceDirection === 'up') return chartColors.green;
+    if (priceDirection === 'down') return chartColors.red;
+    return chartColors.line;
+  }, [priceDirection, chartColors.green, chartColors.red, chartColors.line]);
+
+  const showLastPriceMarker =
+    lastVisibleAnchor !== null && hoverIndex === null && !isLoading;
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
@@ -831,6 +1088,15 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                 {fmtMarketShort(price)}
               </Text>
             ))}
+            {showLastPriceMarker ? (
+              <MemoLastPriceAxisMarker
+                lineYAnim={lineYAnim}
+                label={lastPriceLabel}
+                backgroundColor={lastPriceMarkerBg}
+                scaleAnim={pillScaleAnim}
+                styles={styles}
+              />
+            ) : null}
           </View>
 
           {/* SVG + interaction area */}
@@ -914,6 +1180,18 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                     />
                   </View>
                 </ScrollView>
+
+                {showLastPriceMarker ? (
+                  <MemoLastPriceLineOverlay
+                    lineYAnim={lineYAnim}
+                    lineOpacityAnim={lineOpacityAnim}
+                    width={chartPixelWidth}
+                    height={chartAreaHeight}
+                    lineColor={chartColors.line}
+                    pointX={lastVisiblePointViewportX}
+                    markerStroke={chartMarkerStroke}
+                  />
+                ) : null}
 
                 {/* Return to live — shown when user scrolls away from the latest point */}
                 {needsChartScroll && !isAtLiveEdge ? (
