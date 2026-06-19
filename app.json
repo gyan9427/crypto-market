@@ -7,19 +7,42 @@
     "icon": "./assets/images/icon.png",
     "scheme": "nayft",
     "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nayft.app",
+      "associatedDomains": [
+        "applinks:nayft.com",
+        "applinks:www.nayft.com"
+      ],
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
     "android": {
       "package": "com.nayft.app",
       "googleServicesFile": "./google-services.json",
       "versionCode": 7,
-      "permissions": [],
-      "allowBackup": false
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.nayft.app",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "permissions": ["POST_NOTIFICATIONS"],
+      "allowBackup": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "nayft.com",
+              "pathPrefix": "/share"
+            },
+            {
+              "scheme": "https",
+              "host": "www.nayft.com",
+              "pathPrefix": "/share"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -33,6 +56,13 @@
       "expo-localization",
       "expo-sharing",
       "@react-native-google-signin/google-signin",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff"
+        }
+      ],
       [
         "expo-build-properties",
         {

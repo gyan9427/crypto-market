@@ -3,19 +3,30 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import { Skeleton } from './Skeleton';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
+import {
+  NESTED_HORIZONTAL_LIST_PROPS,
+  useHorizontalScrollInteractionHandlers,
+  type HorizontalScrollInteractionProps,
+} from '@/src/hooks/useHorizontalScrollInteractionHandlers';
 
-export const FeaturedCarouselSkeleton: React.FC = () => {
+export const FeaturedCarouselSkeleton: React.FC<HorizontalScrollInteractionProps> = ({
+  onScrollInteractionChange,
+}) => {
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildFeaturedCarouselSkeletonStyles(tokens), [tokens]);
   const br = tokens.borderRadius;
+  const { touchInteractionHandlers, scrollInteractionHandlers } =
+    useHorizontalScrollInteractionHandlers(onScrollInteractionChange);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} {...touchInteractionHandlers}>
       <Skeleton width={100} height={22} style={styles.title} />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        {...NESTED_HORIZONTAL_LIST_PROPS}
+        {...scrollInteractionHandlers}
       >
         {[1, 2, 3].map((index) => (
           <View key={index} style={styles.card}>

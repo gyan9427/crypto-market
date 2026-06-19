@@ -22,6 +22,7 @@ import { useConsentStore } from '@/src/privacy/consentStore';
 import { useRuntimeHints } from '@/src/hooks/useRuntimeHints';
 import { ForceUpgradeGate } from '@/src/components/ForceUpgradeGate';
 import { ShareCardCaptureHost } from '@/src/components/share/ShareCardCaptureHost';
+import { useShareDeepLinkHandler } from '@/src/hooks/useShareDeepLinkHandler';
 import { isTieredStartupEnabled } from '@/src/config/featureFlags';
 import {
   markStartupTier1Begin,
@@ -60,7 +61,9 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
         <Stack.Screen name="register" />
         <Stack.Screen name="verify-email" />
         <Stack.Screen name="change-password" />
+        <Stack.Screen name="notification-preferences" options={{ headerShown: true, title: 'Notifications' }} />
         <Stack.Screen name="reset-password" />
+        <Stack.Screen name="share/[id]" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       {isAuthenticated && emailVerified ? <CoinOnboardingGate /> : null}
@@ -102,6 +105,8 @@ export default function RootLayout() {
   const featuresLoaded = useFeaturesStore((state) => state.loaded);
   const splashDone = useSplashStore((state) => state.done);
   const [isReady, setIsReady] = useState(false);
+
+  useShareDeepLinkHandler(isReady);
 
   useEffect(() => {
     const tier1Start = markStartupTier1Begin();
@@ -157,6 +162,7 @@ export default function RootLayout() {
     if (!isReady || !featuresLoaded) return;
 
     const firstSegment = segments[0] as string | undefined;
+    const isShareRoute = firstSegment === 'share';
 
     const shouldGateWithSplash = !splashDone && !isAuthenticated;
 
@@ -173,6 +179,10 @@ export default function RootLayout() {
       } else {
         router.replace('/(tabs)' as Href);
       }
+      return;
+    }
+
+    if (isShareRoute) {
       return;
     }
 

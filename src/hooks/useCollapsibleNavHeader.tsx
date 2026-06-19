@@ -10,6 +10,8 @@ import {
 type CollapsibleNavHeaderContextValue = {
   headerOffset: SharedValue<number>;
   maxHeaderOffset: SharedValue<number>;
+  /** When 1, header collapse/expand is paused (e.g. nested horizontal carousel active). */
+  headerScrollFrozen: SharedValue<number>;
   scrollHandler: ReturnType<typeof useAnimatedScrollHandler>;
   resetHeader: () => void;
 };
@@ -22,15 +24,22 @@ export function CollapsibleNavHeaderProvider({ children }: { children: React.Rea
   const headerOffset = useSharedValue(0);
   const lastScrollY = useSharedValue(0);
   const maxHeaderOffset = useSharedValue(0);
+  const headerScrollFrozen = useSharedValue(0);
 
   const resetHeader = useCallback(() => {
     headerOffset.value = 0;
     lastScrollY.value = 0;
-  }, [headerOffset, lastScrollY]);
+    headerScrollFrozen.value = 0;
+  }, [headerOffset, lastScrollY, headerScrollFrozen]);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       const y = event.contentOffset.y;
+      if (headerScrollFrozen.value === 1) {
+        lastScrollY.value = y;
+        return;
+      }
+
       if (y <= 0) {
         headerOffset.value = 0;
         lastScrollY.value = 0;
@@ -52,10 +61,11 @@ export function CollapsibleNavHeaderProvider({ children }: { children: React.Rea
     () => ({
       headerOffset,
       maxHeaderOffset,
+      headerScrollFrozen,
       scrollHandler,
       resetHeader,
     }),
-    [headerOffset, maxHeaderOffset, scrollHandler, resetHeader]
+    [headerOffset, maxHeaderOffset, headerScrollFrozen, scrollHandler, resetHeader]
   );
 
   return (
@@ -77,16 +87,20 @@ type CollapsibleScrollHandlerOptions = {
   /** Fired on the JS thread when scroll position is within `endReachOffsetPx` of the bottom. */
   onNearEnd?: () => void;
   endReachOffsetPx?: number;
+  /** Fired on the JS thread with the latest vertical content offset. */
+  onScrollY?: (y: number) => void;
 };
 
 /** Attach to FlatList / ScrollView; resets header when the screen gains focus. */
 export function useCollapsibleNavHeaderScrollHandlers(
   options?: CollapsibleScrollHandlerOptions
 ) {
-  const { headerOffset, maxHeaderOffset, resetHeader } = useCollapsibleNavHeader();
+  const { headerOffset, maxHeaderOffset, headerScrollFrozen, resetHeader } =
+    useCollapsibleNavHeader();
   const lastScrollY = useSharedValue(0);
   const lastNearEndAt = useSharedValue(0);
   const onNearEnd = options?.onNearEnd;
+  const onScrollY = options?.onScrollY;
   const endReachOffsetPx = options?.endReachOffsetPx ?? 320;
   const nearEndCooldownMs = 400;
 
@@ -99,9 +113,21 @@ export function useCollapsibleNavHeaderScrollHandlers(
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       const y = event.contentOffset.y;
+
+      if (headerScrollFrozen.value === 1) {
+        lastScrollY.value = y;
+        if (onScrollY) {
+          runOnJS(onScrollY)(Math.max(0, y));
+        }
+        return;
+      }
+
       if (y <= 0) {
         headerOffset.value = 0;
         lastScrollY.value = 0;
+        if (onScrollY) {
+          runOnJS(onScrollY)(0);
+        }
       } else {
         const dy = y - lastScrollY.value;
         lastScrollY.value = y;
@@ -110,6 +136,10 @@ export function useCollapsibleNavHeaderScrollHandlers(
         if (max > 0) {
           const next = headerOffset.value + dy;
           headerOffset.value = Math.min(Math.max(next, 0), max);
+        }
+
+        if (onScrollY) {
+          runOnJS(onScrollY)(y);
         }
       }
 

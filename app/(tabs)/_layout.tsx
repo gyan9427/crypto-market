@@ -14,6 +14,7 @@ import { View, Image, StyleSheet, type ColorValue } from 'react-native';
 import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { NotificationsGatewayHost } from '@/src/components/NotificationsGatewayHost';
+import { PushNotificationsHost } from '@/src/components/PushNotificationsHost';
 
 function ProfileTabIcon({ color, size }: { color: ColorValue; size: number }) {
   const user = useAuthStore((s) => s.user);
@@ -168,6 +169,7 @@ export default function TabsLayout() {
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
       <StatusBar style={effectiveScheme === 'dark' ? 'light' : 'dark'} />
       {isAuthenticated ? <NotificationsGatewayHost /> : null}
+      {isAuthenticated ? <PushNotificationsHost /> : null}
       <QuickActionsProvider>
       <CollapsibleNavHeaderProvider>
       <Tabs screenOptions={mergedScreenOptions as never}>

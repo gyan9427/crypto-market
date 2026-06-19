@@ -8,8 +8,13 @@ import { formatTimeAgo } from '../utils/format';
 import { coinsHeaderPrimaryLine } from './news/newsCardUtils';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
+import {
+  NESTED_HORIZONTAL_LIST_PROPS,
+  useHorizontalScrollInteractionHandlers,
+  type HorizontalScrollInteractionProps,
+} from '@/src/hooks/useHorizontalScrollInteractionHandlers';
 
-interface FeaturedCarouselProps {
+interface FeaturedCarouselProps extends HorizontalScrollInteractionProps {
   items: NewsItem[];
   onItemPress?: (id: string) => void;
 }
@@ -17,10 +22,13 @@ interface FeaturedCarouselProps {
 export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   items,
   onItemPress,
+  onScrollInteractionChange,
 }) => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildFeaturedCarouselStyles(tokens), [tokens]);
+  const { touchInteractionHandlers, scrollInteractionHandlers } =
+    useHorizontalScrollInteractionHandlers(onScrollInteractionChange);
 
   const renderItem = ({ item }: { item: NewsItem }) => (
     <TouchableOpacity
@@ -65,7 +73,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
   );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} {...touchInteractionHandlers}>
       <View style={styles.sectionHeader}>
         <Text style={styles.eyebrow}>{t('featured.title').toUpperCase()}</Text>
       </View>
@@ -78,6 +86,8 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
         contentContainerStyle={styles.scrollContent}
         initialNumToRender={2}
         maxToRenderPerBatch={1}
+        {...NESTED_HORIZONTAL_LIST_PROPS}
+        {...scrollInteractionHandlers}
       />
     </View>
   );

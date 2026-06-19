@@ -40,6 +40,19 @@ export function trackSourceShared(
   trackEvent({ featureKey: 'news_feed', eventType: 'source_shared', metadata: { newsId, sourceKey, ...(shareChannel ? { shareChannel } : {}) } });
 }
 
+export function trackNotificationOpened(payload: {
+  notificationId: string;
+  category: string;
+  type: string;
+  source: 'push' | 'inbox';
+}): void {
+  trackEvent({
+    featureKey: 'notifications',
+    eventType: 'notification_opened',
+    metadata: payload,
+  });
+}
+
 export function trackAuthEvent(
   eventType:
     | 'login_attempt'

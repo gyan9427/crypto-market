@@ -11,9 +11,13 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type ViewToken,
+  type FlatList,
 } from 'react-native';
-import Animated from 'react-native-reanimated';
-import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
+import Animated, { runOnUI } from 'react-native-reanimated';
+import {
+  useCollapsibleNavHeader,
+  useCollapsibleNavHeaderScrollHandlers,
+} from '@/src/hooks/useCollapsibleNavHeader';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Users, Compass } from 'lucide-react-native';
@@ -101,6 +105,7 @@ export const HomeScreen: React.FC = () => {
   const [commentingNewsId, setCommentingNewsId] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [feedScrollEnabled, setFeedScrollEnabled] = useState(true);
 
   const feedFilter = useAppStore((state) => state.feedFilter);
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
@@ -124,6 +129,9 @@ export const HomeScreen: React.FC = () => {
   const loadMoreRef = useRef<() => Promise<void>>(async () => {});
   const tryFillShortListRef = useRef<() => void>(() => {});
   const feedRowCountRef = useRef(0);
+  const carouselInteractionActiveRef = useRef(false);
+  const feedListRef = useRef<FlatList<FeedRow>>(null);
+  const { headerScrollFrozen } = useCollapsibleNavHeader();
   const showFeedLoading = loading || feedPending;
 
   useEffect(() => {
@@ -469,6 +477,23 @@ export const HomeScreen: React.FC = () => {
     [openNewsDetailById]
   );
 
+  const handleFeaturedScrollInteraction = useCallback(
+    (active: boolean) => {
+      if (active === carouselInteractionActiveRef.current) return;
+      carouselInteractionActiveRef.current = active;
+
+      runOnUI((frozen: number) => {
+        'worklet';
+        headerScrollFrozen.value = frozen;
+      })(active ? 1 : 0);
+
+      const scrollEnabled = !active;
+      feedListRef.current?.setNativeProps({ scrollEnabled });
+      setFeedScrollEnabled(scrollEnabled);
+    },
+    [headerScrollFrozen]
+  );
+
   const handleCloseDetail = useCallback(() => {
     setIsDetailVisible(false);
     setSelectedNews(null);
@@ -549,9 +574,13 @@ export const HomeScreen: React.FC = () => {
       }
       if (isFeaturedRow(item)) {
         return featuredNews.length === 0 ? (
-          <FeaturedCarouselSkeleton />
+          <FeaturedCarouselSkeleton onScrollInteractionChange={handleFeaturedScrollInteraction} />
         ) : (
-          <FeaturedCarousel items={displayFeatured} onItemPress={handleFeaturedNewsPress} />
+          <FeaturedCarousel
+            items={displayFeatured}
+            onItemPress={handleFeaturedNewsPress}
+            onScrollInteractionChange={handleFeaturedScrollInteraction}
+          />
         );
       }
       return (
@@ -571,6 +600,7 @@ export const HomeScreen: React.FC = () => {
       newsData.length,
       displayFeatured,
       handleFeaturedNewsPress,
+      handleFeaturedScrollInteraction,
       handleReact,
       handleComment,
       handleShare,
@@ -597,11 +627,14 @@ export const HomeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <Animated.FlatList
+        ref={feedListRef}
         style={styles.list}
         data={feedRows}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         ListHeaderComponent={listHeaderComponent}
+        scrollEnabled={feedScrollEnabled}
+        canCancelContentTouches={false}
         {...collapsibleScrollHandlers}
         onLayout={handleListLayout}
         onContentSizeChange={handleContentSizeChange}

@@ -21,6 +21,7 @@ import { getAuthPaletteFromTokens } from '@/src/design-system/theme/authPaletteF
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { login, loginWithGoogle } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
+import { resolvePostAuthHref } from '@/src/state/usePendingShareStore';
 import { trackAuthEvent } from '@/src/utils/trackEvent';
 
 const PASSWORD_RESET_URL =
@@ -44,11 +45,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (user?.emailVerified !== true) {
-      router.replace('/verify-email' as never);
-      return;
-    }
-    router.replace('/(tabs)' as never);
+    router.replace(resolvePostAuthHref(user?.emailVerified === true) as never);
   }, [isAuthenticated, user?.emailVerified, router]);
 
   const handleGoogleSignIn = async () => {
@@ -63,9 +60,7 @@ export default function LoginScreen() {
         return;
       }
       const result = await loginWithGoogle(idToken);
-      router.replace(
-        (result.user.emailVerified !== true ? '/verify-email' : '/(tabs)') as never
-      );
+      router.replace(resolvePostAuthHref(result.user.emailVerified === true) as never);
     } catch (err: unknown) {
       if (isGoogleSignInCancelledError(err)) {
         // user cancelled — no error shown
@@ -93,9 +88,7 @@ export default function LoginScreen() {
       setLoading(true);
       setError(null);
       const result = await login(email.trim(), password);
-      router.replace(
-        (result.user.emailVerified !== true ? '/verify-email' : '/(tabs)') as never
-      );
+      router.replace(resolvePostAuthHref(result.user.emailVerified === true) as never);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('auth.errorLoginFailed'));
     } finally {

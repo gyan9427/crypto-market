@@ -345,7 +345,7 @@ export default function ProfileScreen() {
           label="Notifications"
           description="Alerts, wallet activity, and social updates"
           icon={<Bell size={18} color={tokens.textMuted} />}
-          onPress={() => router.push('/(tabs)/notifications' as never)}
+          onPress={() => router.push('/notification-preferences' as never)}
         />
         <ProfileMenuItem
           tokens={tokens}
