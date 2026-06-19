@@ -7,6 +7,7 @@ import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { Sparkline } from './Sparkline';
 import type { LivePriceQuote } from '../hooks/useMarketPriceStream';
+import { useExploreRenderAttribution } from '../utils/exploreRenderAttribution';
 
 const FLAT_SPARKLINE: number[] = [0, 0];
 
@@ -14,29 +15,50 @@ interface TrendingCoinCardProps {
   coin: TrendingCoin;
   liveQuote?: LivePriceQuote;
   onPress?: (coinId: string) => void;
+  /** Explore rows: 5h baseline from sparklineHistoryHub (not coin.sparklineData). */
+  sparklineData?: number[];
+  sparklineRevision?: number;
 }
 
-function sparklineDataSignature(sp?: number[]): string {
+function sparklinePropsSignature(sp?: number[], revision?: number): string {
   if (!sp || sp.length < 2) return '';
-  return `${sp.length}:${sp[0]}:${sp[sp.length - 1]}`;
+  return `${revision ?? 0}:${sp.length}:${sp[0]}:${sp[sp.length - 1]}`;
 }
 
 function areTrendingCoinCardPropsEqual(prev: TrendingCoinCardProps, next: TrendingCoinCardProps): boolean {
   const a = prev.coin;
   const b = next.coin;
+  const prevSpark = prev.sparklineData ?? a.sparklineData;
+  const nextSpark = next.sparklineData ?? b.sparklineData;
   return (
     a.id === b.id &&
     a.symbol === b.symbol &&
     a.price === b.price &&
     a.change24h === b.change24h &&
     a.rank === b.rank &&
-    sparklineDataSignature(a.sparklineData) === sparklineDataSignature(b.sparklineData) &&
+    sparklinePropsSignature(prevSpark, prev.sparklineRevision) ===
+      sparklinePropsSignature(nextSpark, next.sparklineRevision) &&
     prev.liveQuote?.price === next.liveQuote?.price &&
     prev.liveQuote?.percentChange24h === next.liveQuote?.percentChange24h
   );
 }
 
-export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, liveQuote, onPress }) => {
+export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({
+  coin,
+  liveQuote,
+  onPress,
+  sparklineData: sparklineOverride,
+  sparklineRevision,
+}) => {
+  const cardProps = useMemo(
+    () => ({ coin, liveQuote, onPress, sparklineData: sparklineOverride, sparklineRevision }),
+    [coin, liveQuote, onPress, sparklineOverride, sparklineRevision]
+  );
+  useExploreRenderAttribution('TrendingCoinCard', cardProps, {
+    coinId: coin.id,
+    memoCompare: areTrendingCoinCardPropsEqual,
+  });
+
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildTrendingCoinCardStyles(tokens), [tokens]);
   const c = tokens.colors;
@@ -51,13 +73,10 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, liveQ
     : coin.change24h;
   const isPositive = liveChange24h >= 0;
   const sparklineData = useMemo(() => {
-    const s = coin.sparklineData;
+    const s = sparklineOverride ?? coin.sparklineData;
     if (s && s.length >= 2) return s;
-    // Flat-line placeholder. A [v, v] pair always maps to the same SVG output
-    // regardless of v (min === max → range fallback of 1 → all y = height),
-    // so there is no visual benefit in updating this on every live-price tick.
     return FLAT_SPARKLINE;
-  }, [coin.sparklineData]);
+  }, [sparklineOverride, coin.sparklineData]);
   const sparklineColor = isPositive ? c.success[500] : c.danger[500];
 
   return (
@@ -84,6 +103,7 @@ export const TrendingCoinCard = React.memo<TrendingCoinCardProps>(({ coin, liveQ
       <View style={styles.sparklineWrap}>
         <Sparkline
           data={sparklineData}
+          revision={sparklineRevision}
           lineColor={sparklineColor}
           width={60}
           height={28}

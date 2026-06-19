@@ -8,6 +8,8 @@ import { resolveApiBaseUrl } from '../config/apiBaseUrl';
 import { getAppVersion } from '../config/appVersion';
 import { fetchJsonCached } from './requestCache';
 import { resolveNewsItemCoins } from '../components/news/newsCardUtils';
+import { isExplorePreserveSparklinesEnabled } from '../config/exploreFeatureFlags';
+import { normalizeSparklineArray, preserveSparklineReference } from '../utils/sparklineReference';
 
 export const API_BASE_URL = resolveApiBaseUrl();
 
@@ -386,11 +388,11 @@ export const fetchNews = async (
 /** Close prices for Explore sparkline (≥2 points for SparklineChart). */
 function sparklineValuesFromSnapshotRow(row: SnapshotRow): number[] | undefined {
   if (row.sparkline.encoding === 'closes' && row.sparkline.values.length >= 2) {
-    return row.sparkline.values;
+    return normalizeSparklineArray(row.sparkline.values);
   }
   if (row.sparkline.encoding === 'flat') {
     const v = row.sparkline.value;
-    if (Number.isFinite(v)) return [v, v];
+    if (Number.isFinite(v)) return normalizeSparklineArray([v, v]);
   }
   return undefined;
 }
@@ -400,7 +402,8 @@ function sparklineValuesFromSnapshotRow(row: SnapshotRow): number[] | undefined 
  */
 export function enrichTrendingCoinsWithSnapshot(
   coins: TrendingCoin[],
-  snapshot: MarketSnapshotV2 | null | undefined
+  snapshot: MarketSnapshotV2 | null | undefined,
+  prevSparklines?: Map<string, number[] | undefined>
 ): TrendingCoin[] {
   if (!snapshot) return coins;
   const byId = new Map<string, SnapshotRow>();
@@ -408,11 +411,17 @@ export function enrichTrendingCoinsWithSnapshot(
   for (const row of snapshot.tabs.topGainers) byId.set(row.coinId, row);
   for (const row of snapshot.tabs.topLosers) byId.set(row.coinId, row);
 
+  const preserve = isExplorePreserveSparklinesEnabled();
+
   return coins.map((c) => {
     const row = byId.get(c.id);
     if (!row) return c;
-    const sparklineData = sparklineValuesFromSnapshotRow(row);
-    if (!sparklineData) return c;
+    const rawSparkline = sparklineValuesFromSnapshotRow(row);
+    if (!rawSparkline) return c;
+    const sparklineData = preserve
+      ? preserveSparklineReference(prevSparklines?.get(c.id), rawSparkline)
+      : rawSparkline;
+    if (sparklineData === c.sparklineData) return c;
     return { ...c, sparklineData };
   });
 }
