@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
-import { API_BASE_URL } from '@/src/services/api';
+import { API_BASE_URL } from '@/src/services/apiBase';
 import { getAppVersion, isAppVersionBelowMin } from '@/src/config/appVersion';
 import { fetchJsonCached } from '@/src/services/requestCache';
 import { createRequestGuard, bumpGeneration } from '@/src/runtime/asyncRequestGuard';
+import {
+  clearRuntimeHintsCache as clearRuntimeHintsCacheState,
+  getRuntimeHintsCached,
+  getRuntimeHintsCachedAt,
+  setRuntimeHintsCache,
+  type RuntimeHints,
+} from '@/src/services/runtimeHintsCache';
 
-export interface RuntimeHints {
-  minAppVersion: string;
-  wsProtocolV2Required: boolean;
-  eventsSchemaEnforcement: string;
-}
+export type { RuntimeHints } from '@/src/services/runtimeHintsCache';
 
-let cachedHints: RuntimeHints | null = null;
-let cachedAt = 0;
 const CLIENT_TTL_MS = 5 * 60 * 1000;
 
 async function fetchHints(signal?: AbortSignal): Promise<RuntimeHints> {
@@ -21,26 +22,25 @@ async function fetchHints(signal?: AbortSignal): Promise<RuntimeHints> {
     signal,
   });
   const data = json.data ?? (json as unknown as RuntimeHints);
-  cachedHints = {
+  const hints: RuntimeHints = {
     minAppVersion: data.minAppVersion ?? '1.0.0',
     wsProtocolV2Required: Boolean(data.wsProtocolV2Required),
     eventsSchemaEnforcement: data.eventsSchemaEnforcement ?? 'log',
   };
-  cachedAt = Date.now();
-  return cachedHints;
+  setRuntimeHintsCache(hints);
+  return hints;
 }
 
-export function getRuntimeHintsCached(): RuntimeHints | null {
-  return cachedHints;
-}
+export { getRuntimeHintsCached } from '@/src/services/runtimeHintsCache';
 
 export function clearRuntimeHintsCache(): void {
-  cachedHints = null;
-  cachedAt = 0;
+  clearRuntimeHintsCacheState();
   bumpGeneration('runtime:hints');
 }
 
 export async function refreshRuntimeHintsIfStale(): Promise<void> {
+  const cachedHints = getRuntimeHintsCached();
+  const cachedAt = getRuntimeHintsCachedAt();
   if (cachedHints && Date.now() - cachedAt < CLIENT_TTL_MS) return;
   const guard = createRequestGuard('runtime:hints');
   try {
@@ -55,11 +55,13 @@ export function useRuntimeHints(isReady = true): {
   forceUpgrade: boolean;
   refresh: () => Promise<void>;
 } {
-  const [hints, setHints] = useState<RuntimeHints | null>(cachedHints);
+  const [hints, setHints] = useState<RuntimeHints | null>(getRuntimeHintsCached());
   const [forceUpgrade, setForceUpgrade] = useState(false);
 
   const refresh = async (): Promise<void> => {
     if (!isReady) return;
+    const cachedHints = getRuntimeHintsCached();
+    const cachedAt = getRuntimeHintsCachedAt();
     if (cachedHints && Date.now() - cachedAt < CLIENT_TTL_MS) {
       setHints(cachedHints);
       setForceUpgrade(!__DEV__ && isAppVersionBelowMin(cachedHints.minAppVersion));

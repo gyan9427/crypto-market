@@ -1,30 +1,18 @@
-import { API_BASE_URL } from '@/src/services/api';
-import { useAuthStore } from '@/src/state/useAuthStore';
+import { API_BASE_URL } from '@/src/services/apiBase';
+import { getAuthToken } from '@/src/services/authSession';
+import {
+  clearPortfolioContextCache,
+  readPortfolioContextCache,
+  writePortfolioContextCache,
+  type PortfolioContextDto,
+} from '@/src/services/portfolioContextCache';
 import { incrementPerfCounter } from '@/src/runtime/perfInstrumentation';
 import { fetchWithTimeout } from '@/src/runtime/asyncRequestGuard';
 
-let contextCache: { tokenKey: string; data: PortfolioContextDto | null; expires: number } | null = null;
-
-export type PortfolioContextDto = {
-  schemaVersion: number;
-  userId: string;
-  heldSymbols: string[];
-  heldCoinIds: string[];
-  weightBySymbol: Record<string, number>;
-  ingestRevision: number;
-  analyticsRevision: number;
-  stale: boolean;
-  staleMapping: boolean;
-  narrativeVector?: Record<string, number>;
-  convictionVector?: Record<string, number>;
-  topThemes?: string[];
-  healthScore?: number | null;
-  identityId?: string;
-  partial?: boolean;
-};
+export type { PortfolioContextDto } from '@/src/services/portfolioContextCache';
 
 async function authHeaders(): Promise<Record<string, string>> {
-  const token = useAuthStore.getState().token;
+  const token = getAuthToken();
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) h.Authorization = `Bearer ${token}`;
   return h;
@@ -47,25 +35,24 @@ export async function fetchPortfolioContext(options?: {
 export async function fetchPortfolioContextCached(options?: {
   signal?: AbortSignal;
 }): Promise<PortfolioContextDto | null> {
-  const tokenKey = useAuthStore.getState().token ?? 'guest';
+  const tokenKey = getAuthToken() ?? 'guest';
   const now = Date.now();
-  if (contextCache && contextCache.tokenKey === tokenKey && contextCache.expires > now) {
-    return contextCache.data;
+  const cached = readPortfolioContextCache(tokenKey, now);
+  if (cached !== undefined) {
+    return cached;
   }
   incrementPerfCounter('piFetch');
   const data = await fetchPortfolioContext(options);
-  contextCache = { tokenKey, data, expires: now + 30_000 };
+  writePortfolioContextCache(tokenKey, data, now + 30_000);
   return data;
 }
 
 /** Called when WS `analytics_revision` arrives — bust PI context cache and optionally refetch. */
 export function invalidatePortfolioContextCache(opts?: { refetch?: boolean }): void {
-  contextCache = null;
+  clearPortfolioContextCache();
   if (opts?.refetch) {
     void fetchPortfolioContextCached();
   }
 }
 
-export function clearPortfolioContextCache(): void {
-  contextCache = null;
-}
+export { clearPortfolioContextCache } from '@/src/services/portfolioContextCache';

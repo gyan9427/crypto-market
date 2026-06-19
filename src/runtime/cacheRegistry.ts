@@ -1,6 +1,9 @@
-import { invalidatePortfolioContextCache, clearPortfolioContextCache } from '@/src/services/piApi';
+import {
+  clearPortfolioContextCache,
+  invalidatePortfolioContextCache,
+} from '@/src/services/portfolioContextCache';
 import { invalidateMemoryCacheByPrefix, purgeRequestCacheAll } from '@/src/services/requestCache';
-import { clearRuntimeHintsCache } from '@/src/hooks/useRuntimeHints';
+import { clearRuntimeHintsCache } from '@/src/services/runtimeHintsCache';
 import { bumpGeneration } from '@/src/runtime/asyncRequestGuard';
 
 type Invalidator = () => void;
@@ -52,6 +55,7 @@ export const cacheRegistry = {
   /** Drop non-critical caches on memory pressure — keep auth token and risk snapshot. */
   purgeNonCritical(): void {
     clearRuntimeHintsCache();
+    bumpGeneration('runtime:hints');
     invalidateMemoryCacheByPrefix('/public/runtime-hints');
     invalidateMemoryCacheByPrefix('runtime');
     if (typeof __DEV__ !== 'undefined' && __DEV__) {

@@ -3,7 +3,7 @@ import '@/src/polyfills/devtools';
 import { useEffect, useState } from 'react';
 import { configureGoogleSignIn } from '@/src/services/googleSignIn';
 import { Stack, useRouter, useSegments, type Href } from 'expo-router';
-import { AppState, Platform, View } from 'react-native';
+import { AppState, Platform, View, ActivityIndicator } from 'react-native';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ThemeProvider, useAppTheme } from '@/src/theme/ThemeProvider';
 import { GlobalErrorBoundary } from '@/src/components/GlobalErrorBoundary';
@@ -37,9 +37,25 @@ import { enqueueBackgroundTask } from '@/src/runtime/backgroundTaskQueue';
 import { initCacheRegistryLifecycle } from '@/src/runtime/cacheRegistry';
 import { initWsRegistryLifecycle } from '@/src/runtime/wsConnectionRegistry';
 
-const RootView = Platform.OS === 'android'
-  ? View
-  : require('react-native-gesture-handler').GestureHandlerRootView;
+const RootView =
+  Platform.OS === 'android' || Platform.OS === 'web'
+    ? View
+    : require('react-native-gesture-handler').GestureHandlerRootView;
+
+const STARTUP_DEADLINE_MS = 6_000;
+
+function runStartupTasks(tasks: Array<Promise<unknown>>): Promise<void> {
+  let settled = false;
+  return new Promise((resolve) => {
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    void Promise.allSettled(tasks).then(finish);
+    setTimeout(finish, STARTUP_DEADLINE_MS);
+  });
+}
 
 function RootLayoutContent({ isReady }: { isReady: boolean }) {
   const { tokens } = useAppTheme();
@@ -48,7 +64,11 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
   const emailVerified = useAuthStore((s) => s.user?.emailVerified === true);
 
   if (!isReady) {
-    return <View style={{ flex: 1, backgroundColor: tokens.bg }} />;
+    return (
+      <View style={{ flex: 1, backgroundColor: tokens.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={tokens.colors.primary[500]} />
+      </View>
+    );
   }
 
   return (
@@ -122,7 +142,7 @@ export default function RootLayout() {
     };
 
     if (isTieredStartupEnabled()) {
-      Promise.all([
+      void runStartupTasks([
         initializeAuth().catch((err) => {
           console.error('initializeAuth failed:', err);
         }),
@@ -131,7 +151,7 @@ export default function RootLayout() {
       return;
     }
 
-    Promise.all([
+    void runStartupTasks([
       initializeAuth().catch((err) => {
         console.error('initializeAuth failed:', err);
       }),
@@ -159,10 +179,17 @@ export default function RootLayout() {
   }, [isReady, isAuthenticated]);
 
   useEffect(() => {
-    if (!isReady || !featuresLoaded) return;
+    if (!isReady) return;
 
     const firstSegment = segments[0] as string | undefined;
     const isShareRoute = firstSegment === 'share';
+
+    if (!featuresLoaded) {
+      if (!isAuthenticated && firstSegment !== 'login' && firstSegment !== 'register' && firstSegment !== 'splash') {
+        router.replace('/login' as Href);
+      }
+      return;
+    }
 
     const shouldGateWithSplash = !splashDone && !isAuthenticated;
 

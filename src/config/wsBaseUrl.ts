@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/src/services/api';
+import { API_BASE_URL } from '@/src/services/apiBase';
 
 /** WebSocket origin (strip trailing `/api`). */
 export function resolveWsBaseUrl(): string {

@@ -72,9 +72,10 @@ const CANDLE_RANGE_CONFIG: Record<RangeTab, RangeConfig> = {
   '1Y': { interval: '1w', limit: 52,  periodLabel: 'PAST 1Y', statPrefix: '1Y' },
 };
 
-// Minimum slot / point width in SVG units — drives scroll expansion
-const MIN_CANDLE_SLOT_SVG = 8;
+// Minimum slot / point width in SVG units — drives scroll expansion (line mode)
 const MIN_LINE_POINT_SVG  = 3;
+const CANDLE_VIEWPORT_COUNT = 4;
+const CANDLE_SLOT_SVG = INNER_W / CANDLE_VIEWPORT_COUNT;
 
 // Live-edge scroll positioning (TradingView-style)
 const LIVE_POINT_VIEWPORT_RATIO = 0.75;
@@ -167,6 +168,28 @@ function computeVisibleIndexRange(
   return {
     start: Math.max(0, Math.floor(ratioStart * (count - 1))),
     end: Math.min(count - 1, Math.ceil(ratioEnd * (count - 1))),
+  };
+}
+
+function computeCandleVisibleRange(
+  scrollOffset: number,
+  candleSlotPixelW: number,
+  count: number,
+): { start: number; end: number } {
+  if (count <= 0) return { start: 0, end: 0 };
+  if (count <= CANDLE_VIEWPORT_COUNT) {
+    return { start: 0, end: count - 1 };
+  }
+
+  const maxStart = count - CANDLE_VIEWPORT_COUNT;
+  const start = Math.max(
+    0,
+    Math.min(maxStart, Math.floor(scrollOffset / Math.max(1, candleSlotPixelW))),
+  );
+
+  return {
+    start,
+    end: start + CANDLE_VIEWPORT_COUNT - 1,
   };
 }
 
@@ -596,6 +619,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     enabled: liveUpdatesEnabled,
     interval: rangeConfig.interval,
     limit:    rangeConfig.limit,
+    dataMode: chartType === 'candle' ? 'candle' : 'line',
   });
   const klines     = data.klines;
   const isLoading  = !hasFetched;
@@ -626,20 +650,34 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     [klines.length],
   );
 
-  const candleTotalSvgW = Math.max(SVG_W, klines.length * MIN_CANDLE_SLOT_SVG);
-  const chartTotalSvgW  = chartType === 'line' ? lineTotalSvgW : candleTotalSvgW;
-  const chartTotalPixelW = Math.round((chartTotalSvgW / SVG_W) * chartPixelWidth);
+  const candleTotalSvgW =
+    klines.length > 0 ? PAD * 2 + klines.length * CANDLE_SLOT_SVG : SVG_W;
+  const candleSlotPixelW = chartPixelWidth / CANDLE_VIEWPORT_COUNT;
+  const candleChartTotalPixelW = klines.length * candleSlotPixelW;
 
-  const visibleIndexRange = useMemo(
-    () =>
-      computeVisibleIndexRange(
-        scrollOffset,
-        chartPixelWidth,
-        chartTotalPixelW,
-        klines.length,
-      ),
-    [scrollOffset, chartPixelWidth, chartTotalPixelW, klines.length],
-  );
+  const chartTotalSvgW  = chartType === 'line' ? lineTotalSvgW : candleTotalSvgW;
+  const chartTotalPixelW = chartType === 'line'
+    ? Math.round((lineTotalSvgW / SVG_W) * chartPixelWidth)
+    : Math.round(candleChartTotalPixelW);
+
+  const visibleIndexRange = useMemo(() => {
+    if (chartType === 'candle' && klines.length > 0 && chartPixelWidth > 0) {
+      return computeCandleVisibleRange(scrollOffset, candleSlotPixelW, klines.length);
+    }
+    return computeVisibleIndexRange(
+      scrollOffset,
+      chartPixelWidth,
+      chartTotalPixelW,
+      klines.length,
+    );
+  }, [
+    chartType,
+    scrollOffset,
+    chartPixelWidth,
+    chartTotalPixelW,
+    candleSlotPixelW,
+    klines.length,
+  ]);
   const { start: visibleStartIndex, end: visibleEndIndex } = visibleIndexRange;
 
   const lineYDomain = useMemo(() => {
@@ -720,10 +758,8 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       return chartView?.lastPoint.x ?? 0;
     }
     if (klines.length === 0) return 0;
-    const innerW = chartTotalSvgW - PAD * 2;
-    const slotW  = innerW / klines.length;
-    return PAD + (klines.length - 1) * slotW + slotW / 2;
-  }, [chartType, chartView, klines.length, chartTotalSvgW]);
+    return PAD + (klines.length - 1) * CANDLE_SLOT_SVG + CANDLE_SLOT_SVG / 2;
+  }, [chartType, chartView, klines.length]);
 
   const lastPointPixelX = (lastPointSvgX / chartTotalSvgW) * chartTotalPixelW;
 
@@ -736,8 +772,12 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
 
   const computeLiveScrollOffset = useCallback(() => {
     if (chartPixelWidth <= 0) return 0;
+    if (chartType === 'candle') {
+      if (klines.length <= CANDLE_VIEWPORT_COUNT) return 0;
+      return Math.max(0, (klines.length - CANDLE_VIEWPORT_COUNT) * candleSlotPixelW);
+    }
     return Math.max(0, lastPointPixelX - chartPixelWidth * LIVE_POINT_VIEWPORT_RATIO);
-  }, [chartPixelWidth, lastPointPixelX]);
+  }, [chartPixelWidth, lastPointPixelX, chartType, klines.length, candleSlotPixelW]);
 
   const scrollToLive = useCallback((animated = true) => {
     const offset = computeLiveScrollOffset();
@@ -760,7 +800,9 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   // Auto-scroll to live edge while following
   const latestClose = klines.length > 0 ? klines[klines.length - 1].close : 0;
   useEffect(() => {
-    if (!followLiveRef.current || !chartView) return;
+    if (!followLiveRef.current) return;
+    if (chartType === 'line' && !chartView) return;
+    if (chartType === 'candle' && (klines.length === 0 || !candleYDomain)) return;
     const offset = computeLiveScrollOffset();
     scrollOffsetRef.current = offset;
     setScrollOffset(offset);
@@ -773,6 +815,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     chartType,
     activeRange,
     chartView,
+    candleYDomain,
     computeLiveScrollOffset,
   ]);
 
@@ -805,11 +848,11 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
         return;
       }
       if (!klines.length) return;
-      const idx = Math.round((contentX / Math.max(1, chartTotalPixelW)) * (klines.length - 1));
+      const idx = Math.floor(contentX / Math.max(1, candleSlotPixelW));
       const nextIndex = Math.max(0, Math.min(klines.length - 1, idx));
       setHoverIndex(Number.isInteger(nextIndex) ? nextIndex : null);
     },
-    [chartType, chartView, chartTotalPixelW, klines.length],
+    [chartType, chartView, chartTotalPixelW, candleSlotPixelW, klines.length],
   );
 
   const hoverLabelPos = useMemo(() => {
@@ -895,10 +938,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       if (!pt) return null;
       contentX = (pt.x / lineTotalSvgW) * chartTotalPixelW;
     } else if (chartType === 'candle' && klines.length > 0) {
-      const innerW = candleTotalSvgW - PAD * 2;
-      const slotW = innerW / klines.length;
-      const svgX = PAD + lastVisibleAnchor.index * slotW + slotW / 2;
-      contentX = (svgX / candleTotalSvgW) * chartTotalPixelW;
+      contentX = lastVisibleAnchor.index * candleSlotPixelW + candleSlotPixelW / 2;
     } else {
       return null;
     }
@@ -913,10 +953,13 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     chartView,
     lineTotalSvgW,
     chartTotalPixelW,
-    candleTotalSvgW,
+    candleSlotPixelW,
     klines.length,
     scrollOffset,
   ]);
+
+  const canRenderChart =
+    chartType === 'line' ? !!chartView : klines.length > 0 && !!candleYDomain;
 
   const lineYAnim = useRef(new Animated.Value(0)).current;
   const lineOpacityAnim = useRef(new Animated.Value(LAST_PRICE_LINE_OPACITY)).current;
@@ -1107,9 +1150,9 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
               if (w > 0) setChartPixelWidth(w);
             }}
           >
-            {isLoading && !chartView ? (
+            {isLoading && !canRenderChart ? (
               <View style={[styles.chartSkeleton, { height: chartAreaHeight }]} />
-            ) : chartView ? (
+            ) : canRenderChart ? (
               <>
                 <ScrollView
                   ref={chartScrollRef}
@@ -1126,7 +1169,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                 >
                   <View style={{ width: scrollContentWidth, height: chartAreaHeight }}>
                     <View style={{ width: chartTotalPixelW, height: chartAreaHeight }}>
-                      {chartType === 'line' ? (
+                      {chartType === 'line' && chartView ? (
                         <MemoChartSvg
                           view={chartView}
                           totalSvgW={lineTotalSvgW}

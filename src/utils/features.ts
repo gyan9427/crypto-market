@@ -1,5 +1,8 @@
 import { create } from 'zustand';
-import { API_BASE_URL } from '../services/api';
+import { API_BASE_URL } from '@/src/services/apiBase';
+import { fetchWithTimeout } from '@/src/runtime/asyncRequestGuard';
+
+const FEATURES_FETCH_TIMEOUT_MS = 4_000;
 
 interface FeaturesState {
   features: Set<string>;
@@ -15,8 +18,9 @@ export const useFeaturesStore = create<FeaturesState>((set, get) => ({
   loadFeatures: async () => {
     if (get().loaded) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/features`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/features`, {
         headers: { 'Content-Type': 'application/json' },
+        timeoutMs: FEATURES_FETCH_TIMEOUT_MS,
       });
       const data = await res.json();
       if (data?.success && Array.isArray(data?.data?.features)) {
@@ -31,8 +35,9 @@ export const useFeaturesStore = create<FeaturesState>((set, get) => ({
 
   refetchFeatures: async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/features`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/features`, {
         headers: { 'Content-Type': 'application/json' },
+        timeoutMs: FEATURES_FETCH_TIMEOUT_MS,
       });
       const data = await res.json();
       if (data?.success && Array.isArray(data?.data?.features)) {

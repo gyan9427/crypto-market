@@ -3,18 +3,22 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import {
   View,
-  FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
   Linking,
+  BackHandler,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { ChevronLeft } from 'lucide-react-native';
 import { usePortfolioStore } from '../state/usePortfolioStore';
-import { SegmentToggle } from '../components/SegmentToggle';
 import { WalletEvent } from '../types';
 import { isExchangePortfolioEvent } from '@/src/utils/portfolioSource';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
+
+const MARKET_ACCENT = '#6383ff';
 
 function eventTypeLabel(t: TFunction, type: string): string {
   const keys: Record<string, string> = {
@@ -559,29 +563,16 @@ interface ActivityScreenProps {
   onClose: () => void;
 }
 
-type ActivitySourceFilter = 'all' | 'wallet' | 'exchange';
-
 export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, onClose }) => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildActivityScreenStyles(tokens), [tokens]);
+  const collapsibleScrollHandlers = useCollapsibleNavHeaderScrollHandlers();
   const events = usePortfolioStore((state) => state.events);
   const isLoading = usePortfolioStore((state) => state.isLoading);
   const statusRefreshWarning = usePortfolioStore((state) => state.statusRefreshWarning);
-  const exchanges = usePortfolioStore((state) => state.exchanges);
-  const exchangePortfolioEnabled = usePortfolioStore((state) => state.exchangePortfolioEnabled);
-
-  const hasExchangeLinked =
-    exchangePortfolioEnabled && exchanges.length > 0;
 
   const [viewMode, setViewMode] = useState<ActivityViewMode>('batch');
-  const [sourceFilter, setSourceFilter] = useState<ActivitySourceFilter>('all');
-
-  useEffect(() => {
-    if (sourceFilter === 'exchange' && !hasExchangeLinked) {
-      setSourceFilter('all');
-    }
-  }, [hasExchangeLinked, sourceFilter]);
 
   const viewOptions = useMemo(
     () => [t('activity.batchView'), t('activity.listView')],
@@ -589,30 +580,17 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
   );
   const selectedViewIndex = viewMode === 'batch' ? 0 : 1;
 
-  const sourceTabOptions = hasExchangeLinked
-    ? [t('activity.sourceAll'), t('activity.sourceWallet'), t('activity.sourceExchange')]
-    : [t('activity.sourceAll'), t('activity.sourceWallet')];
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onClose]);
 
-  const sourceTabIndex =
-    sourceFilter === 'all' ? 0 : sourceFilter === 'wallet' ? 1 : hasExchangeLinked ? 2 : 1;
-
-  const onSourceTabSelect = (index: number) => {
-    if (hasExchangeLinked) {
-      setSourceFilter(index === 0 ? 'all' : index === 1 ? 'wallet' : 'exchange');
-    } else {
-      setSourceFilter(index === 0 ? 'all' : 'wallet');
-    }
-  };
-
-  // Filter by source, then symbol/chain if provided
+  // Filter by symbol/chain when provided
   const filteredEvents = useMemo(() => {
     let list = events;
-
-    if (sourceFilter === 'exchange') {
-      list = list.filter(isExchangePortfolioEvent);
-    } else if (sourceFilter === 'wallet') {
-      list = list.filter((e) => !isExchangePortfolioEvent(e));
-    }
 
     if (!symbol) return list;
 
@@ -632,13 +610,11 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
       const activityAsset = canonicalizeSymbol(event.activity?.asset);
       const nativeChainMatch = matchesNativeChainAsset(normalizedSymbol, chain, event);
 
-      // For exchange trades, check if the trading pair starts with the symbol (e.g., 'ETHWINR' starts with 'ETHW')
-      // This handles cases where activity.asset is a trading pair rather than just the base currency
       const exchangePairMatch = isExchangePortfolioEvent(event) && activityAsset.startsWith(normalizedSymbol);
 
       return summaryMatches || activityAsset === normalizedSymbol || nativeChainMatch || exchangePairMatch;
     });
-  }, [chain, events, sourceFilter, symbol]);
+  }, [chain, events, symbol]);
 
   const renderItem = ({ item }: { item: WalletEvent }) => {
     if (isExchangePortfolioEvent(item)) {
@@ -650,56 +626,54 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
     return <EventRow event={item} styles={styles} />;
   };
 
-  const emptySecondary =
-    sourceFilter === 'exchange' ? t('activity.emptyExchangeActivity') : undefined;
-
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>
+      <View style={styles.backRow}>
+        <TouchableOpacity
+          onPress={onClose}
+          style={styles.backIconBtn}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('coin.goBack')}
+        >
+          <ChevronLeft size={18} color={MARKET_ACCENT} />
+        </TouchableOpacity>
+        <View style={styles.identity}>
+          <Text style={styles.activityTitle} numberOfLines={1}>
             {symbol ? t('activity.titleWithSymbol', { symbol }) : t('activity.title')}
           </Text>
-          <Text style={styles.headerSubtitle}>
+          <Text style={styles.activitySubtitle} numberOfLines={1}>
             {t('activity.transactionCount', { count: filteredEvents.length })}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={onClose}
-          style={styles.closeButton}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.closeButtonText}>✕</Text>
-        </TouchableOpacity>
       </View>
 
-      <View style={styles.sourceToggleContainer}>
-        <SegmentToggle
-          options={sourceTabOptions}
-          selectedIndex={Math.min(sourceTabIndex, sourceTabOptions.length - 1)}
-          onSelect={onSourceTabSelect}
-          flush
-        />
-      </View>
-
-      <View style={styles.viewToggleContainer}>
-        <SegmentToggle
-          options={viewOptions}
-          selectedIndex={selectedViewIndex}
-          onSelect={(index) => setViewMode(index === 0 ? 'batch' : 'list')}
-          flush
-        />
+      <View style={styles.tabRow}>
+        {viewOptions.map((option, index) => (
+          <TouchableOpacity
+            key={option}
+            style={[styles.tab, selectedViewIndex === index && styles.tabActive]}
+            onPress={() => setViewMode(index === 0 ? 'batch' : 'list')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedViewIndex === index }}
+          >
+            <Text style={[styles.tabText, selectedViewIndex === index && styles.tabTextActive]}>
+              {option}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
       {statusRefreshWarning ? (
         <View style={styles.warningBanner}>
           <Text style={styles.warningBannerText}>{statusRefreshWarning}</Text>
         </View>
       ) : null}
-      <FlatList
+      <Animated.FlatList
         data={filteredEvents}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        extraData={`${viewMode}-${sourceFilter}`}
+        extraData={viewMode}
+        {...collapsibleScrollHandlers}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             {isLoading ? (
@@ -713,7 +687,7 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
                 <Text style={styles.emptySubtitle}>
                   {symbol
                     ? t('activity.emptyForSymbol', { symbol })
-                    : emptySecondary ?? t('activity.empty')}
+                    : t('activity.empty')}
                 </Text>
               </>
             )}
@@ -731,68 +705,79 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({ symbol, chain, o
 function buildActivityScreenStyles(tokens: ThemeTokens) {
   const c = tokens.colors;
   const s = tokens.spacing;
-  const sem = tokens.semantic;
   const typo = tokens.typography;
+  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
+  const rowBg = tokens.isDark ? '#0a0a0f' : tokens.surface;
+  const rowBorder = tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle;
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: tokens.bg,
     },
-    header: {
+    backRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: sem.listMarginH,
-      paddingTop: s.lg,
-      paddingBottom: s.md,
-      backgroundColor: sem.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: tokens.borderSubtle,
-      ...sem.cardShadow,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 8,
     },
-    headerContent: {
-      flex: 1,
-    },
-    headerTitle: {
-      fontSize: typo.fontSizes.xl,
-      fontWeight: typo.fontWeights.bold,
-      color: tokens.text,
-    },
-    headerSubtitle: {
-      fontSize: typo.fontSizes.sm,
-      color: tokens.textMuted,
-      marginTop: s.xs,
-    },
-    closeButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: c.neutral[100],
+    backIconBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: accentBg,
       alignItems: 'center',
       justifyContent: 'center',
-      marginLeft: s.md,
+      marginRight: s.sm,
     },
-    closeButtonText: {
-      fontSize: typo.fontSizes.xl,
+    identity: {
+      flex: 1,
+      minWidth: 0,
+    },
+    activityTitle: {
+      fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.semibold,
-      color: c.neutral[600],
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      color: tokens.text,
+      letterSpacing: typo.letterSpacing.caption,
     },
-    viewToggleContainer: {
-      paddingHorizontal: sem.listMarginH,
-      paddingTop: s.sm,
-      paddingBottom: s.xs,
+    activitySubtitle: {
+      fontSize: typo.fontSizes.badge,
+      color: tokens.textMuted,
+      marginTop: 2,
+      fontWeight: typo.fontWeights.medium,
+      fontFamily: typo.fontFamilies.sansMedium,
+      letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
-    sourceToggleContainer: {
-      paddingHorizontal: sem.listMarginH,
-      paddingTop: s.md,
-      paddingBottom: s.xs,
+    tabRow: {
+      flexDirection: 'row',
+      gap: 4,
+      paddingHorizontal: 16,
+      paddingBottom: 4,
+    },
+    tab: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    tabActive: {
+      backgroundColor: accentBg,
+    },
+    tabText: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: tokens.textMuted,
+    },
+    tabTextActive: {
+      color: MARKET_ACCENT,
     },
     warningBanner: {
-      marginHorizontal: sem.listMarginH,
+      marginHorizontal: 16,
       marginBottom: s.xs,
       paddingVertical: s.xs,
       paddingHorizontal: s.sm,
-      borderRadius: sem.cardRadiusSmall,
+      borderRadius: 8,
       backgroundColor: c.error[50],
       borderWidth: 1,
       borderColor: c.error[200],
@@ -803,7 +788,6 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       fontWeight: typo.fontWeights.medium,
     },
     listContent: {
-      paddingTop: sem.listMarginH,
       paddingBottom: 120,
     },
 
@@ -812,13 +796,12 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
-      marginHorizontal: sem.listMarginH,
-      marginBottom: sem.listGap,
-      backgroundColor: sem.surface,
-      borderRadius: sem.cardRadiusSmall,
-      padding: sem.cardPadding,
-      minHeight: 72,
-      ...sem.cardShadow,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderBottomWidth: 0.5,
+      borderBottomColor: rowBorder,
+      backgroundColor: rowBg,
+      minHeight: 56,
     },
     eventLeft: {
       flexDirection: 'row',
@@ -828,29 +811,37 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       minWidth: 0,
     },
     chainBadge: {
-      backgroundColor: c.primary[100],
-      borderRadius: sem.cardRadiusSmall,
+      backgroundColor: accentBg,
+      borderRadius: 8,
       paddingHorizontal: s.sm,
-      paddingVertical: s.xs,
+      paddingVertical: 4,
       marginRight: s.sm,
+      maxWidth: 72,
+      alignItems: 'center',
     },
     chainBadgeText: {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.bold,
-      color: c.primary[700],
+      fontFamily: typo.fontFamilies.sansBold,
+      color: MARKET_ACCENT,
+      letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
     venueBadge: {
-      backgroundColor: c.neutral[200],
-      borderRadius: sem.cardRadiusSmall,
+      backgroundColor: accentBg,
+      borderRadius: 8,
       paddingHorizontal: s.sm,
-      paddingVertical: s.xs,
+      paddingVertical: 4,
       marginRight: s.sm,
       alignSelf: 'flex-start',
+      maxWidth: 72,
+      alignItems: 'center',
     },
     venueBadgeText: {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.bold,
-      color: c.neutral[700],
+      fontFamily: typo.fontFamilies.sansBold,
+      color: MARKET_ACCENT,
+      letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
     exchangeBatchAmount: {
       marginTop: s.xs,
@@ -864,9 +855,10 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       minWidth: 0,
     },
     eventType: {
-      fontSize: typo.fontSizes.base,
-      fontWeight: typo.fontWeights.medium,
-      color: c.neutral[800],
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.semibold,
+      fontFamily: typo.fontFamilies.sansSemiBold,
+      color: tokens.text,
     },
     eventAddress: {
       fontSize: typo.fontSizes.sm,
@@ -902,7 +894,7 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       marginTop: s.xs,
       paddingHorizontal: s.sm,
       paddingVertical: s.xs,
-      borderRadius: sem.cardRadiusSmall,
+      borderRadius: tokens.borderRadius.sm,
     },
     statusSuccess: {
       backgroundColor: '#d1fae5',
@@ -949,13 +941,12 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
 
     // ── Individual transaction row ──
     transactionRow: {
-      marginHorizontal: sem.listMarginH,
-      marginBottom: sem.listGap,
-      backgroundColor: sem.surface,
-      borderRadius: sem.cardRadiusSmall,
-      padding: sem.cardPadding,
-      minHeight: 112,
-      ...sem.cardShadow,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 0.5,
+      borderBottomColor: rowBorder,
+      backgroundColor: rowBg,
+      minHeight: 56,
     },
     transactionHeader: {
       flexDirection: 'row',
@@ -977,7 +968,7 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       backgroundColor: tokens.inputBg,
       borderWidth: 1,
       borderColor: tokens.borderSubtle,
-      borderRadius: sem.cardRadiusSmall,
+      borderRadius: tokens.borderRadius.sm,
       paddingHorizontal: s.sm,
       paddingVertical: s.xs,
     },
@@ -1037,19 +1028,25 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
 
     // ── Empty state ──
     emptyContainer: {
-      padding: s.xxl,
-      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 0.5,
+      borderBottomColor: rowBorder,
+      backgroundColor: rowBg,
+      minHeight: 56,
+      alignItems: 'flex-start',
     },
     emptyTitle: {
-      fontSize: typo.fontSizes.md,
-      fontWeight: typo.fontWeights.semibold,
-      color: c.neutral[600],
-      marginBottom: s.xs,
+      fontSize: typo.fontSizes.sm,
+      fontWeight: typo.fontWeights.medium,
+      fontFamily: typo.fontFamilies.sansMedium,
+      color: tokens.textMuted,
     },
     emptySubtitle: {
-      fontSize: typo.fontSizes.sm,
-      color: c.neutral[400],
-      textAlign: 'center',
+      fontSize: typo.fontSizes.badge,
+      color: tokens.textMuted,
+      marginTop: 4,
+      fontFamily: typo.fontFamilies.sans,
     },
   });
 }
