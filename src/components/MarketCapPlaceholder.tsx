@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,7 @@ const INNER_W    = SVG_W - PAD * 2;
 const INNER_H    = SVG_H - PAD * 2;
 const Y_AXIS_W = MARKET_CAP_Y_AXIS_W;
 const Y_TICK_COUNT = 5;  // number of y-axis price levels
+const X_LABEL_COUNT = 4;
 
 // ─── Range tabs ───────────────────────────────────────────────────────────────
 const RANGE_TABS = ['1H', '1D', '1W', '1M', '3M', '1Y'] as const;
@@ -78,9 +79,28 @@ const MIN_LINE_POINT_SVG  = 3;
 const LIVE_POINT_VIEWPORT_RATIO = 0.75;
 const TRAILING_VIEWPORT_RATIO   = 0.25;
 const LIVE_EDGE_THRESHOLD_PX    = 20;
+const Y_PADDING_RATIO           = 0.05;
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function sanitizePointerX(raw: unknown): number | null {
+  const x = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(x) && x >= 0 ? x : null;
+}
+
+function isValidHoverIndex(index: number | null, length: number): index is number {
+  return (
+    index !== null &&
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < length
+  );
+}
+
+function isValidKline(k: KlineRecord): boolean {
+  return [k.open, k.high, k.low, k.close].every((v) => Number.isFinite(v));
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatXLabel(openTime: string | number | Date, range: RangeTab): string {
@@ -111,12 +131,79 @@ function fmtMarketShort(value: number): string {
   return `$${value.toFixed(0)}`;
 }
 
+interface YDomain {
+  min: number;
+  max: number;
+  range: number;
+}
+
+function computeVisibleIndexRange(
+  scrollOffset: number,
+  viewportWidth: number,
+  chartContentWidth: number,
+  count: number,
+): { start: number; end: number } {
+  if (count <= 0) return { start: 0, end: 0 };
+  if (count === 1) return { start: 0, end: 0 };
+  if (chartContentWidth <= 0 || viewportWidth <= 0) {
+    return { start: 0, end: count - 1 };
+  }
+
+  const maxScroll = Math.max(0, chartContentWidth - viewportWidth);
+  const clampedScroll = Math.min(Math.max(0, scrollOffset), maxScroll);
+
+  const visibleStartPx = clampedScroll;
+  const visibleEndPx = Math.min(
+    chartContentWidth,
+    clampedScroll + viewportWidth,
+  );
+  const ratioStart = visibleStartPx / chartContentWidth;
+  const ratioEnd = visibleEndPx / chartContentWidth;
+
+  return {
+    start: Math.max(0, Math.floor(ratioStart * (count - 1))),
+    end: Math.min(count - 1, Math.ceil(ratioEnd * (count - 1))),
+  };
+}
+
+function computePaddedYDomain(values: number[]): YDomain | null {
+  const finite = values.filter(Number.isFinite);
+  if (finite.length === 0) return null;
+
+  const rawMin = Math.min(...finite);
+  const rawMax = Math.max(...finite);
+  const rawRange = rawMax - rawMin || 1;
+  const pad = rawRange * Y_PADDING_RATIO;
+  const min = rawMin - pad;
+  const max = rawMax + pad;
+
+  return { min, max, range: max - min || 1 };
+}
+
+function mapYValue(v: number, domain: YDomain): number {
+  return PAD + INNER_H - ((v - domain.min) / domain.range) * INNER_H;
+}
+
+function computeViewportXLabelIndices(
+  visibleStart: number,
+  visibleEnd: number,
+): number[] {
+  if (visibleEnd <= visibleStart) return [visibleStart];
+
+  const span = visibleEnd - visibleStart;
+  const indices = Array.from({ length: X_LABEL_COUNT }, (_, i) => {
+    const t = i / (X_LABEL_COUNT - 1);
+    return Math.round(visibleStart + t * span);
+  });
+
+  return indices.filter((idx, i) => i === 0 || idx !== indices[i - 1]);
+}
+
 // ─── Chart view type ─────────────────────────────────────────────────────────
 interface ChartView {
   linePath: string;
   areaPath: string;
   points: { x: number; y: number }[];
-  xLabels: string[];
   yPriceLevels: { price: number; svgY: number }[];
   lastPoint: { x: number; y: number };
 }
@@ -195,7 +282,9 @@ function ChartSvg({
     />
 
     {/* Hover crosshair */}
-    {activePoint ? (
+    {activePoint &&
+    Number.isFinite(activePoint.x) &&
+    Number.isFinite(activePoint.y) ? (
       <>
         <Line
           x1={activePoint.x} x2={activePoint.x}
@@ -264,6 +353,7 @@ const MemoCandleIcon = memo(CandleIcon);
 // ─── Candlestick SVG ──────────────────────────────────────────────────────────
 interface CandleSvgProps {
   klines: KlineRecord[];
+  yDomain: YDomain;
   green: string;
   red: string;
   gridStroke: string;
@@ -274,6 +364,7 @@ interface CandleSvgProps {
 
 function CandleSvg({
   klines,
+  yDomain,
   green,
   red,
   gridStroke,
@@ -284,20 +375,17 @@ function CandleSvg({
   const n = klines.length;
   if (n === 0) return null;
 
-  const innerW  = totalSvgW - PAD * 2;
+  const innerW  = Number.isFinite(totalSvgW) ? totalSvgW - PAD * 2 : INNER_W;
   const slotW   = innerW / n;
   const bodyW   = Math.max(2, slotW * 0.6);
 
-  const minVal  = Math.min(...klines.map(k => k.low));
-  const maxVal  = Math.max(...klines.map(k => k.high));
-  const range   = maxVal - minVal || 1;
-  const mapY    = (v: number) => PAD + INNER_H - ((v - minVal) / range) * INNER_H;
+  const mapY    = (v: number) => mapYValue(v, yDomain);
 
   const yGrid   = Array.from({ length: Y_TICK_COUNT }, (_, i) =>
     PAD + (i / (Y_TICK_COUNT - 1)) * INNER_H,
   );
 
-  const crosshairX = activeIndex !== null
+  const crosshairX = isValidHoverIndex(activeIndex, n)
     ? PAD + activeIndex * slotW + slotW / 2
     : null;
 
@@ -309,11 +397,13 @@ function CandleSvg({
       ))}
 
       {klines.map((k, i) => {
+        if (!isValidKline(k)) return null;
         const cx      = PAD + i * slotW + slotW / 2;
         const highY   = mapY(k.high);
         const lowY    = mapY(k.low);
         const openY   = mapY(k.open);
         const closeY  = mapY(k.close);
+        if (![cx, highY, lowY, openY, closeY].every(Number.isFinite)) return null;
         const color   = k.close >= k.open ? green : red;
         const bodyTop = Math.min(openY, closeY);
         const bodyH   = Math.max(1.5, Math.abs(closeY - openY));
@@ -326,7 +416,7 @@ function CandleSvg({
         );
       })}
 
-      {crosshairX !== null ? (
+      {crosshairX !== null && Number.isFinite(crosshairX) ? (
         <Line x1={crosshairX} x2={crosshairX} y1={0} y2={SVG_H}
               stroke={crosshairStroke} strokeWidth="1" strokeDasharray="3 3" />
       ) : null}
@@ -373,6 +463,8 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const scrollOffsetRef  = useRef(0);
   const followLiveRef    = useRef(true);
   const pointerScreenX   = useRef(0);
+  const lastChartViewRef = useRef<ChartView | null>(null);
+  const rangeKeyRef      = useRef(`${activeRange}|${chartType}`);
 
   const rangeConfig = (chartType === 'candle' ? CANDLE_RANGE_CONFIG : RANGE_CONFIG)[activeRange];
   const { data, hasFetched } = useLiveMarketOverview({
@@ -409,19 +501,52 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     [klines.length],
   );
 
+  const candleTotalSvgW = Math.max(SVG_W, klines.length * MIN_CANDLE_SLOT_SVG);
+  const chartTotalSvgW  = chartType === 'line' ? lineTotalSvgW : candleTotalSvgW;
+  const chartTotalPixelW = Math.round((chartTotalSvgW / SVG_W) * chartPixelWidth);
+
+  const visibleIndexRange = useMemo(
+    () =>
+      computeVisibleIndexRange(
+        scrollOffset,
+        chartPixelWidth,
+        chartTotalPixelW,
+        klines.length,
+      ),
+    [scrollOffset, chartPixelWidth, chartTotalPixelW, klines.length],
+  );
+  const { start: visibleStartIndex, end: visibleEndIndex } = visibleIndexRange;
+
+  const lineYDomain = useMemo(() => {
+    if (klines.length === 0) return null;
+    const values = klines
+      .slice(visibleStartIndex, visibleEndIndex + 1)
+      .map((k) => k.close);
+    return computePaddedYDomain(values);
+  }, [klines, visibleStartIndex, visibleEndIndex]);
+
+  const candleYDomain = useMemo(() => {
+    if (klines.length === 0) return null;
+    const values = klines
+      .slice(visibleStartIndex, visibleEndIndex + 1)
+      .flatMap((k) => [k.low, k.high]);
+    return computePaddedYDomain(values);
+  }, [klines, visibleStartIndex, visibleEndIndex]);
+
   const freshChartView = useMemo<ChartView | null>(() => {
-    if (klines.length < 2) return null;
+    if (klines.length < 2 || !lineYDomain) return null;
 
-    const closes = klines.map((k) => k.close);
-    const min    = Math.min(...closes);
-    const max    = Math.max(...closes);
-    const range  = max - min || 1;
+    const finiteCloses = klines.map((k) => k.close).filter(Number.isFinite);
+    if (finiteCloses.length < 2) return null;
+
     const innerW = lineTotalSvgW - PAD * 2;
-    const stepX  = innerW / Math.max(closes.length - 1, 1);
+    const stepX  = innerW / Math.max(klines.length - 1, 1);
 
-    const mapY = (v: number) => PAD + INNER_H - ((v - min) / range) * INNER_H;
-
-    const points = closes.map((v, i) => ({ x: PAD + i * stepX, y: mapY(v) }));
+    const points = klines.flatMap((k, i) => {
+      if (!Number.isFinite(k.close)) return [];
+      return [{ x: PAD + i * stepX, y: mapYValue(k.close, lineYDomain) }];
+    });
+    if (points.length < 2) return null;
 
     const linePath = points.reduce(
       (acc, p, i) =>
@@ -435,34 +560,34 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       'Z',
     ].join(' ');
 
-    const xLabels = [
-      0,
-      Math.floor((klines.length - 1) * 0.33),
-      Math.floor((klines.length - 1) * 0.66),
-      klines.length - 1,
-    ].map((i) => formatXLabel(klines[i].openTime, activeRange));
-
+    const { max, range } = lineYDomain;
     const yPriceLevels = Array.from({ length: Y_TICK_COUNT }, (_, i) => {
       const t = i / (Y_TICK_COUNT - 1);
       return { price: max - t * range, svgY: PAD + t * INNER_H };
     });
 
-    return { linePath, areaPath, points, xLabels, yPriceLevels, lastPoint: points[points.length - 1] };
-  }, [klines, activeRange, lineTotalSvgW]);
+    return { linePath, areaPath, points, yPriceLevels, lastPoint: points[points.length - 1] };
+  }, [klines, lineTotalSvgW, lineYDomain]);
 
-  // Keep the last valid chartView so the chart never flashes blank during updates.
-  const lastChartViewRef = useRef<ChartView | null>(null);
+  // Drop stale geometry when the user switches range or chart type.
+  const rangeKey = `${activeRange}|${chartType}`;
+  if (rangeKeyRef.current !== rangeKey) {
+    rangeKeyRef.current = rangeKey;
+    lastChartViewRef.current = null;
+  }
+
+  // Keep the last valid chartView so the chart never flashes blank during live updates.
   if (freshChartView) lastChartViewRef.current = freshChartView;
-  const chartView = lastChartViewRef.current;
+  const chartView = freshChartView ?? lastChartViewRef.current;
 
   // ── Hover state ─────────────────────────────────────────────────────────────
-  const activePoint = chartView && hoverIndex !== null ? chartView.points[hoverIndex] : null;
-  const activeKline = hoverIndex !== null ? klines[hoverIndex] : null;
+  const activePoint =
+    chartView && isValidHoverIndex(hoverIndex, chartView.points.length)
+      ? chartView.points[hoverIndex]
+      : null;
+  const activeKline = isValidHoverIndex(hoverIndex, klines.length) ? klines[hoverIndex] : null;
 
   // ── Scroll sizing (line + candle) ───────────────────────────────────────────
-  const candleTotalSvgW = Math.max(SVG_W, klines.length * MIN_CANDLE_SLOT_SVG);
-  const chartTotalSvgW  = chartType === 'line' ? lineTotalSvgW : candleTotalSvgW;
-  const chartTotalPixelW = Math.round((chartTotalSvgW / SVG_W) * chartPixelWidth);
   const trailingPadPx    = Math.round(chartPixelWidth * TRAILING_VIEWPORT_RATIO);
 
   const lastPointSvgX = useMemo(() => {
@@ -498,10 +623,13 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     chartScrollRef.current?.scrollTo({ x: offset, animated });
   }, [computeLiveScrollOffset]);
 
-  // Re-enable live follow when range or chart type changes
-  useEffect(() => {
+  // Reset scroll + follow state when range or chart type changes.
+  useLayoutEffect(() => {
     followLiveRef.current = true;
     setIsAtLiveEdge(true);
+    scrollOffsetRef.current = 0;
+    setScrollOffset(0);
+    chartScrollRef.current?.scrollTo({ x: 0, animated: false });
   }, [activeRange, chartType]);
 
   // Auto-scroll to live edge while following
@@ -538,18 +666,23 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   );
 
   const handleChartPointer = useCallback(
-    (contentX: number, viewportX: number) => {
-      pointerScreenX.current = viewportX;
+    (contentX: number | null, viewportX: number | null) => {
+      if (contentX === null) return;
+      if (viewportX !== null && Number.isFinite(viewportX)) {
+        pointerScreenX.current = viewportX;
+      }
       if (chartType === 'line') {
         if (!chartView) return;
         const ratio  = Math.max(0, Math.min(1, contentX / Math.max(1, chartTotalPixelW)));
         const maxIdx = chartView.points.length - 1;
-        setHoverIndex(Math.max(0, Math.min(maxIdx, Math.round(ratio * maxIdx))));
+        const nextIndex = Math.max(0, Math.min(maxIdx, Math.round(ratio * maxIdx)));
+        setHoverIndex(Number.isInteger(nextIndex) ? nextIndex : null);
         return;
       }
       if (!klines.length) return;
       const idx = Math.round((contentX / Math.max(1, chartTotalPixelW)) * (klines.length - 1));
-      setHoverIndex(Math.max(0, Math.min(klines.length - 1, idx)));
+      const nextIndex = Math.max(0, Math.min(klines.length - 1, idx));
+      setHoverIndex(Number.isInteger(nextIndex) ? nextIndex : null);
     },
     [chartType, chartView, chartTotalPixelW, klines.length],
   );
@@ -587,25 +720,29 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
 
   // ── Candle y-axis / x-axis labels ───────────────────────────────────────────
   const candleYLabelPositions = useMemo(() => {
-    if (klines.length === 0) return [];
-    const minVal = Math.min(...klines.map(k => k.low));
-    const maxVal = Math.max(...klines.map(k => k.high));
-    const range  = maxVal - minVal || 1;
+    if (!candleYDomain) return [];
+    const { min, max, range } = candleYDomain;
     return Array.from({ length: Y_TICK_COUNT }, (_, i) => {
       const t = i / (Y_TICK_COUNT - 1);
       return {
-        price: maxVal - t * range,
+        price: max - t * range,
         top:   Math.max(0, (PAD + t * INNER_H) / SVG_H * chartAreaHeight - 8),
       };
     });
-  }, [klines, chartAreaHeight]);
+  }, [candleYDomain, chartAreaHeight]);
 
-  const candleXLabels = useMemo(() => {
+  const viewportXLabels = useMemo(() => {
     if (klines.length === 0) return [];
-    const n = klines.length;
-    return [0, Math.floor(n * 0.33), Math.floor(n * 0.66), n - 1]
-      .map(i => formatXLabel(klines[i].openTime, activeRange));
-  }, [klines, activeRange]);
+    const indices = computeViewportXLabelIndices(visibleStartIndex, visibleEndIndex);
+    const labels: string[] = [];
+    for (const i of indices) {
+      const label = formatXLabel(klines[i].openTime, activeRange);
+      if (labels.length === 0 || labels[labels.length - 1] !== label) {
+        labels.push(label);
+      }
+    }
+    return labels;
+  }, [klines, visibleStartIndex, visibleEndIndex, activeRange]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -735,9 +872,10 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                           markerStroke={chartMarkerStroke}
                           gridStroke={chartGridStroke}
                         />
-                      ) : (
+                      ) : candleYDomain ? (
                         <MemoCandleSvg
                           klines={klines}
+                          yDomain={candleYDomain}
                           green={chartColors.green}
                           red={chartColors.red}
                           gridStroke={chartGridStroke}
@@ -745,7 +883,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                           crosshairStroke={chartCrosshairStroke}
                           totalSvgW={candleTotalSvgW}
                         />
-                      )}
+                      ) : null}
                     </View>
 
                     {/* Pointer interaction — inside scroll content so horizontal swipes scroll */}
@@ -755,15 +893,20 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                         { height: chartAreaHeight, width: scrollContentWidth },
                       ]}
                       onTouchStart={(e) => {
-                        const contentX = e.nativeEvent.locationX;
-                        handleChartPointer(contentX, contentX - scrollOffsetRef.current);
+                        const contentX = sanitizePointerX(e.nativeEvent.locationX);
+                        const viewportX =
+                          contentX !== null ? contentX - scrollOffsetRef.current : null;
+                        handleChartPointer(contentX, viewportX);
                       }}
                       onTouchEnd={() => setHoverIndex(null)}
                       {...(Platform.OS === 'web'
                         ? {
                             onMouseMove: (e: any) => {
-                              const contentX = e.nativeEvent.locationX;
-                              handleChartPointer(contentX, contentX - scrollOffsetRef.current);
+                              const ne = e.nativeEvent;
+                              const contentX = sanitizePointerX(ne.locationX ?? ne.offsetX);
+                              const viewportX =
+                                contentX !== null ? contentX - scrollOffsetRef.current : null;
+                              handleChartPointer(contentX, viewportX);
                             },
                             onMouseLeave: () => setHoverIndex(null),
                           }
@@ -829,9 +972,9 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                   </View>
                 ) : null}
 
-                {/* X-axis time labels */}
+                {/* X-axis time labels — reflect the currently visible window */}
                 <View style={styles.xAxisLabels}>
-                  {(chartType === 'candle' ? candleXLabels : chartView.xLabels).map((label, i) => (
+                  {viewportXLabels.map((label, i) => (
                     <Text key={i} style={styles.xLabel}>{label}</Text>
                   ))}
                 </View>
