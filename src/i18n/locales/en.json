@@ -274,7 +274,8 @@
   },
   "marketCap": {
     "today": "TODAY",
-    "noActiveTrend": "No active market trend"
+    "noActiveTrend": "No active market trend",
+    "returnToLive": "Return to Live"
   },
   "home": {
     "noResults": "No results found"

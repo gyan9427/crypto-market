@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   ScrollView,
+  Platform,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Svg, {
@@ -67,8 +70,14 @@ const CANDLE_RANGE_CONFIG: Record<RangeTab, RangeConfig> = {
   '1Y': { interval: '1w', limit: 52,  periodLabel: 'PAST 1Y', statPrefix: '1Y' },
 };
 
-// Minimum candle slot width in SVG units — drives scroll expansion
+// Minimum slot / point width in SVG units — drives scroll expansion
 const MIN_CANDLE_SLOT_SVG = 8;
+const MIN_LINE_POINT_SVG  = 3;
+
+// Live-edge scroll positioning (TradingView-style)
+const LIVE_POINT_VIEWPORT_RATIO = 0.75;
+const TRAILING_VIEWPORT_RATIO   = 0.25;
+const LIVE_EDGE_THRESHOLD_PX    = 20;
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -115,6 +124,7 @@ interface ChartView {
 // ─── Memoized SVG — only re-renders when paths or hover changes ───────────────
 interface ChartSvgProps {
   view: ChartView;
+  totalSvgW: number;
   gradientId: string;
   isDark: boolean;
   lineColor: string;
@@ -126,6 +136,7 @@ interface ChartSvgProps {
 
 function ChartSvg({
   view,
+  totalSvgW,
   gradientId,
   isDark,
   lineColor,
@@ -138,7 +149,7 @@ function ChartSvg({
   <Svg
     style={svgStyle}
     preserveAspectRatio="none"
-    viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+    viewBox={`0 0 ${totalSvgW} ${SVG_H}`}
   >
     <Defs>
       <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -152,7 +163,7 @@ function ChartSvg({
     {view.yPriceLevels.map(({ svgY }, i) => (
       <Line
         key={i}
-        x1={0} x2={SVG_W}
+        x1={0} x2={totalSvgW}
         y1={svgY} y2={svgY}
         stroke={gridStroke}
         strokeWidth="0.5"
@@ -290,12 +301,8 @@ function CandleSvg({
     ? PAD + activeIndex * slotW + slotW / 2
     : null;
 
-  const candleStyle = totalSvgW > SVG_W
-    ? { width: totalSvgW, height: '100%' as const }
-    : svgStyle;
-
   return (
-    <Svg style={candleStyle} preserveAspectRatio="none" viewBox={`0 0 ${totalSvgW} ${SVG_H}`}>
+    <Svg style={svgStyle} preserveAspectRatio="none" viewBox={`0 0 ${totalSvgW} ${SVG_H}`}>
       {yGrid.map((svgY, i) => (
         <Line key={i} x1={0} x2={totalSvgW} y1={svgY} y2={svgY}
               stroke={gridStroke} strokeWidth="0.5" strokeDasharray="3 4" />
@@ -359,6 +366,13 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const [chartType, setChartType]             = useState<'line' | 'candle'>('line');
   const [hoverIndex, setHoverIndex]           = useState<number | null>(null);
   const [chartPixelWidth, setChartPixelWidth] = useState(SVG_W);
+  const [scrollOffset, setScrollOffset]       = useState(0);
+  const [isAtLiveEdge, setIsAtLiveEdge]         = useState(true);
+
+  const chartScrollRef   = useRef<ScrollView>(null);
+  const scrollOffsetRef  = useRef(0);
+  const followLiveRef    = useRef(true);
+  const pointerScreenX   = useRef(0);
 
   const rangeConfig = (chartType === 'candle' ? CANDLE_RANGE_CONFIG : RANGE_CONFIG)[activeRange];
   const { data, hasFetched } = useLiveMarketOverview({
@@ -390,6 +404,11 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   }, [data.relativeChange24h, data.totalMarketCap]);
 
   // ── Chart geometry ──────────────────────────────────────────────────────────
+  const lineTotalSvgW = useMemo(
+    () => Math.max(SVG_W, (Math.max(klines.length, 2) - 1) * MIN_LINE_POINT_SVG + PAD * 2),
+    [klines.length],
+  );
+
   const freshChartView = useMemo<ChartView | null>(() => {
     if (klines.length < 2) return null;
 
@@ -397,7 +416,8 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     const min    = Math.min(...closes);
     const max    = Math.max(...closes);
     const range  = max - min || 1;
-    const stepX  = INNER_W / Math.max(closes.length - 1, 1);
+    const innerW = lineTotalSvgW - PAD * 2;
+    const stepX  = innerW / Math.max(closes.length - 1, 1);
 
     const mapY = (v: number) => PAD + INNER_H - ((v - min) / range) * INNER_H;
 
@@ -428,7 +448,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     });
 
     return { linePath, areaPath, points, xLabels, yPriceLevels, lastPoint: points[points.length - 1] };
-  }, [klines, activeRange]);
+  }, [klines, activeRange, lineTotalSvgW]);
 
   // Keep the last valid chartView so the chart never flashes blank during updates.
   const lastChartViewRef = useRef<ChartView | null>(null);
@@ -439,12 +459,105 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const activePoint = chartView && hoverIndex !== null ? chartView.points[hoverIndex] : null;
   const activeKline = hoverIndex !== null ? klines[hoverIndex] : null;
 
-  const candleScrollOffsetRef = useRef(0);
-  const pointerScreenX        = useRef(0);
+  // ── Scroll sizing (line + candle) ───────────────────────────────────────────
+  const candleTotalSvgW = Math.max(SVG_W, klines.length * MIN_CANDLE_SLOT_SVG);
+  const chartTotalSvgW  = chartType === 'line' ? lineTotalSvgW : candleTotalSvgW;
+  const chartTotalPixelW = Math.round((chartTotalSvgW / SVG_W) * chartPixelWidth);
+  const trailingPadPx    = Math.round(chartPixelWidth * TRAILING_VIEWPORT_RATIO);
+
+  const lastPointSvgX = useMemo(() => {
+    if (chartType === 'line') {
+      return chartView?.lastPoint.x ?? 0;
+    }
+    if (klines.length === 0) return 0;
+    const innerW = chartTotalSvgW - PAD * 2;
+    const slotW  = innerW / klines.length;
+    return PAD + (klines.length - 1) * slotW + slotW / 2;
+  }, [chartType, chartView, klines.length, chartTotalSvgW]);
+
+  const lastPointPixelX = (lastPointSvgX / chartTotalSvgW) * chartTotalPixelW;
+
+  const scrollContentWidth = Math.max(
+    chartTotalPixelW + trailingPadPx,
+    Math.round(lastPointPixelX + trailingPadPx),
+  );
+
+  const needsChartScroll = scrollContentWidth > chartPixelWidth + 1;
+
+  const computeLiveScrollOffset = useCallback(() => {
+    if (chartPixelWidth <= 0) return 0;
+    return Math.max(0, lastPointPixelX - chartPixelWidth * LIVE_POINT_VIEWPORT_RATIO);
+  }, [chartPixelWidth, lastPointPixelX]);
+
+  const scrollToLive = useCallback((animated = true) => {
+    const offset = computeLiveScrollOffset();
+    followLiveRef.current = true;
+    setIsAtLiveEdge(true);
+    scrollOffsetRef.current = offset;
+    setScrollOffset(offset);
+    chartScrollRef.current?.scrollTo({ x: offset, animated });
+  }, [computeLiveScrollOffset]);
+
+  // Re-enable live follow when range or chart type changes
+  useEffect(() => {
+    followLiveRef.current = true;
+    setIsAtLiveEdge(true);
+  }, [activeRange, chartType]);
+
+  // Auto-scroll to live edge while following
+  const latestClose = klines.length > 0 ? klines[klines.length - 1].close : 0;
+  useEffect(() => {
+    if (!followLiveRef.current || !chartView) return;
+    const offset = computeLiveScrollOffset();
+    scrollOffsetRef.current = offset;
+    setScrollOffset(offset);
+    chartScrollRef.current?.scrollTo({ x: offset, animated: false });
+  }, [
+    latestClose,
+    klines.length,
+    chartPixelWidth,
+    scrollContentWidth,
+    chartType,
+    activeRange,
+    chartView,
+    computeLiveScrollOffset,
+  ]);
+
+  const handleChartScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offset = e.nativeEvent.contentOffset.x;
+      scrollOffsetRef.current = offset;
+      setScrollOffset(offset);
+
+      const liveOffset = computeLiveScrollOffset();
+      const atLive = Math.abs(offset - liveOffset) <= LIVE_EDGE_THRESHOLD_PX;
+      followLiveRef.current = atLive;
+      setIsAtLiveEdge(atLive);
+    },
+    [computeLiveScrollOffset],
+  );
+
+  const handleChartPointer = useCallback(
+    (contentX: number, viewportX: number) => {
+      pointerScreenX.current = viewportX;
+      if (chartType === 'line') {
+        if (!chartView) return;
+        const ratio  = Math.max(0, Math.min(1, contentX / Math.max(1, chartTotalPixelW)));
+        const maxIdx = chartView.points.length - 1;
+        setHoverIndex(Math.max(0, Math.min(maxIdx, Math.round(ratio * maxIdx))));
+        return;
+      }
+      if (!klines.length) return;
+      const idx = Math.round((contentX / Math.max(1, chartTotalPixelW)) * (klines.length - 1));
+      setHoverIndex(Math.max(0, Math.min(klines.length - 1, idx)));
+    },
+    [chartType, chartView, chartTotalPixelW, klines.length],
+  );
 
   const hoverLabelPos = useMemo(() => {
     if (!activePoint) return null;
-    const px = (activePoint.x / SVG_W) * chartPixelWidth;
+    const pointPxContent = (activePoint.x / lineTotalSvgW) * chartTotalPixelW;
+    const px = pointPxContent - scrollOffset;
     const py = (activePoint.y / SVG_H) * chartAreaHeight;
     const w  = 90;
     return {
@@ -452,7 +565,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       top:  Math.max(py - 32, 4),
       width: w,
     };
-  }, [activePoint, chartPixelWidth, chartAreaHeight]);
+  }, [activePoint, lineTotalSvgW, chartTotalPixelW, scrollOffset, chartPixelWidth, chartAreaHeight]);
 
   const candleHoverPos = useMemo(() => {
     if (hoverIndex === null || klines.length === 0) return null;
@@ -462,7 +575,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       top: 4,
       width: w,
     };
-  }, [hoverIndex, klines.length, chartPixelWidth]);
+  }, [hoverIndex, klines.length, chartPixelWidth, scrollOffset]);
 
   const yLabelPositions = useMemo(() => {
     if (!chartView) return [];
@@ -472,26 +585,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     }));
   }, [chartView, chartAreaHeight]);
 
-  const handlePointer = useCallback((xPx: number) => {
-    if (!chartView) return;
-    const ratio  = Math.max(0, Math.min(1, xPx / Math.max(1, chartPixelWidth)));
-    const maxIdx = chartView.points.length - 1;
-    setHoverIndex(Math.max(0, Math.min(maxIdx, Math.round(ratio * maxIdx))));
-  }, [chartView, chartPixelWidth]);
-
-  // ── Candle scroll & sizing ──────────────────────────────────────────────────
-  const candleTotalSvgW = Math.max(SVG_W, klines.length * MIN_CANDLE_SLOT_SVG);
-  const candleTotalPixelW = Math.round((candleTotalSvgW / SVG_W) * chartPixelWidth);
-  const needsCandleScroll = candleTotalSvgW > SVG_W;
-
-  const handleCandlePointer = useCallback((locationX: number) => {
-    if (!klines.length) return;
-    pointerScreenX.current = locationX;
-    const totalX = locationX + candleScrollOffsetRef.current;
-    const idx    = Math.round((totalX / Math.max(1, candleTotalPixelW)) * (klines.length - 1));
-    setHoverIndex(Math.max(0, Math.min(klines.length - 1, idx)));
-  }, [klines.length, candleTotalPixelW]);
-
+  // ── Candle y-axis / x-axis labels ───────────────────────────────────────────
   const candleYLabelPositions = useMemo(() => {
     if (klines.length === 0) return [];
     const minVal = Math.min(...klines.map(k => k.low));
@@ -614,47 +708,80 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
               <View style={[styles.chartSkeleton, { height: chartAreaHeight }]} />
             ) : chartView ? (
               <>
-                {chartType === 'line' ? (
-                  <MemoChartSvg
-                    view={chartView}
-                    gradientId={gradientId}
-                    isDark={isDark}
-                    lineColor={chartColors.line}
-                    activePoint={activePoint}
-                    crosshairStroke={chartCrosshairStroke}
-                    markerStroke={chartMarkerStroke}
-                    gridStroke={chartGridStroke}
-                  />
-                ) : needsCandleScroll ? (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    scrollEventThrottle={16}
-                    style={{ height: chartAreaHeight }}
-                    contentContainerStyle={{ width: candleTotalPixelW }}
-                    onScroll={(e) => { candleScrollOffsetRef.current = e.nativeEvent.contentOffset.x; }}
-                  >
-                    <MemoCandleSvg
-                      klines={klines}
-                      green={chartColors.green}
-                      red={chartColors.red}
-                      gridStroke={chartGridStroke}
-                      activeIndex={hoverIndex}
-                      crosshairStroke={chartCrosshairStroke}
-                      totalSvgW={candleTotalSvgW}
+                <ScrollView
+                  ref={chartScrollRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  scrollEventThrottle={16}
+                  scrollEnabled={needsChartScroll}
+                  style={{ height: chartAreaHeight }}
+                  contentContainerStyle={{ width: scrollContentWidth }}
+                  onScroll={handleChartScroll}
+                  onContentSizeChange={() => {
+                    if (followLiveRef.current) scrollToLive(false);
+                  }}
+                >
+                  <View style={{ width: scrollContentWidth, height: chartAreaHeight }}>
+                    <View style={{ width: chartTotalPixelW, height: chartAreaHeight }}>
+                      {chartType === 'line' ? (
+                        <MemoChartSvg
+                          view={chartView}
+                          totalSvgW={lineTotalSvgW}
+                          gradientId={gradientId}
+                          isDark={isDark}
+                          lineColor={chartColors.line}
+                          activePoint={activePoint}
+                          crosshairStroke={chartCrosshairStroke}
+                          markerStroke={chartMarkerStroke}
+                          gridStroke={chartGridStroke}
+                        />
+                      ) : (
+                        <MemoCandleSvg
+                          klines={klines}
+                          green={chartColors.green}
+                          red={chartColors.red}
+                          gridStroke={chartGridStroke}
+                          activeIndex={hoverIndex}
+                          crosshairStroke={chartCrosshairStroke}
+                          totalSvgW={candleTotalSvgW}
+                        />
+                      )}
+                    </View>
+
+                    {/* Pointer interaction — inside scroll content so horizontal swipes scroll */}
+                    <View
+                      style={[
+                        styles.interactionLayer,
+                        { height: chartAreaHeight, width: scrollContentWidth },
+                      ]}
+                      onTouchStart={(e) => {
+                        const contentX = e.nativeEvent.locationX;
+                        handleChartPointer(contentX, contentX - scrollOffsetRef.current);
+                      }}
+                      onTouchEnd={() => setHoverIndex(null)}
+                      {...(Platform.OS === 'web'
+                        ? {
+                            onMouseMove: (e: any) => {
+                              const contentX = e.nativeEvent.locationX;
+                              handleChartPointer(contentX, contentX - scrollOffsetRef.current);
+                            },
+                            onMouseLeave: () => setHoverIndex(null),
+                          }
+                        : {})}
                     />
-                  </ScrollView>
-                ) : (
-                  <MemoCandleSvg
-                    klines={klines}
-                    green={chartColors.green}
-                    red={chartColors.red}
-                    gridStroke={chartGridStroke}
-                    activeIndex={hoverIndex}
-                    crosshairStroke={chartCrosshairStroke}
-                    totalSvgW={candleTotalSvgW}
-                  />
-                )}
+                  </View>
+                </ScrollView>
+
+                {/* Return to live — shown when user scrolls away from the latest point */}
+                {needsChartScroll && !isAtLiveEdge ? (
+                  <TouchableOpacity
+                    style={styles.returnToLiveBtn}
+                    onPress={() => scrollToLive(true)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.returnToLiveText}>{t('marketCap.returnToLive')}</Text>
+                  </TouchableOpacity>
+                ) : null}
 
                 {/* Hover label — close price for line, OHLC for candle */}
                 {chartType === 'line' && activeKline && hoverLabelPos ? (
@@ -701,20 +828,6 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                     </View>
                   </View>
                 ) : null}
-
-                {/* Touch / hover interaction layer */}
-                <View
-                  style={[styles.interactionLayer, { height: chartAreaHeight }]}
-                  onStartShouldSetResponder={() => true}
-                  onResponderGrant={(e: any) => chartType === 'candle' ? handleCandlePointer(e.nativeEvent.locationX) : handlePointer(e.nativeEvent.locationX)}
-                  onResponderMove={(e: any) => chartType === 'candle' ? handleCandlePointer(e.nativeEvent.locationX) : handlePointer(e.nativeEvent.locationX)}
-                  onResponderRelease={() => setHoverIndex(null)}
-                  onResponderTerminate={() => setHoverIndex(null)}
-                  {...({
-                    onMouseMove: (e: any) => chartType === 'candle' ? handleCandlePointer(e.nativeEvent.locationX) : handlePointer(e.nativeEvent.locationX),
-                    onMouseLeave: () => setHoverIndex(null),
-                  } as object)}
-                />
 
                 {/* X-axis time labels */}
                 <View style={styles.xAxisLabels}>

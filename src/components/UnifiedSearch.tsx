@@ -21,6 +21,7 @@ type UnifiedSearchProps = {
   onUserPress?: (userId: string) => void;
   renderUserAction?: (user: { id: string; username: string }) => React.ReactNode;
   onResult?: (result: UnifiedSearchResult) => void;
+  onClose?: () => void;
 };
 
 function segmentCount(result: UnifiedSearchResult, segment: SearchSegment): number {
@@ -54,6 +55,7 @@ export const UnifiedSearch: React.FC<UnifiedSearchProps> = ({
   onUserPress,
   renderUserAction,
   onResult,
+  onClose,
 }) => {
   const { t } = useTranslation();
   const placeholder = placeholderProp ?? t('search.placeholderDefault');
@@ -102,6 +104,7 @@ export const UnifiedSearch: React.FC<UnifiedSearchProps> = ({
         tookMs={result.meta.tookMs}
         isActive={isActive}
         placeholder={placeholder}
+        onClose={onClose}
       />
       <UnifiedSearchResults
         result={result}

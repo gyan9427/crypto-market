@@ -260,6 +260,7 @@ export default function TabsLayout() {
           name="search/index"
           options={{
             href: null,
+            headerShown: false,
           }}
         />
         <Tabs.Screen
