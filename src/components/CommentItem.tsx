@@ -13,6 +13,7 @@ import { fetchReplies } from '../services/api';
 import { formatTimeAgo } from '../utils/format';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/useAuthStore';
+import { MENTION_AVATAR_COLORS } from '@/src/theme/chartPalette';
 import type { AppPalette, ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 
@@ -77,9 +78,7 @@ function avatarPalette(c: AppPalette): string[] {
     c.primary[500],
     c.accent[500],
     c.success[500],
-    '#3b82f6',
-    '#f59e0b',
-    '#06b6d4',
+    ...MENTION_AVATAR_COLORS,
   ];
 }
 

@@ -122,7 +122,7 @@ function buildStyles(tokens: ThemeTokens) {
       paddingHorizontal: 12,
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      borderBottomColor: tokens.borderSubtle,
     },
     backBtn: {
       padding: 8,
@@ -153,7 +153,7 @@ function buildStyles(tokens: ThemeTokens) {
       padding: 20,
       alignItems: 'center',
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tokens.isDark ? 'rgba(255,255,255,0.08)' : tokens.borderSubtle,
+      borderColor: tokens.border,
       marginBottom: 20,
     },
     totalLabel: {
@@ -186,7 +186,7 @@ function buildStyles(tokens: ThemeTokens) {
       justifyContent: 'space-between',
       paddingVertical: 12,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      borderBottomColor: tokens.borderSubtle,
       gap: 12,
     },
     rowLeft: {
@@ -227,7 +227,7 @@ function buildStyles(tokens: ThemeTokens) {
       width: '100%',
       height: 6,
       borderRadius: 3,
-      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.08)' : (tokens.colors.neutral?.[100] ?? tokens.surfaceMuted),
+      backgroundColor: tokens.isDark ? tokens.border : (tokens.colors.neutral?.[100] ?? tokens.surfaceMuted),
       overflow: 'hidden',
     },
     barFill: {

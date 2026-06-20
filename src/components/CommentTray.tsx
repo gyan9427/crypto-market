@@ -314,9 +314,9 @@ export const CommentTray: React.FC<CommentTrayProps> = ({
               disabled={!inputText.trim() || sending}
             >
               {sending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={tokens.colors.white} />
               ) : (
-                <Send size={18} color="#fff" />
+                <Send size={18} color={tokens.colors.white} />
               )}
             </TouchableOpacity>
           </View>

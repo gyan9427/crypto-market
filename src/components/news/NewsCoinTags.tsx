@@ -35,7 +35,7 @@ function buildStyles(tokens: ThemeTokens) {
       fontFamily: typo.fontFamilies.sansSemiBold,
       fontSize: 10,
       fontWeight: typo.fontWeights.semibold,
-      color: '#fff',
+      color: c.white,
       letterSpacing: 0.4,
       textTransform: 'uppercase',
     },

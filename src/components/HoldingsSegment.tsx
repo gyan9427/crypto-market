@@ -11,7 +11,7 @@ import {
   type PortfolioAccountSelection,
 } from '@/src/utils/portfolioAccountFilter';
 
-const MARKET_ACCENT = '#6383ff';
+import { getMarketUiPalette, MARKET_ACCENT } from '@/src/theme/chartPalette';
 
 function mapAssetDisplay(text: string | undefined | null): string {
   if (text == null || typeof text !== 'string') return '';
@@ -203,9 +203,7 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
   const c = tokens.colors;
   const s = tokens.spacing;
   const typo = tokens.typography;
-  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
-  const rowBg = tokens.isDark ? '#0a0a0f' : tokens.surface;
-  const rowBorder = tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle;
+  const ui = getMarketUiPalette(tokens);
 
   return StyleSheet.create({
     sectionTitle: {
@@ -224,8 +222,8 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 14,
       borderBottomWidth: 0.5,
-      borderBottomColor: rowBorder,
-      backgroundColor: rowBg,
+      borderBottomColor: tokens.borderSubtle,
+      backgroundColor: ui.rowBg,
       minHeight: 56,
     },
     summaryLeft: {
@@ -271,8 +269,8 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 14,
       borderBottomWidth: 0.5,
-      borderBottomColor: rowBorder,
-      backgroundColor: rowBg,
+      borderBottomColor: tokens.borderSubtle,
+      backgroundColor: ui.rowBg,
       minHeight: 56,
     },
     emptyText: {
@@ -298,12 +296,12 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 10,
       borderBottomWidth: 0.5,
-      borderBottomColor: rowBorder,
-      backgroundColor: rowBg,
+      borderBottomColor: tokens.borderSubtle,
+      backgroundColor: ui.rowBg,
       minHeight: 56,
     },
     badge: {
-      backgroundColor: accentBg,
+      backgroundColor: ui.accentBg,
       borderRadius: 8,
       paddingHorizontal: s.sm,
       paddingVertical: 4,

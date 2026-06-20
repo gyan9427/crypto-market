@@ -16,6 +16,7 @@ import {
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { PORTFOLIO_INSIGHT_CAROUSEL_CARD_HEIGHT } from '@/src/components/portfolio-intelligence/piStyles';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import { PortfolioCompositionSummaryCard } from '@/src/components/portfolio/PortfolioCompositionSummaryCard';
 import { PortfolioIntelligenceSummaryCard } from '@/src/components/portfolio-intelligence/PortfolioIntelligenceSummaryCard';
 import type { Holdings, WalletAddress, ExchangeConnection } from '@/src/types';
@@ -216,6 +217,7 @@ export const PortfolioInsightsCarousel: React.FC<PortfolioInsightsCarouselProps>
 };
 
 function buildStyles(tokens: ThemeTokens) {
+  const ui = getMarketUiPalette(tokens);
   return StyleSheet.create({
     wrap: {
       paddingTop: 8,
@@ -237,13 +239,13 @@ function buildStyles(tokens: ThemeTokens) {
       width: 6,
       height: 6,
       borderRadius: 3,
-      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.15)',
+      backgroundColor: ui.dotInactive,
     },
     dotActive: {
       width: 18,
       height: 6,
       borderRadius: 3,
-      backgroundColor: '#6383ff',
+      backgroundColor: ui.accent,
     },
   });
 }

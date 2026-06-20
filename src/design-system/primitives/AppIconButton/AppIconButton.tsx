@@ -8,6 +8,7 @@ import {
 import Animated from 'react-native-reanimated';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { usePressScale } from '@/src/design-system/motion/usePressScale';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import type { ThemeTokens } from '@/src/design-system/theme/types';
 
 export type AppIconButtonVariant = 'default' | 'ghost' | 'overlay';
@@ -26,9 +27,10 @@ function buildIconButtonStyles(
   size: AppIconButtonSize
 ) {
   const dim = { sm: 36, md: 44, lg: 52 }[size];
+  const ui = getMarketUiPalette(tokens);
   let backgroundColor = tokens.surfaceMuted;
   if (variant === 'ghost') backgroundColor = 'transparent';
-  if (variant === 'overlay') backgroundColor = 'rgba(10, 10, 15, 0.45)';
+  if (variant === 'overlay') backgroundColor = ui.overlayControlBg;
 
   return StyleSheet.create({
     pressable: {

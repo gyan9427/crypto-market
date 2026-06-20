@@ -275,6 +275,7 @@ export function SkiaChart(props: SkiaChartProps) {
 
 
 function buildSkiaChartStyles(tokens: ThemeTokens) {
+  const chart = getChartUIPalette(tokens);
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -282,7 +283,7 @@ function buildSkiaChartStyles(tokens: ThemeTokens) {
       backgroundColor: tokens.surfaceMuted,
     },
     skeleton: {
-      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+      backgroundColor: chart.grid,
     },
     errorContainer: {
       justifyContent: 'center',
@@ -297,7 +298,7 @@ function buildSkiaChartStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 6,
       borderRadius: 20,
-      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+      backgroundColor: chart.separator,
     },
     retryText: {
       color: tokens.text,

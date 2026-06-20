@@ -12,4 +12,5 @@ export const shareCardColors = {
   accentSubtle: 'rgba(59,130,246,0.14)',
   accentDivider: 'rgba(59,130,246,0.28)',
   divider: 'rgba(255,255,255,0.10)',
+  domain: 'rgba(255,255,255,0.22)',
 } as const;

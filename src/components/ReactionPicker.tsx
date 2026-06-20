@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { REACTIONS, ReactionType, ReactionCounts } from '../types';
 import type { ThemeTokens } from '../theme/theme';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { abbreviateNumber } from '../utils/format';
 
@@ -218,6 +219,7 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
 
 function buildReactionPickerStyles(tokens: ThemeTokens) {
   const c = tokens.colors;
+  const ui = getMarketUiPalette(tokens);
   return StyleSheet.create({
     triggerWrap: {
       borderRadius: 12,
@@ -246,7 +248,7 @@ function buildReactionPickerStyles(tokens: ThemeTokens) {
       borderColor: tokens.surface,
       justifyContent: 'center',
       alignItems: 'center',
-      shadowColor: '#000',
+      shadowColor: ui.shadowColor,
       shadowOffset: { width: 0, height: 0.5 },
       shadowOpacity: 0.1,
       shadowRadius: 1,
@@ -280,7 +282,7 @@ function buildReactionPickerStyles(tokens: ThemeTokens) {
       borderRadius: TOOLTIP_HEIGHT / 2,
       backgroundColor: tokens.surface,
       elevation: 10,
-      shadowColor: '#000',
+      shadowColor: ui.shadowColor,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.16,
       shadowRadius: 8,

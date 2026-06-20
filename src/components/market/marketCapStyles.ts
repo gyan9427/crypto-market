@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import type { ThemeTokens } from '@/src/design-system/theme/types';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import { getMarketCapChartColors } from './marketCapChartColors';
 
 export const MARKET_CAP_Y_AXIS_W = 52;
@@ -10,9 +11,10 @@ export function buildMarketCapStyles(
 ) {
   const { line: LINE_COLOR, green: GREEN, red: RED } = chartColors;
   const { spacing: s, borderRadius: br, typography: typo } = tokens;
-  const accentTabBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
-  const chartSkeletonFill = tokens.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
-  const skeletonFill = tokens.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const ui = getMarketUiPalette(tokens);
+  const accentTabBg = ui.accentBg;
+  const chartSkeletonFill = tokens.borderSubtle;
+  const skeletonFill = tokens.border;
 
   return StyleSheet.create({
     container: { marginBottom: 0 },
@@ -48,8 +50,8 @@ export function buildMarketCapStyles(
       marginTop: s.xs,
     },
     changeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-    changeBadgeUp: { backgroundColor: 'rgba(39,196,133,0.13)' },
-    changeBadgeDn: { backgroundColor: 'rgba(240,82,82,0.13)'  },
+    changeBadgeUp: { backgroundColor: ui.changeBadgeUpBg },
+    changeBadgeDn: { backgroundColor: ui.changeBadgeDnBg  },
     changeBadgeText: {
       fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.medium,
@@ -122,7 +124,7 @@ export function buildMarketCapStyles(
       fontSize: typo.fontSizes.badge,
       fontFamily: typo.fontFamilies.sansSemiBold,
       fontWeight: typo.fontWeights.semibold,
-      color: '#FFFFFF',
+      color: tokens.colors.white,
       fontVariant: ['tabular-nums'],
       letterSpacing: typo.letterSpacing.caption,
     },
@@ -137,9 +139,9 @@ export function buildMarketCapStyles(
       paddingHorizontal: 8,
       paddingVertical: 5,
       borderRadius: br.sm,
-      backgroundColor: tokens.isDark ? 'rgba(22,22,28,0.92)' : 'rgba(250,250,252,0.96)',
+      backgroundColor: ui.crosshairPanelBg,
       borderWidth: 0.5,
-      borderColor: tokens.isDark ? 'rgba(99,131,255,0.28)' : 'rgba(99,131,255,0.35)',
+      borderColor: ui.crosshairPanelBorder,
       alignItems: 'center',
     },
     hoverLabelTime: {
@@ -164,9 +166,9 @@ export function buildMarketCapStyles(
       paddingHorizontal: 10,
       paddingVertical: 5,
       borderRadius: br.sm,
-      backgroundColor: tokens.isDark ? 'rgba(22,22,28,0.92)' : 'rgba(250,250,252,0.96)',
+      backgroundColor: ui.returnToLiveBg,
       borderWidth: 0.5,
-      borderColor: tokens.isDark ? 'rgba(99,131,255,0.35)' : 'rgba(99,131,255,0.45)',
+      borderColor: ui.returnToLiveBorder,
     },
     returnToLiveText: {
       fontSize: typo.fontSizes.badge,

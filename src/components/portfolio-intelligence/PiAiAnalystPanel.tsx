@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,14 @@ import {
 import { usePiStyles } from './piStyles';
 import { useHasFeature } from '@/src/utils/features';
 import { chatWithPortfolioAnalyst } from '@/src/services/portfolioIntelligenceApi';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 
 export const PiAiAnalystPanel: React.FC = () => {
   const styles = usePiStyles();
+  const { tokens } = useAppTheme();
+  const ui = useMemo(() => getMarketUiPalette(tokens), [tokens]);
+  const localStyles = useMemo(() => buildLocalStyles(tokens, ui), [tokens, ui]);
   const enabled = useHasFeature('portfolio_intelligence_ai_analyst');
   const [message, setMessage] = useState('');
   const [response, setResponse] = useState<string | null>(null);
@@ -55,7 +60,7 @@ export const PiAiAnalystPanel: React.FC = () => {
         value={message}
         onChangeText={setMessage}
         placeholder="What drives my portfolio risk?"
-        placeholderTextColor="#888"
+        placeholderTextColor={tokens.textMuted}
         style={localStyles.input}
         editable={!loading}
         multiline
@@ -68,7 +73,7 @@ export const PiAiAnalystPanel: React.FC = () => {
         accessibilityLabel="Send question to portfolio analyst"
       >
         {loading ? (
-          <ActivityIndicator size="small" color="#fff" />
+          <ActivityIndicator size="small" color={tokens.colors.white} />
         ) : (
           <Text style={localStyles.sendBtnText}>Ask</Text>
         )}
@@ -79,36 +84,41 @@ export const PiAiAnalystPanel: React.FC = () => {
   );
 };
 
-const localStyles = StyleSheet.create({
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minHeight: 44,
-    color: '#fff',
-    marginBottom: 10,
-  },
-  sendBtn: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#6383ff',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    minWidth: 72,
-    alignItems: 'center',
-  },
-  sendBtnDisabled: {
-    opacity: 0.6,
-  },
-  sendBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  errorText: {
-    marginTop: 8,
-    color: '#ef4444',
-    fontSize: 13,
-  },
-});
+function buildLocalStyles(
+  tokens: ReturnType<typeof useAppTheme>['tokens'],
+  ui: ReturnType<typeof getMarketUiPalette>
+) {
+  return StyleSheet.create({
+    input: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: tokens.borderStrong,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      minHeight: 44,
+      color: tokens.text,
+      marginBottom: 10,
+    },
+    sendBtn: {
+      alignSelf: 'flex-start',
+      backgroundColor: ui.accent,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 8,
+      minWidth: 72,
+      alignItems: 'center',
+    },
+    sendBtnDisabled: {
+      opacity: 0.6,
+    },
+    sendBtnText: {
+      color: tokens.colors.white,
+      fontWeight: '600',
+    },
+    errorText: {
+      marginTop: 8,
+      color: tokens.colors.error[500],
+      fontSize: 13,
+    },
+  });
+}

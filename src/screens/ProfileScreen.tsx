@@ -11,6 +11,7 @@ import { useAppStore } from '@/src/state/useAppStore';
 import { getLanguageOption, type SupportedLanguage } from '@/src/constants/languages';
 import { LanguagePickerSheet } from '@/src/components/LanguagePickerSheet';
 import { AboutAppModal } from '@/src/components/AboutAppModal';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import type { ThemePreference } from '@/src/types';
@@ -78,7 +79,7 @@ function menuStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 10,
       borderBottomWidth: 0.5,
-      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      borderBottomColor: tokens.borderSubtle,
       backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
       minHeight: 56,
     },
@@ -416,7 +417,7 @@ export default function ProfileScreen() {
 function buildScreenStyles(tokens: ThemeTokens) {
   const typo = tokens.typography;
   const accent = tokens.link;
-  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
+  const ui = getMarketUiPalette(tokens);
 
   return StyleSheet.create({
     safeArea: {
@@ -433,14 +434,14 @@ function buildScreenStyles(tokens: ThemeTokens) {
       paddingTop: 12,
       paddingBottom: 16,
       borderBottomWidth: 0.5,
-      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      borderBottomColor: tokens.borderSubtle,
       backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
     },
     avatar: {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: accentBg,
+      backgroundColor: ui.accentBg,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: tokens.spacing.sm,
@@ -501,7 +502,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
       borderRadius: 8,
     },
     tabActive: {
-      backgroundColor: accentBg,
+      backgroundColor: ui.accentBg,
     },
     tabText: {
       fontSize: 12,
@@ -517,7 +518,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 10,
       borderBottomWidth: 0.5,
-      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      borderBottomColor: tokens.borderSubtle,
       backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
       minHeight: 56,
     },
@@ -540,7 +541,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
       paddingVertical: 16,
       alignItems: 'center',
       borderBottomWidth: 0.5,
-      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      borderBottomColor: tokens.borderSubtle,
       backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
     },
     socialStatsRow: {
@@ -549,7 +550,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 14,
       borderBottomWidth: 0.5,
-      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      borderBottomColor: tokens.borderSubtle,
       backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
     },
     statItem: {
@@ -589,8 +590,8 @@ function buildScreenStyles(tokens: ThemeTokens) {
       alignItems: 'center',
     },
     followingChip: {
-      backgroundColor: accentBg,
-      borderColor: tokens.isDark ? 'rgba(99,131,255,0.35)' : 'rgba(99,131,255,0.25)',
+      backgroundColor: ui.accentBg,
+      borderColor: ui.followingChipBorder,
     },
     followChipText: {
       color: tokens.colors.white,
@@ -608,7 +609,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 10,
       borderBottomWidth: 0.5,
-      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      borderBottomColor: tokens.borderSubtle,
       backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
       minHeight: 56,
     },

@@ -14,6 +14,7 @@ import {
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import {
   LANGUAGE_OPTIONS,
   type LanguageOption,
@@ -147,6 +148,7 @@ export const LanguagePickerSheet = forwardRef<BottomSheetModal, LanguagePickerSh
 );
 
 function rowStyles(tokens: ThemeTokens) {
+  const ui = getMarketUiPalette(tokens);
   return StyleSheet.create({
     row: {
       flexDirection: 'row',
@@ -164,7 +166,7 @@ function rowStyles(tokens: ThemeTokens) {
       backgroundColor: tokens.colors.primary[50],
     },
     rowSelectedDark: {
-      backgroundColor: 'rgba(168, 85, 247, 0.12)',
+      backgroundColor: ui.languageRowSelectedBg,
     },
     rowTextWrap: {
       flex: 1,

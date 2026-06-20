@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated, LayoutChangeEvent } from 'react-native';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { AppText } from '@/src/design-system/primitives/AppText';
@@ -139,6 +140,7 @@ export const SegmentToggle: React.FC<SegmentToggleProps> = ({
 
 function buildStyles(tokens: ThemeTokens, flush: boolean, hasRichTabs: boolean) {
   const c = tokens.colors;
+  const ui = getMarketUiPalette(tokens);
   const primaryColor = c.primary[tokens.isDark ? 400 : 600];
 
   return StyleSheet.create({
@@ -163,7 +165,7 @@ function buildStyles(tokens: ThemeTokens, flush: boolean, hasRichTabs: boolean) 
       borderRadius: tokens.borderRadius.button - 2,
       borderWidth: 1,
       borderColor: tokens.border,
-      shadowColor: tokens.isDark ? '#000' : 'rgba(88,28,135,0.15)',
+      shadowColor: ui.segmentIndicatorShadow,
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: tokens.isDark ? 0.35 : 0.12,
       shadowRadius: 3,
@@ -216,7 +218,7 @@ function buildStyles(tokens: ThemeTokens, flush: boolean, hasRichTabs: boolean) 
       backgroundColor: tokens.surface,
       borderBottomWidth: 2,
       borderBottomColor: primaryColor,
-      shadowColor: tokens.isDark ? '#000' : 'rgba(0,0,0,0.07)',
+      shadowColor: tokens.isDark ? tokens.colors.neutral[950] : tokens.colors.primary[900],
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 1,
       shadowRadius: 2,

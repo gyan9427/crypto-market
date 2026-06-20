@@ -60,7 +60,7 @@ export function NavHeaderSearch({ segment = DEFAULT_SEGMENT }: NavHeaderSearchPr
           accessibilityRole="button"
           accessibilityLabel="Profile"
         >
-          <Text style={styles.avatarText}>{initial}</Text>
+          <Text style={[styles.avatarText, { color: tokens.colors.white }]}>{initial}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -98,6 +98,5 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#ffffff',
   },
 });
