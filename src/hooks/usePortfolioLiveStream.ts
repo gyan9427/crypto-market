@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { resolveApiBaseUrl } from '@/src/config/apiBaseUrl';
 import { Holdings, WalletEvent, TxStatus } from '../types';
 import { usePortfolioStore } from '../state/usePortfolioStore';
-import { invalidatePortfolioContextCache } from '@/src/services/piApi';
+import { invalidatePortfolioIntelligenceCache } from '@/src/services/portfolioIntelligenceApi';
+import { usePortfolioIntelligenceStore } from '@/src/state/usePortfolioIntelligenceStore';
 import { useAuthStore } from '@/src/state/useAuthStore';
 
 const HEARTBEAT_STALE_MS = 45000;
@@ -197,9 +198,11 @@ export function usePortfolioLiveStream(options: UsePortfolioLiveStreamOptions): 
         }
         case 'analytics_revision': {
           if (message.stale !== true) {
-            invalidatePortfolioContextCache({ refetch: true });
+            invalidatePortfolioIntelligenceCache({ refetch: true });
+            usePortfolioIntelligenceStore.getState().invalidate({ refetch: true });
           } else {
-            invalidatePortfolioContextCache();
+            invalidatePortfolioIntelligenceCache();
+            usePortfolioIntelligenceStore.getState().invalidate({ refetch: false });
           }
           return;
         }

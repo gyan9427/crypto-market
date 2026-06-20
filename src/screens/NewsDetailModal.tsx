@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useAppStore } from '../state/useAppStore';
 import { shareNewsItem } from '../utils/share';
 import { navigateToCoin } from '../navigation/coinNavigation';
+import { useFeedIntentStore } from '../state/useFeedIntentStore';
 
 interface NewsDetailModalProps {
   newsItem: NewsItem;
@@ -45,6 +46,16 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   const [userReaction, setUserReaction] = useState(newsItem.userReaction ?? null);
   const isSavedToAnyBoard = useAppStore((s) => s.isSavedToAnyBoard);
   const storeSetReaction = useAppStore((s) => s.setReaction);
+  const recordArticleDwell = useFeedIntentStore((s) => s.recordArticleDwell);
+  const openedAtRef = useRef(Date.now());
+
+  useEffect(() => {
+    openedAtRef.current = Date.now();
+    return () => {
+      const seconds = Math.round((Date.now() - openedAtRef.current) / 1000);
+      recordArticleDwell(newsItem.id, seconds);
+    };
+  }, [newsItem.id, recordArticleDwell]);
 
   const handleReact = async (type: ReactionType) => {
     const prevReaction = userReaction;

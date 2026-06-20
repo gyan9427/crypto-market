@@ -18,6 +18,7 @@ import { useFeaturesStore } from '@/src/utils/features';
 import { CoinOnboardingGate } from '@/src/components/CoinOnboardingGate';
 import { RiskGatewayHost } from '@/src/components/RiskGatewayHost';
 import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
+import { useInterestProfileSync } from '@/src/hooks/useInterestProfileSync';
 import { useConsentStore } from '@/src/privacy/consentStore';
 import { useRuntimeHints } from '@/src/hooks/useRuntimeHints';
 import { ForceUpgradeGate } from '@/src/components/ForceUpgradeGate';
@@ -62,6 +63,7 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
   const { forceUpgrade } = useRuntimeHints(isReady);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const emailVerified = useAuthStore((s) => s.user?.emailVerified === true);
+  useInterestProfileSync();
 
   if (!isReady) {
     return (

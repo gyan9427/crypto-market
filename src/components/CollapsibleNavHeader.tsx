@@ -13,17 +13,26 @@ export function CollapsibleNavHeader(props: NavHeaderSearchProps) {
 
   const onContentLayout = (event: LayoutChangeEvent) => {
     const height = event.nativeEvent.layout.height;
-    if (height > 0) {
+    if (height <= 0) return;
+
+    const prev = maxHeaderOffset.value;
+    if (prev === 0 || Math.abs(height - prev) > 2) {
       maxHeaderOffset.value = height;
+      if (headerOffset.value > height) {
+        headerOffset.value = height;
+      }
     }
   };
 
-  const clipStyle = useAnimatedStyle(() => ({
-    height: Math.max(maxHeaderOffset.value - headerOffset.value, 0),
-  }));
+  const clipStyle = useAnimatedStyle(() => {
+    const visibleHeight = Math.max(maxHeaderOffset.value - headerOffset.value, 0);
+    return {
+      height: Math.round(visibleHeight),
+    };
+  });
 
   const contentStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -headerOffset.value }],
+    transform: [{ translateY: -Math.round(headerOffset.value) }],
   }));
 
   return (

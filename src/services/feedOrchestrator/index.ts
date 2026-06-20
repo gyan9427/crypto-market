@@ -1,6 +1,6 @@
 import type { FeedFilter, NewsItem } from '@/src/types';
 import { rankFeedArticles } from './feedRanking.service';
-import type { FeedRankingResult, FeedUserContext } from './relevance.types';
+import type { FeedRankingResult, FeedUserContext, OrchestratedArticle } from './relevance.types';
 
 export type {
   AttentionBudgetResult,
@@ -57,4 +57,18 @@ export function buildFeedUserContext(partial: Omit<FeedUserContext, 'mode'> & { 
     convictionVector: partial.convictionVector,
     topThemes: partial.topThemes,
   };
+}
+
+export function applyServerRankBoost(
+  articles: OrchestratedArticle[],
+  serverScores: Map<string, number>,
+  weight = 0.35
+): OrchestratedArticle[] {
+  if (serverScores.size === 0) return articles;
+  return [...articles].sort((a, b) => {
+    const scoreA = (a.feedScore?.total ?? 0) + (serverScores.get(a.id) ?? 0) * weight;
+    const scoreB = (b.feedScore?.total ?? 0) + (serverScores.get(b.id) ?? 0) * weight;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+  });
 }

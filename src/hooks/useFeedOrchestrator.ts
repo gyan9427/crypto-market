@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FeedFilter, NewsItem } from '@/src/types';
 import {
+  applyServerRankBoost,
   buildFeedUserContext,
   orchestrateFeed,
   type FeedRankingResult,
   type OrchestratedArticle,
 } from '@/src/services/feedOrchestrator';
+import { refreshServerFeedRanking } from '@/src/services/feedRankingApi';
 import { useAppStore } from '@/src/state/useAppStore';
 import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
 import { useFeedStore } from '@/src/state/useFeedStore';
@@ -92,6 +94,7 @@ export function useFeedOrchestrator(
   const setActiveRiskRevision = useFeedStore((s) => s.setActiveRiskRevision);
   const activeRiskRevision = useFeedStore((s) => s.activeRiskRevision);
   const hasPiContext = useHasFeature('portfolio_intelligence_context_api');
+  const hasServerFeedRanking = useHasFeature('feed_ranking_server');
   const sharedPi = useFeedPiContextShared();
   const personalizationFromContext = useFeedPersonalizationGate();
   const sharedAvailable = useFeedContextAvailable();
@@ -99,6 +102,7 @@ export function useFeedOrchestrator(
 
   const [debouncedRaw, setDebouncedRaw] = useState(rawArticles);
   const [isPending, setIsPending] = useState(false);
+  const [serverScores, setServerScores] = useState<Map<string, number>>(new Map());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hadArticlesRef = useRef(rawArticles.length > 0);
 
@@ -151,6 +155,23 @@ export function useFeedOrchestrator(
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [rawArticles]);
+
+  useEffect(() => {
+    if (!personalizationEnabled || !hasServerFeedRanking || debouncedRaw.length === 0) {
+      setServerScores(new Map());
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void refreshServerFeedRanking(debouncedRaw, mode).then((scores) => {
+        if (!cancelled) setServerScores(scores);
+      });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [debouncedRaw, mode, personalizationEnabled, hasServerFeedRanking]);
 
   useEffect(() => {
     if (riskContext.activeRiskRevision > 0) {
@@ -241,8 +262,9 @@ export function useFeedOrchestrator(
           topThemes: [],
         })
       : orchestrateFeed(debouncedRaw, mode, context);
-    return orchestrated;
-  }, [debouncedRaw, mode, context, idsKey, personalizationEnabled]);
+    const articles = applyServerRankBoost(orchestrated.articles, serverScores);
+    return { ...orchestrated, articles };
+  }, [debouncedRaw, mode, context, idsKey, personalizationEnabled, serverScores]);
 
   return { ...result, isPending };
 }
