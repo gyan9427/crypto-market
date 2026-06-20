@@ -21,6 +21,17 @@ platform :android do
     setup_play_json!
   end
 
+  desc 'Print max version code for a Play track'
+  lane :track_version_code do |options|
+    validate_play_credentials!
+    track = options[:track] || UI.user_error!('track required')
+    codes = google_play_track_version_codes(
+      track: track,
+      package_name: 'com.nayft.app'
+    )
+    puts(codes.max || 0)
+  end
+
   desc 'Upload AAB to Play Internal track'
   lane :deploy_internal do |options|
     validate_play_credentials!
