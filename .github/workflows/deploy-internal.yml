@@ -22,6 +22,9 @@ jobs:
     name: Build and deploy to Play Internal
     runs-on: ubuntu-latest
     environment: internal-deploy
+    env:
+      PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON || vars.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - name: Workflow identity banner
         run: |
@@ -49,9 +52,7 @@ jobs:
       - name: Validate Play credentials JSON
         run: |
           set -euo pipefail
-          node -e "const raw=process.env.PLAY_STORE_SERVICE_ACCOUNT_JSON||'';if(!raw.trim()){console.error('PLAY_STORE_SERVICE_ACCOUNT_JSON is required');process.exit(1)}let parsed;try{parsed=JSON.parse(raw)}catch(e){console.error('PLAY_STORE_SERVICE_ACCOUNT_JSON is not valid JSON');process.exit(1)}const required=['type','project_id','client_email','private_key'];const missing=required.filter((key)=>!parsed[key]||String(parsed[key]).trim()==='');if(missing.length){console.error('Missing required Play credential fields: '+missing.join(', '));process.exit(1)}"
-        env:
-          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          node -e "const raw=process.env.PLAY_STORE_SERVICE_ACCOUNT_JSON||'';if(!raw.trim()){console.error('PLAY_STORE_SERVICE_ACCOUNT_JSON is required (set as a secret or variable in the internal-deploy environment)');process.exit(1)}let parsed;try{parsed=JSON.parse(raw)}catch(e){console.error('PLAY_STORE_SERVICE_ACCOUNT_JSON is not valid JSON');process.exit(1)}const required=['type','project_id','client_email','private_key'];const missing=required.filter((key)=>!parsed[key]||String(parsed[key]).trim()==='');if(missing.length){console.error('Missing required Play credential fields: '+missing.join(', '));process.exit(1)}"
 
       - name: Setup Play Store credentials
         run: |
@@ -61,7 +62,6 @@ jobs:
           echo "PLAY_STORE_JSON_KEY_PATH=$PLAY_PATH" >> "$GITHUB_ENV"
           echo "::endgroup::"
         env:
-          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
           PLAY_STORE_JSON_KEY_PATH: ${{ runner.temp }}/play-store-key.json
 
       - name: Build Android AAB with EAS
@@ -82,7 +82,6 @@ jobs:
           echo "EAS_BUILD_ID=${BUILD_ID}" >> "$GITHUB_ENV"
           echo "::endgroup::"
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CI: "true"
 
       - name: Download deterministic AAB artifact
@@ -91,8 +90,6 @@ jobs:
           echo "::group::Download AAB"
           npx eas-cli build:download --id "${EAS_BUILD_ID}" --output artifacts/app-internal.aab --non-interactive
           echo "::endgroup::"
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Verify AAB artifact integrity
         run: |
@@ -119,7 +116,6 @@ jobs:
           echo "PLAY_UPLOAD_STATUS=PLAY_UPLOAD_COMPLETED" >> "$GITHUB_ENV"
           echo "::endgroup::"
         env:
-          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
           PLAY_STORE_JSON_KEY_PATH: ${{ env.PLAY_STORE_JSON_KEY_PATH }}
           CI: "true"
 
