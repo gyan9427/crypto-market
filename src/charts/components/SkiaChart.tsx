@@ -19,6 +19,8 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { getChartUIPalette } from '@/src/theme/chartPalette';
 import { ChartUiProvider } from '../ChartUiContext';
+import { jumpAuditChartRecalc } from '@/src/diagnostics/jumpCorrelationAudit';
+import { useJumpCorrelationRender } from '@/src/diagnostics/useJumpCorrelationRender';
 
 export interface SkiaChartProps {
   symbol: string;
@@ -112,6 +114,12 @@ export function SkiaChart(props: SkiaChartProps) {
     candleWidthPx: BASE_CANDLE_WIDTH,
     offsetPx: 0,
   });
+
+  useJumpCorrelationRender('SkiaChart', { symbol, interval, ...viewportState });
+
+  useEffect(() => {
+    jumpAuditChartRecalc('SkiaChart', 'viewportState-changed', viewportState);
+  }, [viewportState]);
 
   useAnimatedReaction(
     () => {

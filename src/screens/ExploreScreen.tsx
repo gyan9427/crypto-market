@@ -44,6 +44,8 @@ import {
 import { applyMetadataCoins } from '../utils/exploreCoinUpdates';
 import { coinScalarsEqual } from '../utils/reconcileTrendingCoins';
 import { useExploreRenderAttribution } from '../utils/exploreRenderAttribution';
+import { jumpAuditScroll } from '@/src/diagnostics/jumpCorrelationAudit';
+import { useJumpCorrelationRender } from '@/src/diagnostics/useJumpCorrelationRender';
 
 const GRAPH_ANIM_MS = 280;
 const COIN_ROW_HEIGHT = 56;
@@ -170,6 +172,14 @@ export const ExploreScreen: React.FC = () => {
   const [marketGraphExpanded, setMarketGraphExpanded] = useState(true);
   const [measuredGraphHeight, setMeasuredGraphHeight] = useState(0);
   const graphHeightAnim = useRef(new RNAnimated.Value(0)).current;
+
+  useJumpCorrelationRender('ExploreScreen', {
+    isFocused,
+    loadPhase,
+    coinsLen: coins.length,
+    marketGraphExpanded,
+  });
+
   const graphMeasureReadyRef = useRef(false);
   const recordedGraphFullHeightRef = useRef(0);
   const lastSyncedGraphHeightRef = useRef(0);

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,11 @@ import {
   rawSnippetFields,
 } from './news/newsCardUtils';
 import { buildNewsCardStyles } from './news/newsCardStyles';
+import {
+  jumpAuditRegisterStoreSubscriber,
+  jumpAuditStore,
+} from '@/src/diagnostics/jumpCorrelationAudit';
+import { useJumpCorrelationRender } from '@/src/diagnostics/useJumpCorrelationRender';
 
 export const NewsCard = React.memo<FeedCardProps>(({
   item,
@@ -55,6 +60,17 @@ export const NewsCard = React.memo<FeedCardProps>(({
   const followingCoins = useAppStore((s) => s.followingCoins);
   const toggleFollowCoin = useAppStore((s) => s.toggleFollowCoin);
   const [followBusy, setFollowBusy] = useState(false);
+
+  useJumpCorrelationRender('NewsCard', { itemId: item.id, variant, isSaved }, ['followBusy']);
+
+  useEffect(() => {
+    const unregister = jumpAuditRegisterStoreSubscriber('followingCoins');
+    return unregister;
+  }, []);
+
+  useEffect(() => {
+    jumpAuditStore('followingCoins', { itemId: item.id, followingCount: followingCoins.length });
+  }, [followingCoins, item.id]);
 
   const feedSnippet = useMemo(() => {
     const raw = rawSnippetFields(item);

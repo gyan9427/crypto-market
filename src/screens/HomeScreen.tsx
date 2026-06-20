@@ -40,6 +40,11 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { buildAppWsUrl } from '@/src/config/wsBaseUrl';
 import { shareNewsById } from '../utils/share';
 import { navigateToCoin } from '../navigation/coinNavigation';
+import {
+  jumpAuditScroll,
+  jumpAuditVirtualization,
+} from '@/src/diagnostics/jumpCorrelationAudit';
+import { useJumpCorrelationRender } from '@/src/diagnostics/useJumpCorrelationRender';
 
 /** After this many article cards, insert the Featured carousel (sixth vertical block). */
 const FEATURE_INSERT_AFTER = 5;
@@ -482,6 +487,13 @@ export const HomeScreen: React.FC = () => {
       if (active === carouselInteractionActiveRef.current) return;
       carouselInteractionActiveRef.current = active;
 
+      jumpAuditScroll(
+        'FeaturedCarousel',
+        active ? 'interaction-active' : 'interaction-inactive',
+        { contentOffset: { x: 0, y: 0 } },
+        { feedScrollEnabledNext: !active, headerFrozen: active ? 1 : 0 }
+      );
+
       runOnUI((frozen: number) => {
         'worklet';
         headerScrollFrozen.value = frozen;
@@ -526,8 +538,35 @@ export const HomeScreen: React.FC = () => {
     feedRowCountRef.current = feedRows.length;
   }, [feedRows.length]);
 
+  useJumpCorrelationRender(
+    'HomeScreen',
+    { feedFilter, feedRowsLen: feedRows.length, feedScrollEnabled, newsLen: newsData.length },
+    ['feedScrollEnabled', 'loadingMore', 'refreshing']
+  );
+
+  const viewableKeysRef = useRef<Set<string>>(new Set());
+
   const handleViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const nextKeys = new Set<string>();
+      for (const token of viewableItems) {
+        const key =
+          token.key ??
+          (token.item && typeof token.item === 'object' && 'id' in token.item
+            ? String((token.item as NewsItem).id)
+            : `idx-${token.index ?? '?'}`);
+        nextKeys.add(key);
+        if (!viewableKeysRef.current.has(key)) {
+          jumpAuditVirtualization('HomeScreen', 'mount', key, token.index ?? -1);
+        }
+      }
+      for (const key of viewableKeysRef.current) {
+        if (!nextKeys.has(key)) {
+          jumpAuditVirtualization('HomeScreen', 'unmount', key, -1);
+        }
+      }
+      viewableKeysRef.current = nextKeys;
+
       if (!viewableItems.length || feedRowCountRef.current === 0) return;
       const maxIndex = Math.max(
         ...viewableItems.map((item) => (item.index == null ? -1 : item.index))

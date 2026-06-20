@@ -29,6 +29,13 @@ import {
   buildMarketCapStyles,
   MARKET_CAP_Y_AXIS_W,
 } from './market/marketCapStyles';
+import {
+  jumpAuditChartRecalc,
+  jumpAuditLayout,
+  jumpAuditProgrammaticScroll,
+  jumpAuditScroll,
+} from '@/src/diagnostics/jumpCorrelationAudit';
+import { useJumpCorrelationRender } from '@/src/diagnostics/useJumpCorrelationRender';
 
 // ─── SVG coordinate space ────────────────────────────────────────────────────
 const SVG_W      = 400;
@@ -74,7 +81,7 @@ const CANDLE_RANGE_CONFIG: Record<RangeTab, RangeConfig> = {
 
 // Minimum slot / point width in SVG units — drives scroll expansion (line mode)
 const MIN_LINE_POINT_SVG  = 3;
-const CANDLE_VIEWPORT_COUNT = 4;
+const CANDLE_VIEWPORT_COUNT = 15;
 const CANDLE_SLOT_SVG = INNER_W / CANDLE_VIEWPORT_COUNT;
 
 // Live-edge scroll positioning (TradingView-style)
@@ -609,6 +616,10 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
 
   const chartScrollRef   = useRef<ScrollView>(null);
   const scrollOffsetRef  = useRef(0);
+  const chartLayoutWidthRef = useRef(SVG_W);
+  const prevVisibleRangeRef = useRef<string>('');
+  const prevLineDomainRef = useRef<string>('');
+  const prevChartViewSigRef = useRef<string>('');
   const followLiveRef    = useRef(true);
   const pointerScreenX   = useRef(0);
   const lastChartViewRef = useRef<ChartView | null>(null);
@@ -624,6 +635,12 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const klines     = data.klines;
   const isLoading  = !hasFetched;
   const isPositive = data.absoluteChange24h >= 0;
+
+  useJumpCorrelationRender(
+    'MarketCapPlaceholder',
+    { activeRange, chartType, scrollOffset, klinesLen: klines.length, liveUpdatesEnabled },
+    ['scrollOffset', 'hoverIndex', 'isAtLiveEdge']
+  );
 
   // ── Display strings ─────────────────────────────────────────────────────────
   const displayCap = useMemo(() => {
@@ -680,6 +697,17 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   ]);
   const { start: visibleStartIndex, end: visibleEndIndex } = visibleIndexRange;
 
+  const visibleRangeKey = `${visibleStartIndex}-${visibleEndIndex}`;
+  if (visibleRangeKey !== prevVisibleRangeRef.current) {
+    prevVisibleRangeRef.current = visibleRangeKey;
+    jumpAuditChartRecalc('MarketCapPlaceholder', 'visibleIndexRange-changed', {
+      scrollOffset,
+      visibleStartIndex,
+      visibleEndIndex,
+      chartType,
+    });
+  }
+
   const lineYDomain = useMemo(() => {
     if (klines.length === 0) return null;
     const values = klines
@@ -695,6 +723,23 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       .flatMap((k) => [k.low, k.high]);
     return computePaddedYDomain(values);
   }, [klines, visibleStartIndex, visibleEndIndex]);
+
+  const lineDomainKey = lineYDomain
+    ? `${lineYDomain.min.toFixed(0)}-${lineYDomain.max.toFixed(0)}`
+    : 'null';
+  const candleDomainKey = candleYDomain
+    ? `${candleYDomain.min.toFixed(0)}-${candleYDomain.max.toFixed(0)}`
+    : 'null';
+  const activeDomainKey = chartType === 'line' ? lineDomainKey : candleDomainKey;
+  if (activeDomainKey !== prevLineDomainRef.current) {
+    prevLineDomainRef.current = activeDomainKey;
+    jumpAuditChartRecalc('MarketCapPlaceholder', 'yDomain-changed', {
+      chartType,
+      domainKey: activeDomainKey,
+      visibleStartIndex,
+      visibleEndIndex,
+    });
+  }
 
   const freshChartView = useMemo<ChartView | null>(() => {
     if (klines.length < 2 || !lineYDomain) return null;
@@ -743,6 +788,15 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   if (freshChartView) lastChartViewRef.current = freshChartView;
   const chartView = freshChartView ?? lastChartViewRef.current;
 
+  const chartViewSig = chartView?.linePath?.slice(0, 32) ?? '';
+  if (chartViewSig && chartViewSig !== prevChartViewSigRef.current) {
+    prevChartViewSigRef.current = chartViewSig;
+    jumpAuditChartRecalc('MarketCapPlaceholder', 'freshChartView-rebuilt', {
+      pathPrefix: chartViewSig,
+      pointCount: chartView?.points.length ?? 0,
+    });
+  }
+
   // ── Hover state ─────────────────────────────────────────────────────────────
   const activePoint =
     chartView && isValidHoverIndex(hoverIndex, chartView.points.length)
@@ -783,6 +837,13 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     const offset = computeLiveScrollOffset();
     followLiveRef.current = true;
     setIsAtLiveEdge(true);
+    jumpAuditProgrammaticScroll(
+      'MarketCapPlaceholder',
+      animated ? 'scrollToLive-animated' : 'scrollToLive-instant',
+      offset,
+      scrollOffsetRef.current,
+      { animated }
+    );
     scrollOffsetRef.current = offset;
     setScrollOffset(offset);
     chartScrollRef.current?.scrollTo({ x: offset, animated });
@@ -792,6 +853,13 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   useLayoutEffect(() => {
     followLiveRef.current = true;
     setIsAtLiveEdge(true);
+    jumpAuditProgrammaticScroll(
+      'MarketCapPlaceholder',
+      'range-or-type-reset',
+      0,
+      scrollOffsetRef.current,
+      { activeRange, chartType }
+    );
     scrollOffsetRef.current = 0;
     setScrollOffset(0);
     chartScrollRef.current?.scrollTo({ x: 0, animated: false });
@@ -804,6 +872,13 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     if (chartType === 'line' && !chartView) return;
     if (chartType === 'candle' && (klines.length === 0 || !candleYDomain)) return;
     const offset = computeLiveScrollOffset();
+    jumpAuditProgrammaticScroll(
+      'MarketCapPlaceholder',
+      'live-follow-effect',
+      offset,
+      scrollOffsetRef.current,
+      { latestClose, followLive: followLiveRef.current }
+    );
     scrollOffsetRef.current = offset;
     setScrollOffset(offset);
     chartScrollRef.current?.scrollTo({ x: offset, animated: false });
@@ -822,6 +897,9 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const handleChartScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offset = e.nativeEvent.contentOffset.x;
+      jumpAuditScroll('MarketCapPlaceholder', 'onScroll', e.nativeEvent, {
+        scrollOffsetStateBefore: scrollOffsetRef.current,
+      });
       scrollOffsetRef.current = offset;
       setScrollOffset(offset);
 
@@ -1147,7 +1225,17 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
             style={[styles.chartWrapper, { height: chartAreaHeight }]}
             onLayout={(e) => {
               const w = e.nativeEvent.layout.width;
-              if (w > 0) setChartPixelWidth(w);
+              const h = e.nativeEvent.layout.height;
+              if (w > 0) {
+                jumpAuditLayout(
+                  'MarketCapPlaceholder',
+                  'chartWrapper-onLayout',
+                  { width: chartLayoutWidthRef.current, height: chartAreaHeight },
+                  { width: w, height: h }
+                );
+                chartLayoutWidthRef.current = w;
+                setChartPixelWidth(w);
+              }
             }}
           >
             {isLoading && !canRenderChart ? (
@@ -1163,7 +1251,26 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                   style={{ height: chartAreaHeight }}
                   contentContainerStyle={{ width: scrollContentWidth }}
                   onScroll={handleChartScroll}
-                  onContentSizeChange={() => {
+                  onScrollBeginDrag={(e) =>
+                    jumpAuditScroll('MarketCapPlaceholder', 'onScrollBeginDrag', e.nativeEvent)
+                  }
+                  onScrollEndDrag={(e) =>
+                    jumpAuditScroll('MarketCapPlaceholder', 'onScrollEndDrag', e.nativeEvent)
+                  }
+                  onMomentumScrollBegin={(e) =>
+                    jumpAuditScroll('MarketCapPlaceholder', 'onMomentumScrollBegin', e.nativeEvent)
+                  }
+                  onMomentumScrollEnd={(e) =>
+                    jumpAuditScroll('MarketCapPlaceholder', 'onMomentumScrollEnd', e.nativeEvent)
+                  }
+                  onContentSizeChange={(w) => {
+                    jumpAuditLayout(
+                      'MarketCapPlaceholder',
+                      'chart-contentSizeChange',
+                      null,
+                      { width: w, height: chartAreaHeight },
+                      { followLive: followLiveRef.current }
+                    );
                     if (followLiveRef.current) scrollToLive(false);
                   }}
                 >
