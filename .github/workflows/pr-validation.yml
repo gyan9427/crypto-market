@@ -25,7 +25,7 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch base branch for diff checks
-        run: git fetch origin ${{ github.base_ref }} --no-tags --depth=1
+        run: git fetch origin ${{ github.base_ref }} --no-tags
 
       - uses: actions/setup-node@v4
         with:

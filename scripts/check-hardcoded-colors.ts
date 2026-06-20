@@ -86,20 +86,33 @@ function parseChangedLineNumbers(diff: string): Map<string, Set<number>> {
 }
 
 function changedLinesByFile(resolved: string): Map<string, Set<number>> | null {
-  try {
-    const diff = execSync(`git diff -U0 ${resolved}...HEAD -- src/`, {
-      cwd: ROOT,
-      encoding: 'utf8',
-    });
-    return parseChangedLineNumbers(diff);
-  } catch {
-    console.error(`Color lint: could not diff against ${resolved}.`);
-    process.exit(1);
+  const ranges = [`${resolved}...HEAD`, `${resolved}..HEAD`];
+  for (let i = 0; i < ranges.length; i += 1) {
+    try {
+      const diff = execSync(`git diff -U0 ${ranges[i]} -- src/`, {
+        cwd: ROOT,
+        encoding: 'utf8',
+        stdio: i === 0 ? ['pipe', 'pipe', 'pipe'] : 'pipe',
+      });
+      if (i > 0) {
+        console.warn(
+          `Color lint: no merge base with ${resolved}; using direct diff (${resolved}..HEAD).`
+        );
+      }
+      return parseChangedLineNumbers(diff);
+    } catch {
+      // try fallback range
+    }
   }
+  console.error(`Color lint: could not diff against ${resolved}.`);
+  process.exit(1);
 }
 
-function filesToCheck(): string[] {
-  if (!baseRef) return walk(SRC);
+function filesToCheck(): {
+  files: string[];
+  lineFilter: Map<string, Set<number>> | null;
+} {
+  if (!baseRef) return { files: walk(SRC), lineFilter: null };
 
   const resolved = resolveGitRef(baseRef);
   if (!resolved) {
@@ -112,19 +125,20 @@ function filesToCheck(): string[] {
   const changed = changedLinesByFile(resolved);
   if (!changed || changed.size === 0) {
     console.log(`Color lint: no src changes vs ${resolved}; skipping.`);
-    return [];
+    return { files: [], lineFilter: changed };
   }
 
   console.log(`Color lint: checking ${changed.size} file(s) changed vs ${resolved}`);
-  return [...changed.keys()]
-    .filter((f) => /\.(tsx?|jsx?)$/.test(f))
-    .map((f) => join(ROOT, f));
+  return {
+    files: [...changed.keys()]
+      .filter((f) => /\.(tsx?|jsx?)$/.test(f))
+      .map((f) => join(ROOT, f)),
+    lineFilter: changed,
+  };
 }
 
 let violations = 0;
-const files = filesToCheck();
-const lineFilter =
-  baseRef && resolveGitRef(baseRef) ? changedLinesByFile(resolveGitRef(baseRef)!) : null;
+const { files, lineFilter } = filesToCheck();
 
 for (const file of files) {
   const rel = relative(ROOT, file);
