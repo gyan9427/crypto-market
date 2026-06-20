@@ -6,7 +6,6 @@
   "build": {
     "staging": {
       "distribution": "internal",
-      "channel": "staging",
       "android": {
         "buildType": "app-bundle"
       },
@@ -18,7 +17,6 @@
     },
     "production": {
       "distribution": "store",
-      "channel": "production",
       "autoIncrement": false,
       "android": {
         "buildType": "app-bundle"
