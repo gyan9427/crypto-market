@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - develop
+      - main
     paths-ignore:
       - "docs/**"
       - "*.md"
+  workflow_dispatch:
 
 concurrency:
   group: internal-deploy
