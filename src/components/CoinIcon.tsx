@@ -12,6 +12,7 @@ import type { Coin } from '@/src/types';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useAppStore } from '@/src/state/useAppStore';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import { getCoinLogoUri } from '@/src/utils/coinLogo';
 
 type Props = {
@@ -24,14 +25,15 @@ type Props = {
 
 function buildStyles(tokens: ThemeTokens, size: number, highlightRisk: boolean) {
   const c = tokens.colors;
-  const riskBorder = c.error?.[500] ?? c.danger?.[500] ?? '#ef4444';
+  const ui = getMarketUiPalette(tokens);
+  const riskBorder = c.error?.[500] ?? c.danger?.[500];
 
   return StyleSheet.create({
     wrap: {
       width: size,
       height: size,
       borderRadius: size / 2,
-      backgroundColor: tokens.isDark ? 'rgba(168,85,247,0.12)' : c.primary[100],
+      backgroundColor: ui.primaryTintBg,
       borderWidth: 1,
       borderColor: highlightRisk ? riskBorder : tokens.border,
       alignItems: 'center',

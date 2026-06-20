@@ -24,7 +24,7 @@ export function ForceUpgradeGate({ visible }: ForceUpgradeGateProps) {
           style={[styles.button, { backgroundColor: tokens.colors.primary[500] }]}
           onPress={() => Linking.openURL(STORE_URL)}
         >
-          <Text style={styles.buttonText}>Update app</Text>
+          <Text style={[styles.buttonText, { color: tokens.colors.white }]}>Update app</Text>
         </TouchableOpacity>
       </View>
     </Modal>
@@ -36,5 +36,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', marginBottom: 12 },
   body: { fontSize: 15, lineHeight: 22, marginBottom: 24 },
   button: { paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  buttonText: { fontWeight: '600', fontSize: 16 },
 });

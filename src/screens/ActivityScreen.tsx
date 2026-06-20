@@ -895,7 +895,7 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       borderRadius: tokens.borderRadius.sm,
     },
     statusSuccess: {
-      backgroundColor: '#d1fae5',
+      backgroundColor: ui.successHighlightBg,
     },
     statusFailed: {
       backgroundColor: c.error[100],

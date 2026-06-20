@@ -13,9 +13,10 @@ const baseRef = process.argv[2];
 
 const ALLOWLIST = [
   'design-system/tokens/',
+  'design-system/theme/',
   'theme/theme.ts',
   'theme/chartPalette.ts',
-  'components/auth/authPalette.ts',
+  'components/auth/',
   'share/shareCardTheme.ts',
   'utils/browser.ts',
 ];

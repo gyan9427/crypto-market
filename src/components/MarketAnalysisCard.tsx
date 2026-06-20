@@ -13,6 +13,7 @@ import type { MarketAnalysisCoin } from '../types';
 import type { LivePriceQuote } from '../hooks/useMarketPriceStream';
 import { formatPrice, formatPercentage } from '../utils/format';
 import type { ThemeTokens } from '../theme/theme';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { SignalTag } from './SignalTag';
 import { useHoldingsStatus } from '../hooks/useHoldingsStatus';
@@ -171,6 +172,7 @@ function buildStyles(tokens: ThemeTokens) {
   const c = tokens.colors;
   const s = tokens.spacing;
   const typo = tokens.typography;
+  const ui = getMarketUiPalette(tokens);
   return StyleSheet.create({
     row: {
       paddingHorizontal: s.md,
@@ -196,7 +198,7 @@ function buildStyles(tokens: ThemeTokens) {
       width: 34,
       height: 34,
       borderRadius: 17,
-      backgroundColor: tokens.isDark ? 'rgba(168,85,247,0.12)' : c.primary[100],
+      backgroundColor: ui.primaryTintBg,
       borderWidth: 1,
       borderColor: tokens.border,
       marginRight: s.sm,
@@ -260,7 +262,7 @@ function buildStyles(tokens: ThemeTokens) {
       paddingHorizontal: 6,
       paddingVertical: 2,
       borderRadius: 6,
-      backgroundColor: tokens.isDark ? 'rgba(239,68,68,0.15)' : c.error[100],
+      backgroundColor: ui.dangerTintBg,
     },
     crsPillStale: {
       opacity: 0.55,
@@ -309,7 +311,7 @@ function buildStyles(tokens: ThemeTokens) {
     },
     addBtnFollowing: {
       borderColor: c.primary[400],
-      backgroundColor: tokens.isDark ? 'rgba(168,85,247,0.10)' : c.primary[50],
+      backgroundColor: ui.marketAnalysisFollowingBg,
     },
     addBtnInner: {
       flexDirection: 'row',

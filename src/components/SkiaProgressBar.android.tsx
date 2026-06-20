@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface SkiaProgressBarProps {
   fillRatio: number;
@@ -16,17 +17,20 @@ interface SkiaProgressBarProps {
 export const SkiaProgressBar: React.FC<SkiaProgressBarProps> = ({
   fillRatio,
   height = 6,
-  trackColor = '#e5e5e5',
-  fillColor = '#a855f7',
+  trackColor,
+  fillColor,
   borderRadius = 3,
 }) => {
+  const { tokens } = useAppTheme();
+  const resolvedTrack = trackColor ?? tokens.borderSubtle;
+  const resolvedFill = fillColor ?? tokens.colors.primary[500];
   const ratio = Math.max(0, Math.min(1, fillRatio));
   return (
     <View style={[styles.container, { height }]}>
       <View
         style={[
           styles.track,
-          { height, borderRadius, backgroundColor: trackColor },
+          { height, borderRadius, backgroundColor: resolvedTrack },
         ]}
       >
         <View
@@ -34,7 +38,7 @@ export const SkiaProgressBar: React.FC<SkiaProgressBarProps> = ({
             styles.fill,
             {
               width: `${ratio * 100}%`,
-              backgroundColor: fillColor,
+              backgroundColor: resolvedFill,
               borderRadius,
             },
           ]}

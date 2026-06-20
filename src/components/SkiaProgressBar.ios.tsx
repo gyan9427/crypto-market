@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
 import { Canvas, RoundedRect, Fill } from '@shopify/react-native-skia';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface SkiaProgressBarProps {
   fillRatio: number;
@@ -14,10 +15,13 @@ interface SkiaProgressBarProps {
 export const SkiaProgressBar: React.FC<SkiaProgressBarProps> = ({
   fillRatio,
   height = 6,
-  trackColor = '#e5e5e5',
-  fillColor = '#a855f7',
+  trackColor,
+  fillColor,
   borderRadius = 3,
 }) => {
+  const { tokens } = useAppTheme();
+  const resolvedTrack = trackColor ?? tokens.borderSubtle;
+  const resolvedFill = fillColor ?? tokens.colors.primary[500];
   const [width, setWidth] = useState(0);
   const ratio = Math.max(0, Math.min(1, fillRatio));
   const fillWidth = width * ratio;
@@ -32,7 +36,7 @@ export const SkiaProgressBar: React.FC<SkiaProgressBarProps> = ({
   if (width <= 0) {
     return (
       <View style={[styles.container, { height }]} onLayout={onLayout}>
-        <View style={[styles.fallback, { height }]} />
+        <View style={[styles.fallback, { height, backgroundColor: resolvedTrack, borderRadius }]} />
       </View>
     );
   }
@@ -41,11 +45,11 @@ export const SkiaProgressBar: React.FC<SkiaProgressBarProps> = ({
     <View style={[styles.container, { height }]} onLayout={onLayout}>
       <Canvas style={canvasStyle}>
         <RoundedRect x={0} y={0} width={width} height={height} r={borderRadius}>
-          <Fill color={trackColor} />
+          <Fill color={resolvedTrack} />
         </RoundedRect>
         {fillWidth > 0 && (
           <RoundedRect x={0} y={0} width={fillWidth} height={height} r={borderRadius}>
-            <Fill color={fillColor} />
+            <Fill color={resolvedFill} />
           </RoundedRect>
         )}
       </Canvas>
@@ -63,7 +67,5 @@ const styles = StyleSheet.create({
   },
   fallback: {
     flex: 1,
-    backgroundColor: '#e5e5e5',
-    borderRadius: 3,
   },
 });

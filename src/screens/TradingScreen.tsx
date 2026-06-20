@@ -23,6 +23,7 @@ import { formatMarketCap } from '@/src/utils/format';
 import { useAppStore } from '@/src/state/useAppStore';
 import type { Coin, CoinStats, NewsItem, ReactionType } from '@/src/types';
 import type { KlineInterval } from '@/src/types/kline';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
 import { TradingHeader } from '@/src/screens/trading/TradingHeader';
@@ -291,7 +292,7 @@ export function TradingScreen() {
         <View style={S.priceSection}>
           <Text style={S.priceMain}>${fmtPrice(price)}</Text>
           <View style={S.priceRow}>
-            <View style={[S.changeBadge, { backgroundColor: isUp ? 'rgba(39,196,133,0.12)' : 'rgba(240,82,82,0.12)' }]}>
+            <View style={[S.changeBadge, isUp ? S.changeBadgeUp : S.changeBadgeDn]}>
               <Text style={[S.changeText, { color: isUp ? tokens.chart.bull : tokens.chart.bear }]}>
                 {isUp ? '▲' : '▼'} {Math.abs(change).toFixed(2)}%
               </Text>
@@ -434,10 +435,7 @@ export function TradingScreen() {
 
 function buildTradingStyles(tokens: ThemeTokens) {
   const accent = tokens.chart.line;
-  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
-  const chipOnBorder = tokens.isDark ? 'rgba(99,131,255,0.4)' : 'rgba(99,131,255,0.45)';
-  const chipOnBg = tokens.isDark ? 'rgba(99,131,255,0.1)' : 'rgba(99,131,255,0.08)';
-  const subtleFill = tokens.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+  const ui = getMarketUiPalette(tokens);
 
   return StyleSheet.create({
   root: { flex: 1, backgroundColor: tokens.bg },
@@ -455,7 +453,7 @@ function buildTradingStyles(tokens: ThemeTokens) {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: subtleFill,
+    backgroundColor: ui.subtleFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -472,12 +470,14 @@ function buildTradingStyles(tokens: ThemeTokens) {
   priceMain: { fontSize: 36, fontWeight: '500', color: tokens.text, letterSpacing: -1, lineHeight: 42 },
   priceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 },
   changeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  changeBadgeUp: { backgroundColor: ui.changeBadgeUpBg },
+  changeBadgeDn: { backgroundColor: ui.changeBadgeDnBg },
   changeText: { fontSize: 13, fontWeight: '500' },
 
   // Range tabs
   rangeTabs: { flexDirection: 'row', gap: 4, paddingHorizontal: 16, paddingBottom: 10 },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 5, borderRadius: 8 },
-  tabActive: { backgroundColor: accentBg },
+  tabActive: { backgroundColor: ui.accentBg },
   tabText: { fontSize: 12, fontWeight: '500', color: tokens.textMuted },
   tabTextActive: { color: accent },
 
@@ -496,7 +496,7 @@ function buildTradingStyles(tokens: ThemeTokens) {
     borderWidth: 0.5,
     borderColor: tokens.borderStrong,
   },
-  chipOn: { borderColor: chipOnBorder, backgroundColor: chipOnBg },
+  chipOn: { borderColor: ui.chipOnBorder, backgroundColor: ui.chipOnBg },
   chipText: { fontSize: 10, color: tokens.textMuted },
   chipTextOn: { color: accent },
   spacer: { flex: 1 },
@@ -504,9 +504,9 @@ function buildTradingStyles(tokens: ThemeTokens) {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: subtleFill,
+    backgroundColor: ui.subtleFill,
   },
-  typeBtnActive: { backgroundColor: accentBg },
+  typeBtnActive: { backgroundColor: ui.accentBg },
   typeText: { fontSize: 11, color: tokens.textMuted },
   typeTextActive: { color: accent },
 

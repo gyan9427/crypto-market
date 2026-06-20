@@ -21,7 +21,7 @@ type Props = {
 
 function buildStackStyles(tokens: ThemeTokens, avatarSize: number) {
   const c = tokens.colors;
-  const riskBorder = c.error?.[500] ?? c.danger?.[500] ?? '#ef4444';
+  const riskBorder = c.error?.[500] ?? c.danger?.[500];
 
   return StyleSheet.create({
     wrap: {

@@ -1,8 +1,11 @@
 import { StyleSheet } from 'react-native';
 import type { ThemeTokens } from '@/src/design-system/theme/types';
 
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
+
 export function buildNewsCardStyles(tokens: ThemeTokens) {
   const c = tokens.colors;
+  const ui = getMarketUiPalette(tokens);
   const { semantic, spacing, typography, borderRadius } = tokens;
   return StyleSheet.create({
   container: {
@@ -163,9 +166,7 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
   heroPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: tokens.isDark
-      ? 'rgba(168,85,247,0.08)'
-      : 'rgba(168,85,247,0.04)',
+    backgroundColor: ui.newsHeroPlaceholderBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -256,13 +257,9 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.xs,
-    backgroundColor: tokens.isDark
-      ? 'rgba(168,85,247,0.15)'
-      : 'rgba(168,85,247,0.10)',
+    backgroundColor: ui.relatedCoinBadgeBg,
     borderWidth: 1,
-    borderColor: tokens.isDark
-      ? 'rgba(168,85,247,0.30)'
-      : 'rgba(168,85,247,0.25)',
+    borderColor: ui.relatedCoinBadgeBorder,
   },
   relatedCoinBadgeText: {
     fontSize: typography.fontSizes.badge,

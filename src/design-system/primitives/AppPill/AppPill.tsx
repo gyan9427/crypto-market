@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { AppText } from '../AppText';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import type { ThemeTokens } from '@/src/design-system/theme/types';
 
 export type AppPillProps = Omit<PressableProps, 'children' | 'style'> & {
@@ -17,6 +18,7 @@ export type AppPillProps = Omit<PressableProps, 'children' | 'style'> & {
 };
 
 function buildPillStyles(tokens: ThemeTokens, selected: boolean) {
+  const ui = getMarketUiPalette(tokens);
   return StyleSheet.create({
     pill: {
       paddingVertical: tokens.spacing.xs + 1,
@@ -24,9 +26,7 @@ function buildPillStyles(tokens: ThemeTokens, selected: boolean) {
       borderRadius: tokens.borderRadius.pill,
       borderWidth: selected ? 1.5 : 1,
       borderColor: selected ? tokens.colors.primary[500] : tokens.borderStrong,
-      backgroundColor: selected
-        ? 'rgba(168, 85, 247, 0.05)'
-        : tokens.surfaceMuted,
+      backgroundColor: selected ? ui.pillSelectedBg : tokens.surfaceMuted,
       minHeight: 44,
       justifyContent: 'center',
       alignItems: 'center',

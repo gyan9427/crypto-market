@@ -24,6 +24,7 @@ import {
 } from '@/src/errors/incidentReport';
 import { setGlobalErrorListener } from '@/src/errors/errorBoundaryBridge';
 import { installGlobalErrorHandlers } from '@/src/errors/installGlobalErrorHandlers';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 
 const HEADLINE_COUNT = 6;
 
@@ -42,7 +43,7 @@ function buildStyles(tokens: ThemeTokens) {
   const s = tokens.spacing;
   const br = tokens.borderRadius;
   const typo = tokens.typography;
-  const panelBg = tokens.isDark ? 'rgba(10, 10, 15, 0.55)' : 'rgba(255, 255, 255, 0.72)';
+  const ui = getMarketUiPalette(tokens);
 
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: tokens.bg },
@@ -86,11 +87,11 @@ function buildStyles(tokens: ThemeTokens) {
       width: 56,
       height: 56,
       borderRadius: 16,
-      backgroundColor: tokens.isDark ? 'rgba(168, 85, 247, 0.2)' : c.primary[50],
+      backgroundColor: ui.errorBoundaryIconBg,
       justifyContent: 'center',
       alignItems: 'center',
       borderWidth: 1,
-      borderColor: tokens.isDark ? 'rgba(168, 85, 247, 0.35)' : c.primary[100],
+      borderColor: ui.errorBoundaryIconBorder,
     },
     wordmark: {
       fontFamily: typo.fontFamilies.sansBold,
@@ -101,7 +102,7 @@ function buildStyles(tokens: ThemeTokens) {
     },
     wordmarkAccent: { color: c.primary[500] },
     incidentPanel: {
-      backgroundColor: panelBg,
+      backgroundColor: ui.errorBoundaryPanelBg,
       borderRadius: br.md,
       padding: s.md,
       marginBottom: s.lg,
@@ -162,12 +163,12 @@ function buildStyles(tokens: ThemeTokens) {
       paddingVertical: 4,
       paddingHorizontal: 10,
       borderRadius: br.pill,
-      backgroundColor: tokens.isDark ? 'rgba(26, 138, 90, 0.2)' : 'rgba(26, 138, 90, 0.1)',
+      backgroundColor: ui.errorBoundaryStatusOkBg,
       borderWidth: 1,
-      borderColor: tokens.isDark ? 'rgba(26, 138, 90, 0.45)' : c.success[500] + '33',
+      borderColor: ui.errorBoundaryStatusOkBorder,
     },
     statusPillMuted: {
-      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : c.neutral[100],
+      backgroundColor: ui.errorBoundaryStatusMutedBg,
       borderColor: tokens.borderSubtle,
     },
     statusText: {
@@ -195,7 +196,7 @@ function buildStyles(tokens: ThemeTokens) {
       fontFamily: typo.fontFamilies.sansSemiBold,
       fontSize: typo.fontSizes.base,
       fontWeight: typo.fontWeights.semibold,
-      color: '#fff',
+      color: c.white,
     },
     secondaryRow: {
       flexDirection: 'row',
@@ -288,13 +289,14 @@ function ErrorIncidentFallback({ report, onReset }: FallbackProps) {
   const tokens = useIncidentThemeTokens();
   const styles = React.useMemo(() => buildStyles(tokens), [tokens]);
   const c = tokens.colors;
+  const ui = React.useMemo(() => getMarketUiPalette(tokens), [tokens]);
   const [copied, setCopied] = React.useState(false);
 
   const headlineKey = `errorBoundary.headlines.${report.headlineIndex}` as const;
   const quipKey = `errorBoundary.quips.${report.headlineIndex}` as const;
 
   const gradientEnd = tokens.isDark ? tokens.bgElevated : tokens.surface;
-  const gradientMid = tokens.isDark ? '#140820' : c.primary[50];
+  const gradientMid = ui.errorBoundaryGradientMid;
 
   const handleHardReload = () => {
     if (Platform.OS === 'web' && typeof globalThis !== 'undefined') {
@@ -320,7 +322,7 @@ function ErrorIncidentFallback({ report, onReset }: FallbackProps) {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
       <LinearGradient
-        colors={[tokens.isDark ? '#0a0a0f' : c.primary[900], gradientMid, gradientEnd]}
+        colors={[tokens.isDark ? tokens.bg : c.primary[900], gradientMid, gradientEnd]}
         locations={[0, 0.38, 1]}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
@@ -382,7 +384,7 @@ function ErrorIncidentFallback({ report, onReset }: FallbackProps) {
               accessibilityRole="button"
               accessibilityLabel={t('errorBoundary.tryAgain')}
             >
-              <RefreshCw size={18} color="#fff" />
+              <RefreshCw size={18} color={c.white} />
               <Text style={styles.primaryBtnText}>{t('errorBoundary.tryAgain')}</Text>
             </Pressable>
 

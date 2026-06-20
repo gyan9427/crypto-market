@@ -7,6 +7,7 @@ import { NewsItem } from '../types';
 import { formatTimeAgo } from '../utils/format';
 import { coinsHeaderPrimaryLine } from './news/newsCardUtils';
 import type { ThemeTokens } from '../theme/theme';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import {
   NESTED_HORIZONTAL_LIST_PROPS,
@@ -26,6 +27,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
 }) => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
+  const ui = useMemo(() => getMarketUiPalette(tokens), [tokens]);
   const styles = useMemo(() => buildFeaturedCarouselStyles(tokens), [tokens]);
   const { touchInteractionHandlers, scrollInteractionHandlers } =
     useHorizontalScrollInteractionHandlers(onScrollInteractionChange);
@@ -50,7 +52,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
         <View style={styles.imagePlaceholder} />
       )}
       <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.72)']}
+        colors={['transparent', ui.featuredOverlayEnd]}
         style={styles.imageOverlay}
         pointerEvents="none"
       />
@@ -97,11 +99,10 @@ function buildFeaturedCarouselStyles(tokens: ThemeTokens) {
   const c = tokens.colors;
   const s = tokens.spacing;
   const typo = tokens.typography;
+  const ui = getMarketUiPalette(tokens);
   const cardShadow = Platform.select({
     web: {
-      boxShadow: tokens.isDark
-        ? '0 12px 40px rgba(0,0,0,0.35)'
-        : '0 8px 32px rgba(88,28,135,0.15), 0 2px 8px rgba(0,0,0,0.06)',
+      boxShadow: tokens.isDark ? ui.featuredCardShadowWebDark : ui.featuredCardShadowWebLight,
     },
     default: tokens.shadows.md,
   });
@@ -129,7 +130,7 @@ function buildFeaturedCarouselStyles(tokens: ThemeTokens) {
       width: 288,
       borderRadius: tokens.borderRadius.lg,
       borderWidth: 1,
-      borderColor: tokens.isDark ? 'rgba(168,85,247,0.20)' : 'rgba(168,85,247,0.18)',
+      borderColor: ui.primaryTintBorder,
       overflow: 'hidden',
       position: 'relative',
       ...cardShadow,
@@ -142,9 +143,7 @@ function buildFeaturedCarouselStyles(tokens: ThemeTokens) {
     imagePlaceholder: {
       width: '100%',
       height: 160,
-      backgroundColor: tokens.isDark
-        ? 'rgba(168,85,247,0.10)'
-        : 'rgba(168,85,247,0.06)',
+      backgroundColor: ui.featuredImagePlaceholderBg,
     },
     imageOverlay: {
       position: 'absolute',
@@ -162,7 +161,7 @@ function buildFeaturedCarouselStyles(tokens: ThemeTokens) {
     },
     sourceBadge: {
       alignSelf: 'flex-start',
-      backgroundColor: 'rgba(168,85,247,0.80)',
+      backgroundColor: ui.primaryBadgeBg,
       borderRadius: tokens.borderRadius.xs,
       paddingHorizontal: s.sm,
       paddingVertical: 3,
@@ -172,14 +171,14 @@ function buildFeaturedCarouselStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.semibold,
       fontFamily: typo.fontFamilies.sansSemiBold,
-      color: '#ffffff',
+      color: c.white,
       letterSpacing: typo.letterSpacing.button,
     },
     cardTitle: {
       fontSize: typo.fontSizes.md,
       fontWeight: typo.fontWeights.semibold,
       fontFamily: typo.fontFamilies.sansSemiBold,
-      color: '#ffffff',
+      color: c.white,
       lineHeight: 22,
       letterSpacing: typo.letterSpacing.subheading * 0.5,
       marginBottom: 4,
@@ -187,7 +186,7 @@ function buildFeaturedCarouselStyles(tokens: ThemeTokens) {
     meta: {
       fontSize: typo.fontSizes.xs,
       fontFamily: typo.fontFamilies.sans,
-      color: 'rgba(255,255,255,0.70)',
+      color: ui.onImageTextMuted,
       letterSpacing: typo.letterSpacing.caption,
     },
   });

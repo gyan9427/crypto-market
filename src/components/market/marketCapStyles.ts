@@ -50,8 +50,8 @@ export function buildMarketCapStyles(
       marginTop: s.xs,
     },
     changeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-    changeBadgeUp: { backgroundColor: 'rgba(39,196,133,0.13)' },
-    changeBadgeDn: { backgroundColor: 'rgba(240,82,82,0.13)'  },
+    changeBadgeUp: { backgroundColor: ui.changeBadgeUpBg },
+    changeBadgeDn: { backgroundColor: ui.changeBadgeDnBg  },
     changeBadgeText: {
       fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.medium,
@@ -139,9 +139,9 @@ export function buildMarketCapStyles(
       paddingHorizontal: 8,
       paddingVertical: 5,
       borderRadius: br.sm,
-      backgroundColor: tokens.isDark ? 'rgba(22,22,28,0.92)' : 'rgba(250,250,252,0.96)',
+      backgroundColor: ui.crosshairPanelBg,
       borderWidth: 0.5,
-      borderColor: tokens.isDark ? 'rgba(99,131,255,0.28)' : 'rgba(99,131,255,0.35)',
+      borderColor: ui.crosshairPanelBorder,
       alignItems: 'center',
     },
     hoverLabelTime: {

@@ -134,8 +134,8 @@ function buildTrendingCoinCardStyles(tokens: ThemeTokens) {
       paddingHorizontal: s.md,
       paddingVertical: 0,
       borderBottomWidth: 0.5,
-      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
-      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
+      borderBottomColor: tokens.borderSubtle,
+      backgroundColor: tokens.bg,
       minHeight: 56,
     },
     rank: {
