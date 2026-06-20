@@ -9,6 +9,7 @@
     "npm": "10.8.2"
   },
   "scripts": {
+    "ci:noop": "node -e \"process.exit(0)\"",
     "postinstall": "patch-package",
     "dev": "EXPO_NO_TELEMETRY=1 expo start",
     "expo-go:android": "node scripts/ensure-expo-go-android.js",
