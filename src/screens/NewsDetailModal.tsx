@@ -115,7 +115,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             accessibilityRole="button"
             accessibilityLabel="Close"
           >
-            <X size={20} color="#ffffff" />
+            <X size={20} color={tokens.colors.white} />
           </TouchableOpacity>
         </View>
 
@@ -356,12 +356,12 @@ function buildNewsDetailModalStyles(tokens: ThemeTokens) {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#FEF08A',
+    backgroundColor: c.neutral[100],
   },
   relatedTickerText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#854D0E',
+    color: c.neutral[700],
   },
   bodyText: {
     fontSize: 16,
@@ -379,7 +379,7 @@ function buildNewsDetailModalStyles(tokens: ThemeTokens) {
   readFullButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: c.white,
   },
   saveCountText: {
     marginTop: s.md,

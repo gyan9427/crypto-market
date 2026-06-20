@@ -37,11 +37,6 @@ function periodCutoff(period: GrowthPeriod, now = Date.now()): number | null {
   return now - PERIOD_MS[period];
 }
 
-function periodSpanMs(period: GrowthPeriod): number {
-  if (period === 'all') return 90 * 86_400_000;
-  return PERIOD_MS[period];
-}
-
 export function growthChartTimeWindow(
   period: GrowthPeriod,
   points: PortfolioGrowthPoint[],

@@ -71,7 +71,7 @@ export type PortfolioAnalyticsPayload = {
   narrative: {
     vector: Record<string, number>;
     dominant: { id: string; name: string; pct: number };
-    ranked: Array<{ id: string; name: string; pct: number }>;
+    ranked: { id: string; name: string; pct: number }[];
   };
   concentration: {
     topHolding: string;
@@ -118,7 +118,7 @@ export type PortfolioAnalyticsPayload = {
     risk: number;
     portfolioUnit?: number;
   };
-  opportunities?: Array<{
+  opportunities?: {
     id: string;
     type: string;
     priority: number;
@@ -127,7 +127,7 @@ export type PortfolioAnalyticsPayload = {
     evidence: Record<string, unknown>;
     confidence: number;
     goalAdapted: boolean;
-  }>;
+  }[];
 };
 
 export type PortfolioEvolutionPoint = {
@@ -317,7 +317,7 @@ export type AiChatResponse = {
   blocked?: boolean;
   reason?: string;
   response?: string;
-  citations?: Array<{ sourceType: string; sourceId: string; templateId?: string }>;
+  citations?: { sourceType: string; sourceId: string; templateId?: string }[];
   portfolioConfidence?: number;
 };
 
@@ -345,11 +345,11 @@ export type SimulationResult = {
 
 export async function simulatePortfolioWhatIf(params: {
   label?: string;
-  adjustments: Array<{
+  adjustments: {
     action?: string;
     symbol?: string;
     deltaPct?: number;
-  }>;
+  }[];
 }): Promise<SimulationResult | null> {
   try {
     return await apiRequest<SimulationResult>('/portfolio/intelligence/simulate', {

@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import type { RiskCoinDto, RiskMeta } from '../types/risk';
-import type { RiskSnapshotData } from '../types/risk';
+import type { RiskCoinDto, RiskMeta, RiskSnapshotData } from '../types/risk';
 
 type RiskState = {
   meta: RiskMeta;

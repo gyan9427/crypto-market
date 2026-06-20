@@ -2,6 +2,12 @@
  * Compatibility shim — canonical tokens live in src/design-system/.
  * @deprecated Import from '@/src/design-system' for new code.
  */
+import { colors, darkColors } from '@/src/design-system/tokens/colors';
+import { spacing } from '@/src/design-system/tokens/spacing';
+import { borderRadius } from '@/src/design-system/tokens/radii';
+import { legacyShadows as shadows } from '@/src/design-system/tokens/shadows';
+import { typography } from '@/src/design-system/tokens/typography';
+
 export {
   colors,
   darkColors,
@@ -29,12 +35,6 @@ export {
 export type { ThemeTokens } from '@/src/design-system/theme/types';
 export { getThemeTokens } from '@/src/design-system/theme/getThemeTokens';
 export { getAuthPaletteFromTokens } from '@/src/design-system/theme/authPaletteFromTokens';
-
-import { colors, darkColors } from '@/src/design-system/tokens/colors';
-import { spacing } from '@/src/design-system/tokens/spacing';
-import { borderRadius } from '@/src/design-system/tokens/radii';
-import { legacyShadows as shadows } from '@/src/design-system/tokens/shadows';
-import { typography } from '@/src/design-system/tokens/typography';
 
 /** @deprecated use getThemeTokens + ThemeProvider */
 export const semantic = {

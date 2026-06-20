@@ -26,7 +26,6 @@ import { DeleteAccountModal } from '@/src/components/DeleteAccountModal';
 import { useNotificationStore } from '@/src/state/useNotificationStore';
 
 const PREF_ORDER: ThemePreference[] = ['system', 'light', 'dark'];
-const MARKET_ACCENT = '#6383ff';
 
 const getInitials = (name?: string | null) => {
   if (!name) return '?';
@@ -80,7 +79,7 @@ function menuStyles(tokens: ThemeTokens) {
       paddingVertical: 10,
       borderBottomWidth: 0.5,
       borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
-      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
+      backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
       minHeight: 56,
     },
     menuIcon: {
@@ -292,7 +291,7 @@ export default function ProfileScreen() {
         <Text style={styles.sectionTitle}>{t('profile.social')}</Text>
         {socialLoading ? (
           <View style={styles.socialLoadingRow}>
-            <ActivityIndicator size="small" color={MARKET_ACCENT} />
+            <ActivityIndicator size="small" color={tokens.link} />
           </View>
         ) : (
           <View style={styles.socialStatsRow}>
@@ -416,6 +415,7 @@ export default function ProfileScreen() {
 
 function buildScreenStyles(tokens: ThemeTokens) {
   const typo = tokens.typography;
+  const accent = tokens.link;
   const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
 
   return StyleSheet.create({
@@ -434,7 +434,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
       paddingBottom: 16,
       borderBottomWidth: 0.5,
       borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
-      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
+      backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
     },
     avatar: {
       width: 40,
@@ -448,7 +448,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
     avatarText: {
       fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.bold,
-      color: MARKET_ACCENT,
+      color: accent,
       fontFamily: typo.fontFamilies.sansBold,
     },
     identity: {
@@ -509,7 +509,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
       color: tokens.textMuted,
     },
     tabTextActive: {
-      color: MARKET_ACCENT,
+      color: accent,
     },
     flatRow: {
       flexDirection: 'row',
@@ -518,7 +518,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
       paddingVertical: 10,
       borderBottomWidth: 0.5,
       borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
-      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
+      backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
       minHeight: 56,
     },
     rowPrimary: {
@@ -541,7 +541,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
       alignItems: 'center',
       borderBottomWidth: 0.5,
       borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
-      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
+      backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
     },
     socialStatsRow: {
       flexDirection: 'row',
@@ -550,7 +550,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
       paddingVertical: 14,
       borderBottomWidth: 0.5,
       borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
-      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
+      backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
     },
     statItem: {
       alignItems: 'center',
@@ -580,8 +580,8 @@ function buildScreenStyles(tokens: ThemeTokens) {
     },
     followChip: {
       borderWidth: 1,
-      borderColor: MARKET_ACCENT,
-      backgroundColor: MARKET_ACCENT,
+      borderColor: accent,
+      backgroundColor: accent,
       borderRadius: 8,
       paddingHorizontal: tokens.spacing.sm,
       paddingVertical: 4,
@@ -593,13 +593,13 @@ function buildScreenStyles(tokens: ThemeTokens) {
       borderColor: tokens.isDark ? 'rgba(99,131,255,0.35)' : 'rgba(99,131,255,0.25)',
     },
     followChipText: {
-      color: '#fff',
+      color: tokens.colors.white,
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.semibold,
       fontFamily: typo.fontFamilies.sansSemiBold,
     },
     followingChipText: {
-      color: MARKET_ACCENT,
+      color: accent,
     },
     followingUserRow: {
       flexDirection: 'row',
@@ -609,7 +609,7 @@ function buildScreenStyles(tokens: ThemeTokens) {
       paddingVertical: 10,
       borderBottomWidth: 0.5,
       borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
-      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
+      backgroundColor: tokens.isDark ? tokens.bg : tokens.surface,
       minHeight: 56,
     },
   });

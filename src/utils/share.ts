@@ -167,7 +167,7 @@ export async function shareNewsItem(item: ShareableNews): Promise<boolean> {
 
 export async function shareNewsById(
   newsId: string,
-  sources: ReadonlyArray<{ id: string } & ShareableNews>
+  sources: readonly ({ id: string } & ShareableNews)[]
 ): Promise<boolean> {
   const item = sources.find((entry) => entry.id === newsId);
   if (!item) return false;

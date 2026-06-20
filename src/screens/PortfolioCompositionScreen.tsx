@@ -109,7 +109,7 @@ export const PortfolioCompositionScreen: React.FC = () => {
 
 function buildStyles(tokens: ThemeTokens) {
   const typo = tokens.typography;
-  const cardBg = tokens.isDark ? '#0f0f14' : tokens.surface;
+  const cardBg = tokens.isDark ? tokens.surfaceMuted : tokens.surface;
 
   return StyleSheet.create({
     container: {
@@ -227,7 +227,7 @@ function buildStyles(tokens: ThemeTokens) {
       width: '100%',
       height: 6,
       borderRadius: 3,
-      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.08)' : tokens.colors.neutral?.[100] ?? '#f3f4f6',
+      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.08)' : (tokens.colors.neutral?.[100] ?? tokens.surfaceMuted),
       overflow: 'hidden',
     },
     barFill: {

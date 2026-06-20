@@ -579,8 +579,8 @@ export const HomeScreen: React.FC = () => {
   );
 
   const feedIcons = useMemo(() => [
-    <Users size={14} color={feedFilter === 'following' ? tokens.colors.primary[tokens.isDark ? 400 : 600] : tokens.textMuted} strokeWidth={2} />,
-    <Compass size={14} color={feedFilter === 'explore' ? tokens.colors.primary[tokens.isDark ? 400 : 600] : tokens.textMuted} strokeWidth={2} />,
+    <Users key="feed-following" size={14} color={feedFilter === 'following' ? tokens.colors.primary[tokens.isDark ? 400 : 600] : tokens.textMuted} strokeWidth={2} />,
+    <Compass key="feed-explore" size={14} color={feedFilter === 'explore' ? tokens.colors.primary[tokens.isDark ? 400 : 600] : tokens.textMuted} strokeWidth={2} />,
   ], [feedFilter, tokens]);
 
   const listHeaderComponent = useMemo(
@@ -600,7 +600,7 @@ export const HomeScreen: React.FC = () => {
         )}
       </>
     ),
-    [error, newsData.length, feedFilter, handleSegmentChange, styles, t]
+    [error, newsData.length, feedFilter, feedIcons, handleSegmentChange, styles, t]
   );
 
   const renderItem = useCallback(
@@ -638,6 +638,7 @@ export const HomeScreen: React.FC = () => {
       showFeedLoading,
       newsData.length,
       displayFeatured,
+      featuredNews.length,
       handleFeaturedNewsPress,
       handleFeaturedScrollInteraction,
       handleReact,

@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Bell } from 'lucide-react-native';
 import { ProfessionalChart } from '@/src/charts/components/ProfessionalChart';
 import { OrderBook } from '@/src/components/OrderBook';
 import { NewsCard } from '@/src/components/NewsCard';
