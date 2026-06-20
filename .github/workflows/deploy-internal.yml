@@ -88,7 +88,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "::group::Download AAB"
-          npx eas-cli build:download --id "${EAS_BUILD_ID}" --output artifacts/app-internal.aab --non-interactive
+          bash scripts/download-eas-aab.sh artifacts/eas-build.json artifacts/app-internal.aab
           echo "::endgroup::"
 
       - name: Verify AAB artifact integrity
