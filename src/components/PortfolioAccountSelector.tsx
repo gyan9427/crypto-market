@@ -18,8 +18,7 @@ import {
   isSameAccountSelection,
   type PortfolioAccountSelection,
 } from '@/src/utils/portfolioAccountFilter';
-
-const MARKET_ACCENT = '#6383ff';
+import { getMarketUiPalette, MARKET_ACCENT } from '@/src/theme/chartPalette';
 
 type SourceTab = 'wallet' | 'exchange';
 
@@ -327,9 +326,7 @@ export const PortfolioAccountSelector: React.FC<PortfolioAccountSelectorProps> =
 
 function buildStyles(tokens: ThemeTokens) {
   const typo = tokens.typography;
-  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
-  const rowBg = tokens.isDark ? '#0a0a0f' : tokens.surface;
-  const panelBg = tokens.isDark ? '#12121a' : tokens.surface;
+  const ui = getMarketUiPalette(tokens);
 
   return StyleSheet.create({
     wrapper: {},
@@ -348,15 +345,15 @@ function buildStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 10,
       borderBottomWidth: 0.5,
-      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
-      backgroundColor: rowBg,
+      borderBottomColor: tokens.borderSubtle,
+      backgroundColor: ui.rowBg,
       minHeight: 56,
     },
     accountIcon: {
       width: 36,
       height: 36,
       borderRadius: 18,
-      backgroundColor: accentBg,
+      backgroundColor: ui.accentBg,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: tokens.spacing.sm,
@@ -378,7 +375,7 @@ function buildStyles(tokens: ThemeTokens) {
     },
     backdrop: {
       ...StyleSheet.absoluteFill,
-      backgroundColor: 'rgba(0,0,0,0.45)',
+      backgroundColor: tokens.backdrop,
     },
     modalRoot: {
       flex: 1,
@@ -386,10 +383,10 @@ function buildStyles(tokens: ThemeTokens) {
       paddingHorizontal: 12,
     },
     panel: {
-      backgroundColor: panelBg,
+      backgroundColor: ui.panelBg,
       borderRadius: 12,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tokens.isDark ? 'rgba(255,255,255,0.1)' : tokens.borderSubtle,
+      borderColor: tokens.borderStrong,
       maxHeight: '70%',
       overflow: 'hidden',
     },
@@ -414,13 +411,13 @@ function buildStyles(tokens: ThemeTokens) {
       marginRight: 12,
     },
     radioOuterSelected: {
-      borderColor: MARKET_ACCENT,
+      borderColor: ui.accent,
     },
     radioInner: {
       width: 8,
       height: 8,
       borderRadius: 4,
-      backgroundColor: MARKET_ACCENT,
+      backgroundColor: ui.accent,
     },
     selectorRowText: {
       flex: 1,
@@ -440,8 +437,8 @@ function buildStyles(tokens: ThemeTokens) {
       flexDirection: 'row',
       borderTopWidth: StyleSheet.hairlineWidth,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
-      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+      borderColor: tokens.borderSubtle,
+      backgroundColor: ui.chipMutedBg,
     },
     sectionTab: {
       flex: 1,
@@ -452,7 +449,7 @@ function buildStyles(tokens: ThemeTokens) {
       borderBottomColor: 'transparent',
     },
     sectionTabActive: {
-      borderBottomColor: MARKET_ACCENT,
+      borderBottomColor: ui.accent,
     },
     sectionTabLabel: {
       fontSize: typo.fontSizes.badge,
@@ -462,11 +459,11 @@ function buildStyles(tokens: ThemeTokens) {
       letterSpacing: 0.6,
     },
     sectionTabLabelActive: {
-      color: MARKET_ACCENT,
+      color: ui.accent,
     },
     blockDivider: {
       height: StyleSheet.hairlineWidth,
-      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      backgroundColor: tokens.borderSubtle,
       marginHorizontal: 16,
     },
     manageRow: {
@@ -479,7 +476,7 @@ function buildStyles(tokens: ThemeTokens) {
     manageText: {
       fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.semibold,
-      color: MARKET_ACCENT,
+      color: ui.accent,
     },
   });
 }

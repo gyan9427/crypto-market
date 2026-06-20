@@ -1,13 +1,14 @@
 import React, { useMemo } from 'react';
 import { View, Text } from 'react-native';
 import { usePiStyles } from './piStyles';
+import { compositionSliceColors } from '@/src/design-system/tokens/charts';
 import type { PortfolioAnalyticsPayload } from '@/src/services/portfolioIntelligenceApi';
 
 interface CategoryAllocationChartProps {
   analytics: PortfolioAnalyticsPayload | null;
 }
 
-const BAR_COLORS = ['#6383ff', '#8b5cf6', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#64748b'];
+const BAR_COLORS = [...compositionSliceColors];
 
 export const CategoryAllocationChart: React.FC<CategoryAllocationChartProps> = ({ analytics }) => {
   const styles = usePiStyles();

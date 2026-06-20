@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface SourceLogoProps {
   logoUrl: string | null | undefined;
@@ -13,6 +14,7 @@ interface SourceLogoProps {
  * if the URL is missing or fails to load. Never crashes the feed.
  */
 export const SourceLogo = React.memo<SourceLogoProps>(({ logoUrl, sourceName, size = 16 }) => {
+  const { tokens } = useAppTheme();
   const [failed, setFailed] = useState(false);
 
   const letter = (sourceName?.charAt(0) ?? '?').toUpperCase();
@@ -20,8 +22,8 @@ export const SourceLogo = React.memo<SourceLogoProps>(({ logoUrl, sourceName, si
 
   if (!logoUrl || failed) {
     return (
-      <View style={[styles.placeholder, containerStyle]}>
-        <Text style={[styles.letter, { fontSize: size * 0.55 }]}>{letter}</Text>
+      <View style={[styles.placeholder, containerStyle, { backgroundColor: tokens.colors.neutral[200] }]}>
+        <Text style={[styles.letter, { fontSize: size * 0.55, color: tokens.colors.neutral[600] }]}>{letter}</Text>
       </View>
     );
   }
@@ -45,12 +47,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   placeholder: {
-    backgroundColor: '#e8e8e8',
     alignItems: 'center',
     justifyContent: 'center',
   },
   letter: {
-    color: '#666',
     fontWeight: '600',
     lineHeight: undefined,
   },

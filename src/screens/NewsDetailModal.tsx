@@ -276,9 +276,9 @@ function buildNewsDetailModalStyles(tokens: ThemeTokens) {
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.50)',
+    backgroundColor: tokens.backdrop,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderColor: tokens.borderStrong,
   },
   heroPlaceholderText: {
     fontSize: 40,

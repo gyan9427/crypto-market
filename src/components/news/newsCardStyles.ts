@@ -182,22 +182,22 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     paddingVertical: 4,
     borderRadius: 5,
     backgroundColor: tokens.isDark
-      ? 'rgba(168,85,247,0.15)'
-      : 'rgba(168,85,247,0.10)',
+      ? c.primary[900]
+      : c.primary[50],
     borderWidth: 1,
     borderColor: tokens.isDark
-      ? 'rgba(168,85,247,0.35)'
-      : 'rgba(168,85,247,0.30)',
+      ? c.primary[700]
+      : c.primary[200],
     flexShrink: 0,
     gap: 3,
   },
   followButtonFollowing: {
     backgroundColor: tokens.isDark
-      ? 'rgba(168,85,247,0.15)'
-      : 'rgba(168,85,247,0.10)',
+      ? c.primary[900]
+      : c.primary[50],
     borderColor: tokens.isDark
-      ? 'rgba(168,85,247,0.35)'
-      : 'rgba(168,85,247,0.30)',
+      ? c.primary[700]
+      : c.primary[200],
   },
   followText: {
     fontSize: typography.fontSizes.xs,
@@ -393,9 +393,7 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
-    backgroundColor: tokens.isDark
-      ? 'rgba(168,85,247,0.12)'
-      : 'rgba(168,85,247,0.07)',
+    backgroundColor: tokens.isDark ? c.primary[900] : c.primary[50],
     gap: 6,
   },
   followBannerText: {

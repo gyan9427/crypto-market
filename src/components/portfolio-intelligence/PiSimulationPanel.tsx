@@ -10,6 +10,8 @@ import { usePiStyles } from './piStyles';
 import { useHasFeature } from '@/src/utils/features';
 import type { PortfolioAnalyticsPayload } from '@/src/services/portfolioIntelligenceApi';
 import { simulatePortfolioWhatIf } from '@/src/services/portfolioIntelligenceApi';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { getMarketUiPalette } from '@/src/theme/chartPalette';
 
 interface PiSimulationPanelProps {
   analytics: PortfolioAnalyticsPayload | null;
@@ -17,6 +19,9 @@ interface PiSimulationPanelProps {
 
 export const PiSimulationPanel: React.FC<PiSimulationPanelProps> = ({ analytics }) => {
   const styles = usePiStyles();
+  const { tokens } = useAppTheme();
+  const ui = useMemo(() => getMarketUiPalette(tokens), [tokens]);
+  const localStyles = useMemo(() => buildLocalStyles(tokens, ui), [tokens, ui]);
   const enabled = useHasFeature('portfolio_intelligence_simulation');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
@@ -69,7 +74,7 @@ export const PiSimulationPanel: React.FC<PiSimulationPanelProps> = ({ analytics 
         accessibilityLabel="Run portfolio what-if simulation"
       >
         {loading ? (
-          <ActivityIndicator size="small" color="#6383ff" />
+          <ActivityIndicator size="small" color={ui.accent} />
         ) : (
           <Text style={localStyles.runBtnText}>Run simulation</Text>
         )}
@@ -89,30 +94,35 @@ export const PiSimulationPanel: React.FC<PiSimulationPanelProps> = ({ analytics 
   );
 };
 
-const localStyles = StyleSheet.create({
-  runBtn: {
-    alignSelf: 'flex-start',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#6383ff',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 120,
-    alignItems: 'center',
-  },
-  runBtnText: {
-    color: '#6383ff',
-    fontWeight: '600',
-  },
-  errorText: {
-    marginTop: 8,
-    color: '#ef4444',
-    fontSize: 13,
-  },
-  resultBox: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.08)',
-  },
-});
+function buildLocalStyles(
+  tokens: ReturnType<typeof useAppTheme>['tokens'],
+  ui: ReturnType<typeof getMarketUiPalette>
+) {
+  return StyleSheet.create({
+    runBtn: {
+      alignSelf: 'flex-start',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: ui.accent,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 8,
+      minWidth: 120,
+      alignItems: 'center',
+    },
+    runBtnText: {
+      color: ui.accent,
+      fontWeight: '600',
+    },
+    errorText: {
+      marginTop: 8,
+      color: tokens.colors.error[500],
+      fontSize: 13,
+    },
+    resultBox: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: tokens.border,
+    },
+  });
+}

@@ -40,7 +40,7 @@ export function ShareBrandingFooter({
           letterSpacing: 2.0,
         },
         domain: {
-          color: 'rgba(255,255,255,0.22)',
+          color: shareCardColors.domain,
           fontSize: Math.round(11 * scale),
           fontWeight: '400',
           letterSpacing: 0.5,

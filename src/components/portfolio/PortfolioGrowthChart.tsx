@@ -23,8 +23,12 @@ import {
   formatGrowthAxisValue,
   type GrowthPeriod,
 } from '@/src/utils/portfolioGrowthSeries';
+import {
+  getChartUIPalette,
+  getMarketUiPalette,
+  MARKET_ACCENT,
+} from '@/src/theme/chartPalette';
 
-const MARKET_ACCENT = '#6383ff';
 const CHART_HEIGHT = 168;
 const PAD_LEFT = 44;
 const PAD_RIGHT = 12;
@@ -71,6 +75,7 @@ export const PortfolioGrowthChart: React.FC<PortfolioGrowthChartProps> = ({
 }) => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
+  const chartUi = useMemo(() => getChartUIPalette(tokens), [tokens]);
   const styles = useMemo(() => buildStyles(tokens), [tokens]);
   const [period, setPeriod] = useState<GrowthPeriod>('1M');
   const [chartWidth, setChartWidth] = useState(0);
@@ -210,7 +215,7 @@ export const PortfolioGrowthChart: React.FC<PortfolioGrowthChartProps> = ({
                   y1={chartGeom.baselineY}
                   x2={PAD_LEFT + chartGeom.innerW}
                   y2={chartGeom.baselineY}
-                  stroke={tokens.isDark ? 'rgba(255,255,255,0.08)' : tokens.borderSubtle}
+                  stroke={chartUi.grid}
                   strokeWidth={1}
                 />
 
@@ -221,7 +226,7 @@ export const PortfolioGrowthChart: React.FC<PortfolioGrowthChartProps> = ({
                     y1={tick.y}
                     x2={PAD_LEFT + chartGeom.innerW}
                     y2={tick.y}
-                    stroke={tokens.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}
+                    stroke={chartUi.gridFaint}
                     strokeWidth={1}
                   />
                 ))}
@@ -298,7 +303,7 @@ export const PortfolioGrowthChart: React.FC<PortfolioGrowthChartProps> = ({
 
 function buildStyles(tokens: ThemeTokens) {
   const typo = tokens.typography;
-  const cardBg = tokens.isDark ? '#0f0f14' : tokens.surface;
+  const ui = getMarketUiPalette(tokens);
 
   return StyleSheet.create({
     sectionWrap: {
@@ -306,11 +311,11 @@ function buildStyles(tokens: ThemeTokens) {
       paddingTop: 8,
     },
     card: {
-      backgroundColor: cardBg,
+      backgroundColor: ui.cardBg,
       borderRadius: tokens.semantic?.cardRadius ?? 12,
       padding: 16,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tokens.isDark ? 'rgba(255,255,255,0.08)' : tokens.borderSubtle,
+      borderColor: tokens.border,
     },
     headerRow: {
       flexDirection: 'row',
@@ -408,10 +413,10 @@ function buildStyles(tokens: ThemeTokens) {
       paddingVertical: 8,
       paddingHorizontal: 2,
       borderRadius: 8,
-      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+      backgroundColor: ui.periodChipBg,
     },
     periodChipActive: {
-      backgroundColor: tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)',
+      backgroundColor: ui.accentBg,
     },
     periodChipText: {
       fontSize: 11,
@@ -419,7 +424,7 @@ function buildStyles(tokens: ThemeTokens) {
       color: tokens.textMuted,
     },
     periodChipTextActive: {
-      color: MARKET_ACCENT,
+      color: ui.accent,
     },
   });
 }

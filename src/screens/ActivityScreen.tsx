@@ -18,7 +18,7 @@ import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
 
-const MARKET_ACCENT = '#6383ff';
+import { getMarketUiPalette, MARKET_ACCENT } from '@/src/theme/chartPalette';
 
 function eventTypeLabel(t: TFunction, type: string): string {
   const keys: Record<string, string> = {
@@ -706,9 +706,7 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
   const c = tokens.colors;
   const s = tokens.spacing;
   const typo = tokens.typography;
-  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
-  const rowBg = tokens.isDark ? '#0a0a0f' : tokens.surface;
-  const rowBorder = tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle;
+  const ui = getMarketUiPalette(tokens);
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -725,7 +723,7 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       width: 36,
       height: 36,
       borderRadius: 18,
-      backgroundColor: accentBg,
+      backgroundColor: ui.accentBg,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: s.sm,
@@ -762,7 +760,7 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       borderRadius: 8,
     },
     tabActive: {
-      backgroundColor: accentBg,
+      backgroundColor: ui.accentBg,
     },
     tabText: {
       fontSize: 12,
@@ -770,7 +768,7 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       color: tokens.textMuted,
     },
     tabTextActive: {
-      color: MARKET_ACCENT,
+      color: ui.accent,
     },
     warningBanner: {
       marginHorizontal: 16,
@@ -799,8 +797,8 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 10,
       borderBottomWidth: 0.5,
-      borderBottomColor: rowBorder,
-      backgroundColor: rowBg,
+      borderBottomColor: tokens.borderSubtle,
+      backgroundColor: ui.rowBg,
       minHeight: 56,
     },
     eventLeft: {
@@ -811,7 +809,7 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       minWidth: 0,
     },
     chainBadge: {
-      backgroundColor: accentBg,
+      backgroundColor: ui.accentBg,
       borderRadius: 8,
       paddingHorizontal: s.sm,
       paddingVertical: 4,
@@ -823,11 +821,11 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.bold,
       fontFamily: typo.fontFamilies.sansBold,
-      color: MARKET_ACCENT,
+      color: ui.accent,
       letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
     venueBadge: {
-      backgroundColor: accentBg,
+      backgroundColor: ui.accentBg,
       borderRadius: 8,
       paddingHorizontal: s.sm,
       paddingVertical: 4,
@@ -840,7 +838,7 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.bold,
       fontFamily: typo.fontFamilies.sansBold,
-      color: MARKET_ACCENT,
+      color: ui.accent,
       letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
     exchangeBatchAmount: {
@@ -944,8 +942,8 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 12,
       borderBottomWidth: 0.5,
-      borderBottomColor: rowBorder,
-      backgroundColor: rowBg,
+      borderBottomColor: tokens.borderSubtle,
+      backgroundColor: ui.rowBg,
       minHeight: 56,
     },
     transactionHeader: {
@@ -1031,8 +1029,8 @@ function buildActivityScreenStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 14,
       borderBottomWidth: 0.5,
-      borderBottomColor: rowBorder,
-      backgroundColor: rowBg,
+      borderBottomColor: tokens.borderSubtle,
+      backgroundColor: ui.rowBg,
       minHeight: 56,
       alignItems: 'flex-start',
     },

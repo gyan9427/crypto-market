@@ -2,8 +2,12 @@ import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
-
-const MARKET_ACCENT = '#6383ff';
+import {
+  getMarketUiPalette,
+  healthScoreColor,
+  MARKET_ACCENT,
+  severityColor,
+} from '@/src/theme/chartPalette';
 
 /** Fixed height for composition / intelligence carousel cards. */
 export const PORTFOLIO_INSIGHT_CAROUSEL_CARD_HEIGHT = 260;
@@ -13,25 +17,11 @@ export function usePiStyles() {
   return useMemo(() => buildPiStyles(tokens), [tokens]);
 }
 
-export function healthScoreColor(score: number | null | undefined, tokens: ThemeTokens): string {
-  if (score == null || !Number.isFinite(score)) return tokens.textMuted;
-  if (score >= 70) return tokens.colors.success?.[500] ?? '#22c55e';
-  if (score >= 40) return '#f59e0b';
-  return tokens.colors.error?.[500] ?? '#ef4444';
-}
-
-export function severityColor(severity: string, tokens: ThemeTokens): string {
-  const s = severity.toLowerCase();
-  if (s === 'critical' || s === 'high') return tokens.colors.error?.[500] ?? '#ef4444';
-  if (s === 'medium' || s === 'moderate') return '#f59e0b';
-  if (s === 'low' || s === 'info') return MARKET_ACCENT;
-  return tokens.textMuted;
-}
+export { healthScoreColor, severityColor, MARKET_ACCENT };
 
 function buildPiStyles(tokens: ThemeTokens) {
   const typo = tokens.typography;
-  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
-  const cardBg = tokens.isDark ? '#0f0f14' : tokens.surface;
+  const ui = getMarketUiPalette(tokens);
 
   return StyleSheet.create({
     sectionWrap: {
@@ -39,11 +29,11 @@ function buildPiStyles(tokens: ThemeTokens) {
       paddingTop: 12,
     },
     card: {
-      backgroundColor: cardBg,
+      backgroundColor: ui.cardBg,
       borderRadius: tokens.semantic?.cardRadius ?? 12,
       padding: 16,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tokens.isDark ? 'rgba(255,255,255,0.08)' : tokens.borderSubtle,
+      borderColor: tokens.border,
     },
     carouselCard: {
       height: PORTFOLIO_INSIGHT_CAROUSEL_CARD_HEIGHT,
@@ -103,12 +93,12 @@ function buildPiStyles(tokens: ThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: 999,
-      backgroundColor: accentBg,
+      backgroundColor: ui.accentBg,
     },
     badgeText: {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.semibold,
-      color: MARKET_ACCENT,
+      color: ui.accent,
       fontFamily: typo.fontFamilies.sansSemiBold,
     },
     rowBetween: {
@@ -121,24 +111,24 @@ function buildPiStyles(tokens: ThemeTokens) {
       alignItems: 'center',
       paddingTop: 12,
       borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      borderTopColor: tokens.borderSubtle,
     },
     linkText: {
       fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.semibold,
-      color: MARKET_ACCENT,
+      color: ui.accent,
       fontFamily: typo.fontFamilies.sansSemiBold,
     },
     barTrack: {
       height: 8,
       borderRadius: 4,
-      backgroundColor: tokens.isDark ? 'rgba(255,255,255,0.08)' : tokens.colors.neutral?.[100] ?? '#f3f4f6',
+      backgroundColor: tokens.isDark ? tokens.border : tokens.colors.neutral[100],
       overflow: 'hidden',
     },
     barFill: {
       height: '100%',
       borderRadius: 4,
-      backgroundColor: MARKET_ACCENT,
+      backgroundColor: ui.accent,
     },
     barLabelRow: {
       flexDirection: 'row',
@@ -179,9 +169,9 @@ function buildPiStyles(tokens: ThemeTokens) {
       marginTop: 8,
       padding: 12,
       borderRadius: 10,
-      backgroundColor: tokens.isDark ? 'rgba(245,158,11,0.12)' : 'rgba(245,158,11,0.1)',
+      backgroundColor: ui.warningBannerBg,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tokens.isDark ? 'rgba(245,158,11,0.35)' : 'rgba(245,158,11,0.25)',
+      borderColor: ui.warningBannerBorder,
     },
     staleText: {
       fontSize: typo.fontSizes.sm,
@@ -193,11 +183,9 @@ function buildPiStyles(tokens: ThemeTokens) {
       marginTop: 12,
       padding: 16,
       borderRadius: 12,
-      backgroundColor: cardBg,
+      backgroundColor: ui.cardBg,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
+      borderColor: tokens.borderSubtle,
     },
   });
 }
-
-export { MARKET_ACCENT };

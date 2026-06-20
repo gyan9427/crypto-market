@@ -216,7 +216,7 @@ function buildStyles(tokens: ThemeTokens, flush: boolean, hasRichTabs: boolean) 
       backgroundColor: tokens.surface,
       borderBottomWidth: 2,
       borderBottomColor: primaryColor,
-      shadowColor: tokens.isDark ? '#000' : 'rgba(0,0,0,0.07)',
+      shadowColor: tokens.isDark ? tokens.colors.neutral[950] : tokens.colors.primary[900],
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 1,
       shadowRadius: 2,

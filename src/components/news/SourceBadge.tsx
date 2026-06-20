@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SourceLogo } from './SourceLogo';
 import type { NewsSourceInfo } from '../../types';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 
 interface SourceBadgeProps {
   sourceInfo?: NewsSourceInfo;
@@ -25,6 +26,7 @@ export const SourceBadge = React.memo<SourceBadgeProps>(({
   textStyle,
   containerStyle,
 }) => {
+  const { tokens } = useAppTheme();
   const name = sourceInfo?.name ?? sourceName ?? '';
   const logoUrl = sourceInfo?.logoUrl ?? null;
 
@@ -32,7 +34,7 @@ export const SourceBadge = React.memo<SourceBadgeProps>(({
     <View style={[styles.container, containerStyle]}>
       <SourceLogo logoUrl={logoUrl} sourceName={name} size={size} />
       {name.length > 0 && (
-        <Text style={[styles.name, { fontSize: size - 2 }, textStyle]} numberOfLines={1}>
+        <Text style={[styles.name, { fontSize: size - 2, color: tokens.textMuted }, textStyle]} numberOfLines={1}>
           {name}
         </Text>
       )}
@@ -65,7 +67,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   name: {
-    color: '#888',
     fontWeight: '500',
     flexShrink: 1,
   },

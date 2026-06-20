@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import Svg, { G, Path, Circle } from 'react-native-svg';
+import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { CompositionSlice } from '@/src/utils/portfolioComposition';
 
 type PortfolioPieChartProps = {
@@ -57,6 +58,7 @@ export const PortfolioPieChart: React.FC<PortfolioPieChartProps> = ({
   size = 120,
   innerRadiusRatio = 0.55,
 }) => {
+  const { tokens } = useAppTheme();
   const paths = useMemo(() => {
     const cx = size / 2;
     const cy = size / 2;
@@ -84,7 +86,7 @@ export const PortfolioPieChart: React.FC<PortfolioPieChartProps> = ({
     return (
       <View style={{ width: size, height: size }}>
         <Svg width={size} height={size}>
-          <Circle cx={cx} cy={cy} r={r} fill="rgba(255,255,255,0.06)" />
+          <Circle cx={cx} cy={cy} r={r} fill={tokens.borderSubtle} />
         </Svg>
       </View>
     );
@@ -99,7 +101,7 @@ export const PortfolioPieChart: React.FC<PortfolioPieChartProps> = ({
       <View style={{ width: size, height: size }}>
         <Svg width={size} height={size}>
           <Circle cx={cx} cy={cy} r={outerR} fill={slices[0].color} />
-          <Circle cx={cx} cy={cy} r={innerR} fill="#0f0f14" />
+          <Circle cx={cx} cy={cy} r={innerR} fill={tokens.bgElevated} />
         </Svg>
       </View>
     );
