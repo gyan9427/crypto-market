@@ -22,6 +22,7 @@ import { PiSkeleton } from '@/src/components/portfolio-intelligence/PiSkeleton';
 import { PiStaleBanner } from '@/src/components/portfolio-intelligence/PiStaleBanner';
 import { PiAiAnalystPanel } from '@/src/components/portfolio-intelligence/PiAiAnalystPanel';
 import { PiSimulationPanel } from '@/src/components/portfolio-intelligence/PiSimulationPanel';
+import { MARKET_ACCENT } from '@/src/components/portfolio-intelligence/piStyles';
 
 function formatUsd(value: number | undefined | null): string {
   if (value == null || !Number.isFinite(value)) return '$0.00';
@@ -203,7 +204,7 @@ function buildStyles(tokens: ThemeTokens) {
       paddingVertical: 10,
     },
     backBtnText: {
-      color: '#6383ff',
+      color: MARKET_ACCENT,
       fontWeight: typo.fontWeights.semibold,
     },
   });

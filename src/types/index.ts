@@ -69,11 +69,11 @@ export interface ReactionCounts {
   total: number;
 }
 
-export const REACTIONS: ReadonlyArray<{
+export const REACTIONS: readonly {
   type: ReactionType;
   emoji: string;
   label: string;
-}> = [
+}[] = [
   { type: 'appreciate', emoji: '\u{1F44D}', label: 'Appreciate' },
   { type: 'insightful', emoji: '\u{1F4CA}', label: 'Insightful' },
   { type: 'bullish', emoji: '\u{1F680}', label: 'Bullish' },

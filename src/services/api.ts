@@ -1,4 +1,5 @@
-import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts, MarketAnalysisCoin } from '../types';
+import type { KlineInterval, KlineRecord } from '@/src/types/kline';
+import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, ReactionType, ReactionCounts, MarketAnalysisCoin, SupportedChain, WalletAddress, WalletEvent, Holdings, ExchangeConnection } from '../types';
 import type { MarketSnapshotV2, SnapshotRow } from '../types/marketSnapshot';
 import type { SupportedLanguage } from '@/src/constants/languages';
 import { isSupportedLanguage } from '@/src/constants/languages';
@@ -671,7 +672,7 @@ export const removeReaction = async (
  */
 export const getNewsBoards = async (): Promise<NewsBoard[]> => {
   try {
-    const response = await apiRequest<{ boards: Array<{ id: string; name: string; newsIds: string[]; createdAt: string }> }>('/newsboards');
+    const response = await apiRequest<{ boards: { id: string; name: string; newsIds: string[]; createdAt: string }[] }>('/newsboards');
     return response.boards.map((b) => ({
       id: b.id,
       name: b.name,
@@ -941,7 +942,7 @@ export const unifiedSearch = async (
     results?: {
       coins?: BackendCoin[];
       news?: BackendNews[];
-      users?: Array<{ id?: string; _id?: string; username: string }>;
+      users?: { id?: string; _id?: string; username: string }[];
       newsBoards?: SearchBoardResult[];
       portfolioAssets?: SearchPortfolioAssetResult[];
     };
@@ -949,7 +950,7 @@ export const unifiedSearch = async (
     // Legacy compatibility fields:
     coins?: BackendCoin[];
     news?: BackendNews[];
-    users?: Array<{ id?: string; _id?: string; username: string }>;
+    users?: { id?: string; _id?: string; username: string }[];
     newsBoards?: SearchBoardResult[];
     portfolioAssets?: SearchPortfolioAssetResult[];
   };
@@ -1084,7 +1085,7 @@ export const loginWithGoogle = async (
 export const getBoardNews = async (boardId: string): Promise<NewsItem[]> => {
   try {
     const response = await apiRequest<{
-      news: Array<{
+      news: {
         id: string;
         title: string;
         subtitle?: string;
@@ -1092,10 +1093,10 @@ export const getBoardNews = async (boardId: string): Promise<NewsItem[]> => {
         sourceUrl: string;
         source: string;
         publishedAt: string;
-        categories: Array<{ key: string; name: string }>;
-        coins: Array<{ symbol: string; name: string }>;
+        categories: { key: string; name: string }[];
+        coins: { symbol: string; name: string }[];
         metrics: { views: number; likes: number; saves: number };
-      }>;
+      }[];
     }>(`/newsboards/${boardId}/news`);
 
     return response.news.map((a) => ({
@@ -1232,7 +1233,6 @@ export const searchUsers = async (
 // ── Charts / klines ────────────────────────────────────────────────────────────
 
 export type { KlineInterval, KlineRecord } from '@/src/types/kline';
-import type { KlineInterval, KlineRecord } from '@/src/types/kline';
 
 export interface MarketTrendPoint {
   openTime: string | Date;
@@ -1436,14 +1436,6 @@ export function toSparklineData(klines: KlineRecord[]): number[] {
 }
 
 // ── Portfolio / wallet monitoring ────────────────────────────────────────────
-
-import {
-  SupportedChain,
-  WalletAddress,
-  WalletEvent,
-  Holdings,
-  ExchangeConnection,
-} from '../types';
 
 export type PortfolioSessionMode = 'bootstrap' | 'live' | 'degraded' | 'recovery';
 export type PortfolioTriggerReason =

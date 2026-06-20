@@ -20,6 +20,8 @@ function loadGoogleSignInModule(): GoogleSignInModule | null {
     return null;
   }
   try {
+    // Native module is optional; require only when TurboModule is present.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     cachedModule = require('@react-native-google-signin/google-signin') as GoogleSignInModule;
     return cachedModule;
   } catch {

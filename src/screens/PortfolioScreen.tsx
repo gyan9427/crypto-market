@@ -135,7 +135,7 @@ export const PortfolioScreen: React.FC = () => {
       loadHoldings(true, { triggerReason: 'manual_refresh' }),
     ]);
     setRefreshing(false);
-  }, [canRunManualRefresh, loadEvents, loadHoldings, loadWallets, markManualRefresh]);
+  }, [canRunManualRefresh, loadEvents, loadExchanges, loadHoldings, loadWallets, markManualRefresh]);
 
   const handleHoldingPress = useCallback((holding: SelectedHolding) => {
     setSelectedHolding(holding);

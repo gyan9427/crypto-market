@@ -1,5 +1,11 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 
+import {
+  fetchRiskSnapshotCoalesced,
+  resetRiskSnapshotInflightForTests,
+} from '@/src/services/riskSnapshotFetch';
+import { getPerfCounters } from '@/src/runtime/perfInstrumentation';
+
 vi.mock('@/src/config/apiBaseUrl', () => ({
   resolveApiBaseUrl: () => 'https://api.test/api',
 }));
@@ -11,12 +17,6 @@ vi.mock('@/src/runtime/perfInstrumentation', () => ({
     riskSnapshotDedupe: 2,
   })),
 }));
-
-import {
-  fetchRiskSnapshotCoalesced,
-  resetRiskSnapshotInflightForTests,
-} from '@/src/services/riskSnapshotFetch';
-import { getPerfCounters } from '@/src/runtime/perfInstrumentation';
 
 vi.mock('@/src/services/requestCache', () => ({
   fetchJsonCached: vi.fn(async () => ({

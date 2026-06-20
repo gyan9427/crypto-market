@@ -1,7 +1,7 @@
 import * as WebBrowser from 'expo-web-browser';
 import { Linking } from 'react-native';
 
-const DEFAULT_BAR_TINT = '#171717';
+const DEFAULT_BAR_TINT = 'rgb(23,23,23)';
 
 export type OpenInAppBrowserChrome = {
   barTintColor?: string;
@@ -11,7 +11,7 @@ export type OpenInAppBrowserChrome = {
 
 export async function openInAppBrowser(url: string, chrome?: OpenInAppBrowserChrome) {
   const barTint = chrome?.barTintColor ?? DEFAULT_BAR_TINT;
-  const secondaryToolbar = chrome?.secondaryToolbarColor ?? '#ffffff';
+  const secondaryToolbar = chrome?.secondaryToolbarColor ?? 'rgb(255,255,255)';
   try {
     await WebBrowser.openBrowserAsync(url, {
       dismissButtonStyle: 'close',

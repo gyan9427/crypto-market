@@ -1,4 +1,5 @@
 import type { Holdings, HoldingPosition } from '../types';
+import { compositionSliceColors } from '@/src/design-system/tokens/charts';
 import {
   filterHoldingsByAccount,
   getAccountSelectionLabel,
@@ -6,16 +7,7 @@ import {
 } from './portfolioAccountFilter';
 import type { TFunction } from 'i18next';
 
-export const COMPOSITION_SLICE_COLORS = [
-  '#6383ff',
-  '#8b5cf6',
-  '#06b6d4',
-  '#22c55e',
-  '#f59e0b',
-  '#ef4444',
-  '#ec4899',
-  '#64748b',
-];
+export const COMPOSITION_SLICE_COLORS = compositionSliceColors;
 
 export type CompositionSlice = {
   key: string;
@@ -46,7 +38,7 @@ function mergePositionsBySymbol(positions: HoldingPosition[]): Map<string, numbe
 }
 
 function toSlices(
-  entries: Array<{ symbol: string; valueUsd: number }>,
+  entries: { symbol: string; valueUsd: number }[],
   totalUsd: number,
   maxSlices: number | null
 ): CompositionSlice[] {
