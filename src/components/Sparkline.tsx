@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
+import { useExploreRenderAttribution } from '@/src/utils/exploreRenderAttribution';
 
 interface SparklineProps {
   data: number[];
@@ -9,14 +10,17 @@ interface SparklineProps {
   height?: number;
   lineColor?: string;
   isPositive?: boolean;
+  /** Bumps memo when in-place array mutation updates the latest point. */
+  revision?: number;
 }
 
 function areSparklinePropsEqual(prev: SparklineProps, next: SparklineProps): boolean {
+  if (prev.revision !== next.revision) return false;
   if (prev.width !== next.width || prev.height !== next.height) return false;
   if (prev.lineColor !== next.lineColor || prev.isPositive !== next.isPositive) return false;
   const a = prev.data;
   const b = next.data;
-  if (a === b) return true;
+  if (a === b && prev.revision === undefined && next.revision === undefined) return true;
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
     if (a[i] !== b[i]) return false;
@@ -31,6 +35,8 @@ function Sparkline({
   lineColor,
   isPositive = true,
 }: SparklineProps) {
+  useExploreRenderAttribution('Sparkline', { data, width, height, lineColor, isPositive });
+
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildSparklineStyles(), []);
 

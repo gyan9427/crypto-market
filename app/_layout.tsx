@@ -1,9 +1,9 @@
 import '@/src/i18n';
 import '@/src/polyfills/devtools';
 import { useEffect, useState } from 'react';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { configureGoogleSignIn } from '@/src/services/googleSignIn';
 import { Stack, useRouter, useSegments, type Href } from 'expo-router';
-import { AppState, Platform, View } from 'react-native';
+import { AppState, Platform, View, ActivityIndicator } from 'react-native';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ThemeProvider, useAppTheme } from '@/src/theme/ThemeProvider';
 import { GlobalErrorBoundary } from '@/src/components/GlobalErrorBoundary';
@@ -18,9 +18,12 @@ import { useFeaturesStore } from '@/src/utils/features';
 import { CoinOnboardingGate } from '@/src/components/CoinOnboardingGate';
 import { RiskGatewayHost } from '@/src/components/RiskGatewayHost';
 import { useFeedIntentStore } from '@/src/state/useFeedIntentStore';
+import { useInterestProfileSync } from '@/src/hooks/useInterestProfileSync';
 import { useConsentStore } from '@/src/privacy/consentStore';
 import { useRuntimeHints } from '@/src/hooks/useRuntimeHints';
 import { ForceUpgradeGate } from '@/src/components/ForceUpgradeGate';
+import { ShareCardCaptureHost } from '@/src/components/share/ShareCardCaptureHost';
+import { useShareDeepLinkHandler } from '@/src/hooks/useShareDeepLinkHandler';
 import { isTieredStartupEnabled } from '@/src/config/featureFlags';
 import {
   markStartupTier1Begin,
@@ -35,18 +38,39 @@ import { enqueueBackgroundTask } from '@/src/runtime/backgroundTaskQueue';
 import { initCacheRegistryLifecycle } from '@/src/runtime/cacheRegistry';
 import { initWsRegistryLifecycle } from '@/src/runtime/wsConnectionRegistry';
 
-const RootView = Platform.OS === 'android'
-  ? View
-  : require('react-native-gesture-handler').GestureHandlerRootView;
+const RootView =
+  Platform.OS === 'android' || Platform.OS === 'web'
+    ? View
+    : require('react-native-gesture-handler').GestureHandlerRootView;
+
+const STARTUP_DEADLINE_MS = 6_000;
+
+function runStartupTasks(tasks: Array<Promise<unknown>>): Promise<void> {
+  let settled = false;
+  return new Promise((resolve) => {
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    void Promise.allSettled(tasks).then(finish);
+    setTimeout(finish, STARTUP_DEADLINE_MS);
+  });
+}
 
 function RootLayoutContent({ isReady }: { isReady: boolean }) {
   const { tokens } = useAppTheme();
   const { forceUpgrade } = useRuntimeHints(isReady);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const emailVerified = useAuthStore((s) => s.user?.emailVerified === true);
+  useInterestProfileSync();
 
   if (!isReady) {
-    return <View style={{ flex: 1, backgroundColor: tokens.bg }} />;
+    return (
+      <View style={{ flex: 1, backgroundColor: tokens.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={tokens.colors.primary[500]} />
+      </View>
+    );
   }
 
   return (
@@ -59,7 +83,9 @@ function RootLayoutContent({ isReady }: { isReady: boolean }) {
         <Stack.Screen name="register" />
         <Stack.Screen name="verify-email" />
         <Stack.Screen name="change-password" />
+        <Stack.Screen name="notification-preferences" options={{ headerShown: true, title: 'Notifications' }} />
         <Stack.Screen name="reset-password" />
+        <Stack.Screen name="share/[id]" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       {isAuthenticated && emailVerified ? <CoinOnboardingGate /> : null}
@@ -85,7 +111,7 @@ export default function RootLayout() {
   useFrameworkReady();
 
   useEffect(() => {
-    GoogleSignin.configure({
+    configureGoogleSignIn({
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
       offlineAccess: true,
     });
@@ -102,6 +128,8 @@ export default function RootLayout() {
   const splashDone = useSplashStore((state) => state.done);
   const [isReady, setIsReady] = useState(false);
 
+  useShareDeepLinkHandler(isReady);
+
   useEffect(() => {
     const tier1Start = markStartupTier1Begin();
 
@@ -116,7 +144,7 @@ export default function RootLayout() {
     };
 
     if (isTieredStartupEnabled()) {
-      Promise.all([
+      void runStartupTasks([
         initializeAuth().catch((err) => {
           console.error('initializeAuth failed:', err);
         }),
@@ -125,7 +153,7 @@ export default function RootLayout() {
       return;
     }
 
-    Promise.all([
+    void runStartupTasks([
       initializeAuth().catch((err) => {
         console.error('initializeAuth failed:', err);
       }),
@@ -153,9 +181,17 @@ export default function RootLayout() {
   }, [isReady, isAuthenticated]);
 
   useEffect(() => {
-    if (!isReady || !featuresLoaded) return;
+    if (!isReady) return;
 
     const firstSegment = segments[0] as string | undefined;
+    const isShareRoute = firstSegment === 'share';
+
+    if (!featuresLoaded) {
+      if (!isAuthenticated && firstSegment !== 'login' && firstSegment !== 'register' && firstSegment !== 'splash') {
+        router.replace('/login' as Href);
+      }
+      return;
+    }
 
     const shouldGateWithSplash = !splashDone && !isAuthenticated;
 
@@ -172,6 +208,10 @@ export default function RootLayout() {
       } else {
         router.replace('/(tabs)' as Href);
       }
+      return;
+    }
+
+    if (isShareRoute) {
       return;
     }
 
@@ -203,6 +243,7 @@ export default function RootLayout() {
 
   return (
     <RootView style={{ flex: 1 }}>
+      <ShareCardCaptureHost />
       <GlobalErrorBoundary>
         <ThemeProvider>
           <BottomSheetModalProvider>

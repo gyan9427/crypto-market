@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { usePortfolioStore } from '../state/usePortfolioStore';
@@ -6,10 +6,13 @@ import { Skeleton } from './Skeleton';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { isExchangeHolding } from '@/src/utils/portfolioSource';
+import {
+  filterHoldingsByAccount,
+  type PortfolioAccountSelection,
+} from '@/src/utils/portfolioAccountFilter';
 
 const MARKET_ACCENT = '#6383ff';
 
-/** Map MATIC to POL for display (Polygon rebrand) */
 function mapAssetDisplay(text: string | undefined | null): string {
   if (text == null || typeof text !== 'string') return '';
   return text.replace(/\bMATIC\b/gi, 'POL');
@@ -41,13 +44,15 @@ function venueDisplayLabel(venue: string | undefined): string {
   return venue ? venue.toUpperCase() : '';
 }
 
-type HoldingsSourceFilter = 'all' | 'wallet' | 'exchange';
-
 interface HoldingsSegmentProps {
+  selectedAccount: PortfolioAccountSelection;
   onHoldingPress?: (holding: { symbol: string; chain: string }) => void;
 }
 
-export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress }) => {
+export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({
+  selectedAccount,
+  onHoldingPress,
+}) => {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildHoldingsSegmentStyles(tokens), [tokens]);
@@ -58,54 +63,13 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
   const holdings = usePortfolioStore((state) => state.holdings);
   const holdingsLoading = usePortfolioStore((state) => state.holdingsLoading);
 
-  const hasExchangeLinked =
-    exchangePortfolioEnabled && exchanges.length > 0;
+  const hasExchangeLinked = exchangePortfolioEnabled && exchanges.length > 0;
+  const hasAnyPortfolioSource = wallets.length > 0 || hasExchangeLinked;
 
-  const hasAnyPortfolioSource =
-    wallets.length > 0 || hasExchangeLinked;
-
-  const [sourceFilter, setSourceFilter] = useState<HoldingsSourceFilter>('all');
-
-  useEffect(() => {
-    if (sourceFilter === 'exchange' && !hasExchangeLinked) {
-      setSourceFilter('all');
-    }
-  }, [hasExchangeLinked, sourceFilter]);
-
-  const positions = holdings?.positions ?? [];
-
-  const { filteredPositions, walletTotal, exchangeTotal } = useMemo(() => {
-    const walletPositions = positions.filter((p) => !isExchangeHolding(p));
-    const exchangePositions = positions.filter((p) => isExchangeHolding(p));
-
-    const wSum = walletPositions.reduce((sum, p) => sum + (p.value ?? 0), 0);
-    const exSum = exchangePositions.reduce((sum, p) => sum + (p.value ?? 0), 0);
-
-    let filtered = positions;
-    if (sourceFilter === 'wallet') filtered = walletPositions;
-    if (sourceFilter === 'exchange') filtered = exchangePositions;
-
-    return {
-      filteredPositions: filtered,
-      walletTotal: wSum,
-      exchangeTotal: exSum,
-    };
-  }, [positions, sourceFilter]);
-
-  const sourceTabOptions = hasExchangeLinked
-    ? [t('portfolio.sourceAll'), t('portfolio.sourceWallet'), t('portfolio.sourceExchange')]
-    : [t('portfolio.sourceAll'), t('portfolio.sourceWallet')];
-
-  const sourceTabIndex =
-    sourceFilter === 'all' ? 0 : sourceFilter === 'wallet' ? 1 : hasExchangeLinked ? 2 : 1;
-
-  const onSourceTabSelect = (index: number) => {
-    if (hasExchangeLinked) {
-      setSourceFilter(index === 0 ? 'all' : index === 1 ? 'wallet' : 'exchange');
-    } else {
-      setSourceFilter(index === 0 ? 'all' : 'wallet');
-    }
-  };
+  const filteredView = useMemo(() => {
+    if (!holdings) return null;
+    return filterHoldingsByAccount(holdings, selectedAccount);
+  }, [holdings, selectedAccount]);
 
   if (!hasAnyPortfolioSource) {
     return (
@@ -134,94 +98,62 @@ export const HoldingsSegment: React.FC<HoldingsSegmentProps> = ({ onHoldingPress
         <View style={styles.flatRow}>
           <Skeleton width="55%" height={16} />
         </View>
-        <View style={styles.flatRow}>
-          <Skeleton width="65%" height={16} />
-        </View>
       </View>
     );
   }
 
-  if (!holdings) {
+  if (!holdings || !filteredView) {
     return null;
   }
 
-  const { totalValue, relativeChange24h } = holdings;
-
-  const displayTotal =
-    sourceFilter === 'all'
-      ? totalValue
-      : sourceFilter === 'wallet'
-        ? walletTotal
-        : exchangeTotal;
+  const {
+    positions: filteredPositions,
+    displayTotal,
+    showCombined24h,
+    relativeChange24h,
+    emptyFiltered,
+  } = filteredView;
 
   const changePositive = relativeChange24h >= 0;
-  const showCombined24h = sourceFilter === 'all';
-
   const visiblePositions = filteredPositions.slice(0, 10);
 
-  const emptyFiltered =
-    filteredPositions.length === 0 &&
-    positions.length > 0;
+  const emptyMessage =
+    selectedAccount.kind === 'all_exchanges' || selectedAccount.kind === 'exchange'
+      ? t('portfolio.emptyExchangePositions')
+      : t('portfolio.emptyWalletPositions');
 
   return (
     <View>
       <Text style={styles.sectionTitle}>{t('portfolio.holdings')}</Text>
 
-      <View style={styles.tabRow}>
-        {sourceTabOptions.map((option, index) => (
-          <TouchableOpacity
-            key={option}
-            style={[styles.tab, sourceTabIndex === index && styles.tabActive]}
-            onPress={() => onSourceTabSelect(index)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: sourceTabIndex === index }}
-          >
-            <Text style={[styles.tabText, sourceTabIndex === index && styles.tabTextActive]}>
-              {option}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       <View style={styles.summaryRow}>
         <View style={styles.summaryLeft}>
           <Text style={styles.totalValue}>{formatUsd(displayTotal)}</Text>
-          {!showCombined24h && sourceFilter === 'wallet' ? (
-            <Text style={styles.subtotalHint}>{t('portfolio.walletTotal')}</Text>
-          ) : null}
-          {!showCombined24h && sourceFilter === 'exchange' ? (
-            <Text style={styles.subtotalHint}>{t('portfolio.exchangeTotal')}</Text>
-          ) : null}
         </View>
         <View style={styles.summaryRight}>
           {showCombined24h ? (
-            <Text
-              style={[
-                styles.change24h,
-                changePositive ? styles.changePositive : styles.changeNegative,
-              ]}
-            >
-              {changePositive ? '▲' : '▼'}{' '}
-              {Math.abs(relativeChange24h).toFixed(2)}%
-            </Text>
+            <>
+              <Text
+                style={[
+                  styles.change24h,
+                  changePositive ? styles.changePositive : styles.changeNegative,
+                ]}
+              >
+                {changePositive ? '▲' : '▼'} {Math.abs(relativeChange24h).toFixed(2)}%
+              </Text>
+              <Text style={styles.changeLabel}>24h</Text>
+            </>
           ) : (
-            <Text style={styles.change24hMuted}>{t('activity.change24hUnavailable')}</Text>
+            <Text style={styles.change24hMuted}>{t('portfolio.singleScope24hUnavailable')}</Text>
           )}
-          {showCombined24h ? (
-            <Text style={styles.changeLabel}>24h</Text>
-          ) : null}
         </View>
       </View>
 
       {emptyFiltered ? (
         <View style={styles.flatRow}>
           <View style={styles.emptyContent}>
-            <Text style={styles.emptyPositionsText}>
-              {sourceFilter === 'exchange'
-                ? t('portfolio.emptyExchangePositions')
-                : t('portfolio.emptyWalletPositions')}
-            </Text>
-            {sourceFilter === 'exchange' ? (
+            <Text style={styles.emptyPositionsText}>{emptyMessage}</Text>
+            {selectedAccount.kind === 'exchange' || selectedAccount.kind === 'all_exchanges' ? (
               <Text style={styles.emptyPositionsSub}>
                 {hasExchangeLinked
                   ? t('portfolio.exchangeBalancesPending')
@@ -285,29 +217,6 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
       paddingTop: 16,
       paddingBottom: 8,
     },
-    tabRow: {
-      flexDirection: 'row',
-      gap: 4,
-      paddingHorizontal: 16,
-      paddingBottom: 4,
-    },
-    tab: {
-      flex: 1,
-      alignItems: 'center',
-      paddingVertical: 6,
-      borderRadius: 8,
-    },
-    tabActive: {
-      backgroundColor: accentBg,
-    },
-    tabText: {
-      fontSize: 12,
-      fontWeight: '500',
-      color: tokens.textMuted,
-    },
-    tabTextActive: {
-      color: MARKET_ACCENT,
-    },
     summaryRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -333,33 +242,24 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
       fontFamily: typo.fontFamilies.sansSemiBold,
       color: tokens.text,
       fontVariant: ['tabular-nums'],
-      letterSpacing: typo.letterSpacing.caption,
     },
     change24h: {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.semibold,
       fontFamily: typo.fontFamilies.sansSemiBold,
       fontVariant: ['tabular-nums'],
-      letterSpacing: typo.letterSpacing.caption,
     },
     changeLabel: {
       fontSize: typo.fontSizes.badge,
       color: tokens.textMuted,
       marginTop: 3,
-      fontWeight: typo.fontWeights.medium,
-      fontFamily: typo.fontFamilies.sansMedium,
     },
     change24hMuted: {
       fontSize: typo.fontSizes.badge,
       color: tokens.textMuted,
       fontStyle: 'italic',
-    },
-    subtotalHint: {
-      fontSize: typo.fontSizes.badge,
-      color: tokens.textMuted,
-      marginTop: 2,
-      fontWeight: typo.fontWeights.medium,
-      fontFamily: typo.fontFamilies.sansMedium,
+      textAlign: 'right',
+      maxWidth: 120,
     },
     changePositive: {
       color: c.success[500],
@@ -378,7 +278,6 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
     emptyText: {
       fontSize: typo.fontSizes.sm,
       color: tokens.textMuted,
-      fontFamily: typo.fontFamilies.sans,
     },
     emptyContent: {
       flex: 1,
@@ -387,13 +286,11 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.medium,
       color: tokens.textMuted,
-      fontFamily: typo.fontFamilies.sansMedium,
     },
     emptyPositionsSub: {
       fontSize: typo.fontSizes.badge,
       color: tokens.textMuted,
       marginTop: 4,
-      fontFamily: typo.fontFamilies.sans,
     },
     positionRow: {
       flexDirection: 'row',
@@ -418,8 +315,6 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
       fontSize: typo.fontSizes.badge,
       fontWeight: typo.fontWeights.bold,
       color: MARKET_ACCENT,
-      fontFamily: typo.fontFamilies.sansBold,
-      letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
     identity: {
       flex: 1,
@@ -429,25 +324,18 @@ function buildHoldingsSegmentStyles(tokens: ThemeTokens) {
     positionSymbol: {
       fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.semibold,
-      fontFamily: typo.fontFamilies.sansSemiBold,
       color: tokens.text,
-      letterSpacing: typo.letterSpacing.caption,
     },
     positionQuantity: {
       fontSize: typo.fontSizes.badge,
       color: tokens.textMuted,
       marginTop: 2,
-      fontWeight: typo.fontWeights.medium,
-      fontFamily: typo.fontFamilies.sansMedium,
-      letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
     positionValue: {
       fontSize: typo.fontSizes.sm,
       fontWeight: typo.fontWeights.semibold,
-      fontFamily: typo.fontFamilies.sansSemiBold,
       color: tokens.text,
       fontVariant: ['tabular-nums'],
-      letterSpacing: typo.letterSpacing.caption,
       minWidth: 76,
       textAlign: 'right',
     },

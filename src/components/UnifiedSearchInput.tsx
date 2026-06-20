@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { X } from 'lucide-react-native';
 import { SearchSegment } from '../services/api';
 import { SearchBar } from './SearchBar';
 import type { ThemeTokens } from '../theme/theme';
@@ -44,6 +45,7 @@ type UnifiedSearchInputProps = {
   tookMs: number;
   isActive: boolean;
   placeholder?: string;
+  onClose?: () => void;
 };
 
 export const UnifiedSearchInput: React.FC<UnifiedSearchInputProps> = ({
@@ -58,6 +60,7 @@ export const UnifiedSearchInput: React.FC<UnifiedSearchInputProps> = ({
   tookMs,
   isActive,
   placeholder: placeholderProp,
+  onClose,
 }) => {
   const { t } = useTranslation();
   const placeholder = placeholderProp ?? t('search.placeholderDefault');
@@ -102,7 +105,27 @@ export const UnifiedSearchInput: React.FC<UnifiedSearchInputProps> = ({
 
   return (
     <View style={styles.container}>
-      <SearchBar value={localQuery} onChangeText={handleChangeText} placeholder={placeholder} />
+      <View style={styles.searchRow}>
+        <View style={styles.searchBarWrap}>
+          <SearchBar
+            value={localQuery}
+            onChangeText={handleChangeText}
+            placeholder={placeholder}
+            variant="embedded"
+          />
+        </View>
+        {onClose ? (
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={onClose}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('search.closeSearch')}
+          >
+            <X size={18} color={c.neutral[700]} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.segmentRow}>
         {visibleSegments.map((segment) => {
@@ -143,6 +166,24 @@ function buildUnifiedSearchInputStyles(tokens: ThemeTokens) {
   return StyleSheet.create({
     container: {
       backgroundColor: tokens.bg,
+    },
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: s.md,
+      paddingTop: s.xs,
+      gap: s.sm,
+    },
+    searchBarWrap: {
+      flex: 1,
+    },
+    closeButton: {
+      width: 36,
+      height: 36,
+      borderRadius: br.sm,
+      backgroundColor: c.neutral[100],
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     segmentRow: {
       paddingHorizontal: s.md,

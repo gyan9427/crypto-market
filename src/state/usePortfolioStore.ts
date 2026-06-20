@@ -5,6 +5,13 @@ import type {
   PortfolioSessionMode,
   PortfolioTriggerReason,
 } from '../services/api';
+import {
+  DEFAULT_PORTFOLIO_ACCOUNT_SELECTION,
+  reconcileAccountSelection,
+  type PortfolioAccountSelection,
+} from '../utils/portfolioAccountFilter';
+
+export type { PortfolioAccountSelection } from '../utils/portfolioAccountFilter';
 
 const MANUAL_REFRESH_COOLDOWN_MS = 30000;
 const RECOVERY_COOLDOWN_MS = 45000;
@@ -44,6 +51,9 @@ interface PortfolioState {
   exchangesLoading: boolean;
   exchangeMutationPending: boolean;
   exchangeError: string | null;
+
+  selectedAccount: PortfolioAccountSelection;
+  setSelectedAccount(selection: PortfolioAccountSelection): void;
 
   setSessionMode(mode: PortfolioSessionMode): void;
   setStreamHealthy(healthy: boolean): void;
@@ -116,6 +126,12 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   exchangeMutationPending: false,
   exchangeError: null,
 
+  selectedAccount: DEFAULT_PORTFOLIO_ACCOUNT_SELECTION,
+
+  setSelectedAccount: (selection) => {
+    set({ selectedAccount: selection });
+  },
+
   setSessionMode: (mode) => {
     set({ sessionMode: mode });
   },
@@ -170,7 +186,11 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
     try {
       const { getWallets } = await import('../services/api');
       const wallets = await getWallets();
-      set({ wallets, isLoading: false });
+      set((state) => ({
+        wallets,
+        isLoading: false,
+        selectedAccount: reconcileAccountSelection(state.selectedAccount, wallets, state.exchanges),
+      }));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load wallets';
       set({ isLoading: false, error: message });
@@ -198,6 +218,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       set((state) => ({
         wallets: state.wallets.filter((w) => w.id !== id),
         isLoading: false,
+        selectedAccount: reconcileAccountSelection(state.selectedAccount, state.wallets.filter((w) => w.id !== id), state.exchanges),
       }));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to remove wallet';
@@ -210,13 +231,14 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
     const { getExchanges, EXCHANGE_PORTFOLIO_DISABLED } = await import('../services/api');
     try {
       const list = await getExchanges();
-      set({
+      set((state) => ({
         exchanges: list,
         exchangePortfolioEnabled: true,
         exchangesCatalogLoaded: true,
         exchangesLoading: false,
         exchangeError: null,
-      });
+        selectedAccount: reconcileAccountSelection(state.selectedAccount, state.wallets, list),
+      }));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (message === EXCHANGE_PORTFOLIO_DISABLED) {
@@ -277,6 +299,11 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       set((state) => ({
         exchanges: state.exchanges.filter((e) => e.id !== id),
         exchangeMutationPending: false,
+        selectedAccount: reconcileAccountSelection(
+          state.selectedAccount,
+          state.wallets,
+          state.exchanges.filter((e) => e.id !== id)
+        ),
       }));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to remove exchange';

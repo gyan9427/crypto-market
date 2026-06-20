@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { User } from '../types';
 import { cacheRegistry } from '@/src/runtime/cacheRegistry';
-import { resetAuthBackgroundSync } from '@/src/services/authBackgroundSync';
+import { bindAuthSession } from '@/src/services/authSession';
 import { bumpGeneration, createRequestGuard } from '@/src/runtime/asyncRequestGuard';
 
 const TOKEN_KEY = 'nayft_auth_token_secure';
@@ -91,6 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     bumpGeneration('auth:token');
     bumpGeneration('auth:bg-sync');
+    const { resetAuthBackgroundSync } = await import('@/src/services/authBackgroundSync');
     resetAuthBackgroundSync();
     cacheRegistry.purgeUserScoped();
     await writeToken(null);
@@ -137,3 +138,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 }));
+
+bindAuthSession({
+  getToken: () => useAuthStore.getState().token,
+  getIsAuthenticated: () => useAuthStore.getState().isAuthenticated,
+  logout: () => useAuthStore.getState().logout(),
+  setUser: (user) => useAuthStore.getState().setUser(user),
+  login: (token, user) => useAuthStore.getState().login(token, user),
+});

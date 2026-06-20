@@ -14,6 +14,19 @@ import { View, Image, StyleSheet, type ColorValue } from 'react-native';
 import { useHasFeature, useFeaturesStore } from '@/src/utils/features';
 import { useAuthStore } from '@/src/state/useAuthStore';
 import { NotificationsGatewayHost } from '@/src/components/NotificationsGatewayHost';
+import { PushNotificationsHost } from '@/src/components/PushNotificationsHost';
+
+function DefaultCollapsibleHeader() {
+  return <CollapsibleNavHeader />;
+}
+
+function MarketCollapsibleHeader() {
+  return <CollapsibleNavHeader segment="all" />;
+}
+
+function ProfileCollapsibleHeader() {
+  return <CollapsibleNavHeader segment="users" />;
+}
 
 function ProfileTabIcon({ color, size }: { color: ColorValue; size: number }) {
   const user = useAuthStore((s) => s.user);
@@ -129,6 +142,8 @@ export default function TabsLayout() {
 
       const routeTitleMap: Record<string, string> = {
         portfolio: t('nav.portfolio'),
+        'portfolio/index': t('nav.portfolio'),
+        'portfolio/intelligence': 'Portfolio Intelligence',
         'search/index': t('nav.search'),
         rewards: t('nav.rewards'),
         notifications: 'Notifications',
@@ -168,6 +183,7 @@ export default function TabsLayout() {
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
       <StatusBar style={effectiveScheme === 'dark' ? 'light' : 'dark'} />
       {isAuthenticated ? <NotificationsGatewayHost /> : null}
+      {isAuthenticated ? <PushNotificationsHost /> : null}
       <QuickActionsProvider>
       <CollapsibleNavHeaderProvider>
       <Tabs screenOptions={mergedScreenOptions as never}>
@@ -175,7 +191,7 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: t('nav.home'),
-            header: () => <CollapsibleNavHeader />,
+            header: DefaultCollapsibleHeader,
             tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
             href: hasNewsFeed ? undefined : null,
           }}
@@ -184,7 +200,7 @@ export default function TabsLayout() {
           name="portfolio"
           options={{
             title: t('nav.portfolio'),
-            header: () => <CollapsibleNavHeader />,
+            header: DefaultCollapsibleHeader,
             tabBarIcon: ({ color, size }) => <Briefcase size={size} color={color} />,
             href: hasPortfolioTracking ? undefined : null,
           }}
@@ -193,7 +209,7 @@ export default function TabsLayout() {
           name="market"
           options={{
             title: t('nav.market'),
-            header: () => <CollapsibleNavHeader segment="all" />,
+            header: MarketCollapsibleHeader,
             tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
             href: hasMarketData ? undefined : null,
           }}
@@ -202,7 +218,7 @@ export default function TabsLayout() {
           name="profile"
           options={{
             title: t('nav.profile'),
-            header: () => <CollapsibleNavHeader segment="users" />,
+            header: ProfileCollapsibleHeader,
             tabBarIcon: ({ color, size }) => <ProfileTabIcon color={color} size={size} />,
           }}
         />
@@ -258,12 +274,27 @@ export default function TabsLayout() {
           name="search/index"
           options={{
             href: null,
+            headerShown: false,
           }}
         />
         <Tabs.Screen
           name="notifications"
           options={{
             href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="portfolio/intelligence"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="portfolio/composition"
+          options={{
+            href: null,
+            headerShown: false,
           }}
         />
       </Tabs>

@@ -2,9 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  GoogleSignin,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
+  isGoogleSignInAvailable,
+  isGoogleSignInCancelledError,
+  isGoogleSignInInProgressError,
+  isPlayServicesUnavailableError,
+  signInWithGoogleNative,
+} from '@/src/services/googleSignIn';
 import { useTranslation } from 'react-i18next';
 import { StatusBar } from 'expo-status-bar';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -18,6 +21,7 @@ import { getAuthPaletteFromTokens } from '@/src/design-system/theme/authPaletteF
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { login, loginWithGoogle } from '@/src/services/api';
 import { useAuthStore } from '@/src/state/useAuthStore';
+import { resolvePostAuthHref } from '@/src/state/usePendingShareStore';
 import { trackAuthEvent } from '@/src/utils/trackEvent';
 
 const PASSWORD_RESET_URL =
@@ -37,40 +41,32 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const googleSignInAvailable = isGoogleSignInAvailable();
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (user?.emailVerified !== true) {
-      router.replace('/verify-email' as never);
-      return;
-    }
-    router.replace('/(tabs)' as never);
+    router.replace(resolvePostAuthHref(user?.emailVerified === true) as never);
   }, [isAuthenticated, user?.emailVerified, router]);
 
   const handleGoogleSignIn = async () => {
     if (googleLoading || loading) return;
     setError(null);
     try {
-      await GoogleSignin.hasPlayServices();
       setGoogleLoading(true);
       trackAuthEvent('google_login_attempt');
-      const userInfo = await GoogleSignin.signIn();
-      const idToken = userInfo.data?.idToken;
+      const idToken = await signInWithGoogleNative();
       if (!idToken) {
         setError(t('auth.errorGoogleUnavailable'));
         return;
       }
       const result = await loginWithGoogle(idToken);
-      router.replace(
-        (result.user.emailVerified !== true ? '/verify-email' : '/(tabs)') as never
-      );
+      router.replace(resolvePostAuthHref(result.user.emailVerified === true) as never);
     } catch (err: unknown) {
-      const code = (err as any)?.code;
-      if (code === statusCodes.SIGN_IN_CANCELLED) {
+      if (isGoogleSignInCancelledError(err)) {
         // user cancelled — no error shown
-      } else if (code === statusCodes.IN_PROGRESS) {
+      } else if (isGoogleSignInInProgressError(err)) {
         // already in progress — ignore
-      } else if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+      } else if (isPlayServicesUnavailableError(err)) {
         setError(t('auth.googleUnavailable'));
       } else {
         setError(err instanceof Error ? err.message : t('auth.errorGoogleUnavailable'));
@@ -92,9 +88,7 @@ export default function LoginScreen() {
       setLoading(true);
       setError(null);
       const result = await login(email.trim(), password);
-      router.replace(
-        (result.user.emailVerified !== true ? '/verify-email' : '/(tabs)') as never
-      );
+      router.replace(resolvePostAuthHref(result.user.emailVerified === true) as never);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('auth.errorLoginFailed'));
     } finally {
@@ -181,13 +175,15 @@ export default function LoginScreen() {
             accessibilityLabel={t('auth.logInAccessibility')}
           />
 
-          <GoogleButton
-            palette={palette}
-            label={t('auth.continueWithGoogle')}
-            onPress={handleGoogleSignIn}
-            loading={googleLoading}
-            disabled={loading || googleLoading}
-          />
+          {googleSignInAvailable ? (
+            <GoogleButton
+              palette={palette}
+              label={t('auth.continueWithGoogle')}
+              onPress={handleGoogleSignIn}
+              loading={googleLoading}
+              disabled={loading || googleLoading}
+            />
+          ) : null}
 
           <AuthPrivacyLinks palette={palette} />
         </Animated.View>

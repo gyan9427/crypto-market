@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { useAppStore } from '../state/useAppStore';
 import { shareNewsItem } from '../utils/share';
 import { navigateToCoin } from '../navigation/coinNavigation';
+import { useFeedIntentStore } from '../state/useFeedIntentStore';
 
 interface NewsDetailModalProps {
   newsItem: NewsItem;
@@ -45,6 +46,16 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   const [userReaction, setUserReaction] = useState(newsItem.userReaction ?? null);
   const isSavedToAnyBoard = useAppStore((s) => s.isSavedToAnyBoard);
   const storeSetReaction = useAppStore((s) => s.setReaction);
+  const recordArticleDwell = useFeedIntentStore((s) => s.recordArticleDwell);
+  const openedAtRef = useRef(Date.now());
+
+  useEffect(() => {
+    openedAtRef.current = Date.now();
+    return () => {
+      const seconds = Math.round((Date.now() - openedAtRef.current) / 1000);
+      recordArticleDwell(newsItem.id, seconds);
+    };
+  }, [newsItem.id, recordArticleDwell]);
 
   const handleReact = async (type: ReactionType) => {
     const prevReaction = userReaction;
@@ -83,31 +94,30 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.surface }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-        >
-          <X size={24} color={c.neutral[800]} />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {newsItem.imageUrl ? (
-          <Image
-            source={{ uri: newsItem.imageUrl }}
-            style={styles.heroImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.heroPlaceholder} accessibilityLabel="No article image">
-            <Text style={styles.heroPlaceholderText}>
-              {(newsItem.coins[0]?.symbol?.[0] ?? newsItem.coins[0]?.name?.[0] ?? 'N').toUpperCase()}
-            </Text>
-          </View>
-        )}
+        <View style={styles.heroWrapper}>
+          {newsItem.imageUrl ? (
+            <Image
+              source={{ uri: newsItem.imageUrl }}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.heroPlaceholder} accessibilityLabel="No article image">
+              <Text style={styles.heroPlaceholderText}>
+                {(newsItem.coins[0]?.symbol?.[0] ?? newsItem.coins[0]?.name?.[0] ?? 'N').toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <X size={20} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.content}>
           <View style={styles.actionsRow}>
@@ -238,34 +248,37 @@ function buildNewsDetailModalStyles(tokens: ThemeTokens) {
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: s.md,
-    paddingTop: s.xl,
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 22,
-    backgroundColor: c.neutral[100],
-  },
   scrollView: {
     flex: 1,
   },
-  heroImage: {
+  heroWrapper: {
     width: '100%',
     aspectRatio: 16 / 9,
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
     backgroundColor: c.neutral[200],
   },
   heroPlaceholder: {
     width: '100%',
-    aspectRatio: 16 / 9,
+    height: '100%',
     backgroundColor: c.neutral[300],
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: s.sm,
+    right: s.sm,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.50)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   heroPlaceholderText: {
     fontSize: 40,

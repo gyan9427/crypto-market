@@ -29,6 +29,7 @@ import type { ThemeTokens } from '@/src/theme/theme';
 import { TradingHeader } from '@/src/screens/trading/TradingHeader';
 import { shareNewsById } from '@/src/utils/share';
 import { isCoinReturnTo, leaveCoinDetail, navigateToCoin } from '@/src/navigation/coinNavigation';
+import { useJumpCorrelationRender } from '@/src/diagnostics/useJumpCorrelationRender';
 
 // ── Interval mapping ──────────────────────────────────────────────────────────
 type RangeTab = '1H' | '1D' | '1W' | '1M' | '3M' | '1Y';
@@ -78,6 +79,14 @@ export function TradingScreen() {
   const [isDetailVisible, setIsDetailVisible] = useState(false);
   const [savingNewsId, setSavingNewsId] = useState<string | null>(null);
   const [commentingNewsId, setCommentingNewsId] = useState<string | null>(null);
+
+  useJumpCorrelationRender('TradingScreen', {
+    coinId,
+    range,
+    chartType,
+    loading,
+    newsLen: news.length,
+  });
 
   // ── App store ──
   const setReaction = useAppStore((state) => state.setReaction);

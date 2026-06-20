@@ -3,28 +3,27 @@ import {
   View,
   StyleSheet,
   RefreshControl,
-  Text,
-  TouchableOpacity,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
-import { useTranslation } from 'react-i18next';
-import { Wallet } from 'lucide-react-native';
 import { usePortfolioStore } from '../state/usePortfolioStore';
 import { MonitorWalletSheet } from '../components/MonitorWalletSheet';
 import { HoldingsSegment } from '../components/HoldingsSegment';
+import { PortfolioAccountSelector } from '../components/PortfolioAccountSelector';
 import { ActivityScreen } from './ActivityScreen';
 import type { ThemeTokens } from '../theme/theme';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { usePortfolioLiveStream } from '../hooks/usePortfolioLiveStream';
-
-function truncateAddress(address: string): string {
-  if (address.length <= 12) return address;
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
-}
+import { useRouter } from 'expo-router';
+import { useHasFeature } from '@/src/utils/features';
+import { usePortfolioIntelligence } from '@/src/hooks/portfolio-intelligence/usePortfolioIntelligence';
+import { PortfolioInsightsCarousel } from '@/src/components/portfolio/PortfolioInsightsCarousel';
+import { PortfolioGrowthChart } from '@/src/components/portfolio/PortfolioGrowthChart';
+import {
+  type GrowthPeriod,
+} from '@/src/utils/portfolioGrowthSeries';
 
 const PORTFOLIO_ACTIVITY_EVENT_LIMIT = 100;
-const MARKET_ACCENT = '#6383ff';
 
 type SelectedHolding = {
   symbol: string;
@@ -38,10 +37,9 @@ const MODE_LABEL: Record<string, string> = {
   recovery: 'Recovering',
 };
 
-// ── Main screen ──────────────────────────────────────────────────────────────
-
 export const PortfolioScreen: React.FC = () => {
-  const { t } = useTranslation();
+  const router = useRouter();
+  const hasPiEngines = useHasFeature('portfolio_intelligence_engines');
   const { tokens } = useAppTheme();
   const styles = useMemo(() => buildPortfolioScreenStyles(tokens), [tokens]);
   const collapsibleScrollHandlers = useCollapsibleNavHeaderScrollHandlers();
@@ -58,12 +56,40 @@ export const PortfolioScreen: React.FC = () => {
   const markManualRefresh = usePortfolioStore((state) => state.markManualRefresh);
   const monitorSheetOpen = usePortfolioStore((state) => state.monitorSheetOpen);
   const closeMonitorSheet = usePortfolioStore((state) => state.closeMonitorSheet);
+  const openMonitorSheet = usePortfolioStore((state) => state.openMonitorSheet);
+  const exchanges = usePortfolioStore((state) => state.exchanges);
+  const exchangePortfolioEnabled = usePortfolioStore((state) => state.exchangePortfolioEnabled);
+  const selectedAccount = usePortfolioStore((state) => state.selectedAccount);
+  const setSelectedAccount = usePortfolioStore((state) => state.setSelectedAccount);
+  const holdings = usePortfolioStore((state) => state.holdings);
+  const holdingsLoading = usePortfolioStore((state) => state.holdingsLoading);
 
   const walletAddresses = useMemo(() => wallets.map((w) => w.address), [wallets]);
   const { isConnected: portfolioStreamConnected } = usePortfolioLiveStream({
     addresses: walletAddresses,
     enabled: walletAddresses.length > 0,
   });
+
+  const {
+    enabled: piEnabled,
+    summary: piSummary,
+    insights: piInsights,
+    status: piStatus,
+    evolution: piEvolution,
+    loadEvolution,
+  } = usePortfolioIntelligence({ autoLoad: hasPiEngines });
+
+  const topPiInsight = piInsights[0] ?? null;
+  const piLoading = piStatus === 'loading' || piStatus === 'idle';
+  const showPiSummary = hasPiEngines && piEnabled;
+
+  const handleOpenIntelligence = useCallback(() => {
+    router.push('/(tabs)/portfolio/intelligence');
+  }, [router]);
+
+  const handleOpenComposition = useCallback(() => {
+    router.push('/(tabs)/portfolio/composition');
+  }, [router]);
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedHolding, setSelectedHolding] = useState<SelectedHolding | null>(null);
@@ -84,6 +110,18 @@ export const PortfolioScreen: React.FC = () => {
     if (sessionMode !== 'degraded') return;
     void runRecoverySync(PORTFOLIO_ACTIVITY_EVENT_LIMIT);
   }, [runRecoverySync, sessionMode]);
+
+  useEffect(() => {
+    if (!hasPiEngines) return;
+    void loadEvolution(90);
+  }, [hasPiEngines, loadEvolution]);
+
+  const handleGrowthPeriodChange = useCallback(
+    (_period: GrowthPeriod) => {
+      void loadEvolution(90);
+    },
+    [loadEvolution]
+  );
 
   const handleRefresh = useCallback(async () => {
     if (!canRunManualRefresh()) return;
@@ -109,10 +147,6 @@ export const PortfolioScreen: React.FC = () => {
     setSelectedHolding(null);
   }, []);
 
-  const accountLabel = wallets.length > 0
-    ? t('portfolio.accountWithAddress', { address: truncateAddress(wallets[0].address) })
-    : t('portfolio.headerAccount');
-
   const sessionStatus = `${MODE_LABEL[sessionMode] ?? 'Syncing'} · ${portfolioStreamConnected ? 'Connected' : 'Disconnected'}`;
 
   if (showActivity) {
@@ -135,27 +169,38 @@ export const PortfolioScreen: React.FC = () => {
         }
         {...collapsibleScrollHandlers}
       >
-        <Text style={styles.sectionTitle}>{t('portfolio.headerAccount')}</Text>
-        <TouchableOpacity
-          style={styles.accountRow}
-          onPress={() => usePortfolioStore.getState().openMonitorSheet()}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={accountLabel}
-        >
-          <View style={styles.accountIcon}>
-            <Wallet size={18} color={MARKET_ACCENT} />
-          </View>
-          <View style={styles.identity}>
-            <Text style={styles.accountTitle} numberOfLines={1}>
-              {accountLabel}
-            </Text>
-            <Text style={styles.sessionLabel} numberOfLines={1}>
-              {sessionStatus}
-            </Text>
-          </View>
-        </TouchableOpacity>
-        <HoldingsSegment onHoldingPress={handleHoldingPress} />
+        <PortfolioAccountSelector
+          wallets={wallets}
+          exchanges={exchanges}
+          exchangePortfolioEnabled={exchangePortfolioEnabled}
+          selectedAccount={selectedAccount}
+          sessionStatus={sessionStatus}
+          onSelect={setSelectedAccount}
+          onManageAccounts={openMonitorSheet}
+        />
+        <PortfolioGrowthChart
+          selectedAccount={selectedAccount}
+          holdings={holdings}
+          evolution={piEvolution}
+          wallets={wallets}
+          exchanges={exchanges}
+          loading={holdingsLoading || piLoading}
+          onPeriodChange={handleGrowthPeriodChange}
+        />
+        <PortfolioInsightsCarousel
+          holdings={holdings}
+          holdingsLoading={holdingsLoading}
+          selectedAccount={selectedAccount}
+          wallets={wallets}
+          exchanges={exchanges}
+          showIntelligence={showPiSummary}
+          piSummary={piSummary}
+          topPiInsight={topPiInsight}
+          piLoading={piLoading}
+          onPressViewComposition={handleOpenComposition}
+          onPressViewIntelligence={handleOpenIntelligence}
+        />
+        <HoldingsSegment selectedAccount={selectedAccount} onHoldingPress={handleHoldingPress} />
       </Animated.ScrollView>
       <MonitorWalletSheet
         visible={monitorSheetOpen}
@@ -168,9 +213,6 @@ export const PortfolioScreen: React.FC = () => {
 // ── Styles ───────────────────────────────────────────────────────────────────
 
 function buildPortfolioScreenStyles(tokens: ThemeTokens) {
-  const typo = tokens.typography;
-  const accentBg = tokens.isDark ? 'rgba(99,131,255,0.18)' : 'rgba(99,131,255,0.12)';
-
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -178,53 +220,6 @@ function buildPortfolioScreenStyles(tokens: ThemeTokens) {
     },
     scrollContent: {
       paddingBottom: 96,
-    },
-    sectionTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: tokens.textMuted,
-      letterSpacing: 0.2,
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 8,
-    },
-    accountRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderBottomWidth: 0.5,
-      borderBottomColor: tokens.isDark ? 'rgba(255,255,255,0.06)' : tokens.borderSubtle,
-      backgroundColor: tokens.isDark ? '#0a0a0f' : tokens.surface,
-      minHeight: 56,
-    },
-    accountIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: accentBg,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: tokens.spacing.sm,
-    },
-    identity: {
-      flex: 1,
-      minWidth: 0,
-    },
-    accountTitle: {
-      fontSize: typo.fontSizes.sm,
-      fontWeight: typo.fontWeights.semibold,
-      color: tokens.text,
-      fontFamily: typo.fontFamilies.sansSemiBold,
-      letterSpacing: typo.letterSpacing.caption,
-    },
-    sessionLabel: {
-      fontSize: typo.fontSizes.badge,
-      color: tokens.textMuted,
-      marginTop: 2,
-      fontWeight: typo.fontWeights.medium,
-      fontFamily: typo.fontFamilies.sansMedium,
-      letterSpacing: typo.letterSpacing.eyebrow * 0.5,
     },
   });
 }

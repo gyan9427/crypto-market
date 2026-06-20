@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,10 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   ScrollView,
+  Platform,
+  Animated,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Svg, {
@@ -25,6 +29,13 @@ import {
   buildMarketCapStyles,
   MARKET_CAP_Y_AXIS_W,
 } from './market/marketCapStyles';
+import {
+  jumpAuditChartRecalc,
+  jumpAuditLayout,
+  jumpAuditProgrammaticScroll,
+  jumpAuditScroll,
+} from '@/src/diagnostics/jumpCorrelationAudit';
+import { useJumpCorrelationRender } from '@/src/diagnostics/useJumpCorrelationRender';
 
 // ─── SVG coordinate space ────────────────────────────────────────────────────
 const SVG_W      = 400;
@@ -34,6 +45,7 @@ const INNER_W    = SVG_W - PAD * 2;
 const INNER_H    = SVG_H - PAD * 2;
 const Y_AXIS_W = MARKET_CAP_Y_AXIS_W;
 const Y_TICK_COUNT = 5;  // number of y-axis price levels
+const X_LABEL_COUNT = 4;
 
 // ─── Range tabs ───────────────────────────────────────────────────────────────
 const RANGE_TABS = ['1H', '1D', '1W', '1M', '3M', '1Y'] as const;
@@ -67,11 +79,40 @@ const CANDLE_RANGE_CONFIG: Record<RangeTab, RangeConfig> = {
   '1Y': { interval: '1w', limit: 52,  periodLabel: 'PAST 1Y', statPrefix: '1Y' },
 };
 
-// Minimum candle slot width in SVG units — drives scroll expansion
-const MIN_CANDLE_SLOT_SVG = 8;
+// Minimum slot / point width in SVG units — drives scroll expansion (line mode)
+const MIN_LINE_POINT_SVG  = 3;
+const CANDLE_VIEWPORT_COUNT = 15;
+const CANDLE_SLOT_SVG = INNER_W / CANDLE_VIEWPORT_COUNT;
+
+// Live-edge scroll positioning (TradingView-style)
+const LIVE_POINT_VIEWPORT_RATIO = 0.75;
+const TRAILING_VIEWPORT_RATIO   = 0.25;
+const LIVE_EDGE_THRESHOLD_PX    = 20;
+const Y_PADDING_RATIO           = 0.05;
+const LAST_PRICE_LINE_OPACITY   = 0.72;
+const LAST_PRICE_PILL_H         = 20;
+const LAST_PRICE_ANIM_MS        = 220;
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function sanitizePointerX(raw: unknown): number | null {
+  const x = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(x) && x >= 0 ? x : null;
+}
+
+function isValidHoverIndex(index: number | null, length: number): index is number {
+  return (
+    index !== null &&
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < length
+  );
+}
+
+function isValidKline(k: KlineRecord): boolean {
+  return [k.open, k.high, k.low, k.close].every((v) => Number.isFinite(v));
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatXLabel(openTime: string | number | Date, range: RangeTab): string {
@@ -102,12 +143,116 @@ function fmtMarketShort(value: number): string {
   return `$${value.toFixed(0)}`;
 }
 
+interface YDomain {
+  min: number;
+  max: number;
+  range: number;
+}
+
+function computeVisibleIndexRange(
+  scrollOffset: number,
+  viewportWidth: number,
+  chartContentWidth: number,
+  count: number,
+): { start: number; end: number } {
+  if (count <= 0) return { start: 0, end: 0 };
+  if (count === 1) return { start: 0, end: 0 };
+  if (chartContentWidth <= 0 || viewportWidth <= 0) {
+    return { start: 0, end: count - 1 };
+  }
+
+  const maxScroll = Math.max(0, chartContentWidth - viewportWidth);
+  const clampedScroll = Math.min(Math.max(0, scrollOffset), maxScroll);
+
+  const visibleStartPx = clampedScroll;
+  const visibleEndPx = Math.min(
+    chartContentWidth,
+    clampedScroll + viewportWidth,
+  );
+  const ratioStart = visibleStartPx / chartContentWidth;
+  const ratioEnd = visibleEndPx / chartContentWidth;
+
+  return {
+    start: Math.max(0, Math.floor(ratioStart * (count - 1))),
+    end: Math.min(count - 1, Math.ceil(ratioEnd * (count - 1))),
+  };
+}
+
+function computeCandleVisibleRange(
+  scrollOffset: number,
+  candleSlotPixelW: number,
+  count: number,
+): { start: number; end: number } {
+  if (count <= 0) return { start: 0, end: 0 };
+  if (count <= CANDLE_VIEWPORT_COUNT) {
+    return { start: 0, end: count - 1 };
+  }
+
+  const maxStart = count - CANDLE_VIEWPORT_COUNT;
+  const start = Math.max(
+    0,
+    Math.min(maxStart, Math.floor(scrollOffset / Math.max(1, candleSlotPixelW))),
+  );
+
+  return {
+    start,
+    end: start + CANDLE_VIEWPORT_COUNT - 1,
+  };
+}
+
+function computePaddedYDomain(values: number[]): YDomain | null {
+  const finite = values.filter(Number.isFinite);
+  if (finite.length === 0) return null;
+
+  const rawMin = Math.min(...finite);
+  const rawMax = Math.max(...finite);
+  const rawRange = rawMax - rawMin || 1;
+  const pad = rawRange * Y_PADDING_RATIO;
+  const min = rawMin - pad;
+  const max = rawMax + pad;
+
+  return { min, max, range: max - min || 1 };
+}
+
+function mapYValue(v: number, domain: YDomain): number {
+  return PAD + INNER_H - ((v - domain.min) / domain.range) * INNER_H;
+}
+
+function computeViewportXLabelIndices(
+  visibleStart: number,
+  visibleEnd: number,
+): number[] {
+  if (visibleEnd <= visibleStart) return [visibleStart];
+
+  const span = visibleEnd - visibleStart;
+  const indices = Array.from({ length: X_LABEL_COUNT }, (_, i) => {
+    const t = i / (X_LABEL_COUNT - 1);
+    return Math.round(visibleStart + t * span);
+  });
+
+  return indices.filter((idx, i) => i === 0 || idx !== indices[i - 1]);
+}
+
+type PriceDirection = 'up' | 'down' | 'neutral';
+
+interface LastVisibleAnchor {
+  index: number;
+  price: number;
+  pixelY: number;
+}
+
+function formatLastPriceLabel(price: number, direction: PriceDirection): string {
+  const formatted = fmtMarketShort(price);
+  if (direction === 'up') return `▲ ${formatted}`;
+  if (direction === 'down') return `▼ ${formatted}`;
+  return formatted;
+}
+
 // ─── Chart view type ─────────────────────────────────────────────────────────
 interface ChartView {
   linePath: string;
   areaPath: string;
   points: { x: number; y: number }[];
-  xLabels: string[];
   yPriceLevels: { price: number; svgY: number }[];
   lastPoint: { x: number; y: number };
 }
@@ -115,6 +260,7 @@ interface ChartView {
 // ─── Memoized SVG — only re-renders when paths or hover changes ───────────────
 interface ChartSvgProps {
   view: ChartView;
+  totalSvgW: number;
   gradientId: string;
   isDark: boolean;
   lineColor: string;
@@ -126,6 +272,7 @@ interface ChartSvgProps {
 
 function ChartSvg({
   view,
+  totalSvgW,
   gradientId,
   isDark,
   lineColor,
@@ -138,7 +285,7 @@ function ChartSvg({
   <Svg
     style={svgStyle}
     preserveAspectRatio="none"
-    viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+    viewBox={`0 0 ${totalSvgW} ${SVG_H}`}
   >
     <Defs>
       <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -152,7 +299,7 @@ function ChartSvg({
     {view.yPriceLevels.map(({ svgY }, i) => (
       <Line
         key={i}
-        x1={0} x2={SVG_W}
+        x1={0} x2={totalSvgW}
         y1={svgY} y2={svgY}
         stroke={gridStroke}
         strokeWidth="0.5"
@@ -173,18 +320,10 @@ function ChartSvg({
       strokeWidth="2"
     />
 
-    {/* Live dot at end of curve */}
-    <Circle
-      cx={view.lastPoint.x}
-      cy={view.lastPoint.y}
-      r={3.5}
-      fill={lineColor}
-      stroke={markerStroke}
-      strokeWidth="1.5"
-    />
-
     {/* Hover crosshair */}
-    {activePoint ? (
+    {activePoint &&
+    Number.isFinite(activePoint.x) &&
+    Number.isFinite(activePoint.y) ? (
       <>
         <Line
           x1={activePoint.x} x2={activePoint.x}
@@ -253,6 +392,7 @@ const MemoCandleIcon = memo(CandleIcon);
 // ─── Candlestick SVG ──────────────────────────────────────────────────────────
 interface CandleSvgProps {
   klines: KlineRecord[];
+  yDomain: YDomain;
   green: string;
   red: string;
   gridStroke: string;
@@ -263,6 +403,7 @@ interface CandleSvgProps {
 
 function CandleSvg({
   klines,
+  yDomain,
   green,
   red,
   gridStroke,
@@ -273,40 +414,35 @@ function CandleSvg({
   const n = klines.length;
   if (n === 0) return null;
 
-  const innerW  = totalSvgW - PAD * 2;
+  const innerW  = Number.isFinite(totalSvgW) ? totalSvgW - PAD * 2 : INNER_W;
   const slotW   = innerW / n;
   const bodyW   = Math.max(2, slotW * 0.6);
 
-  const minVal  = Math.min(...klines.map(k => k.low));
-  const maxVal  = Math.max(...klines.map(k => k.high));
-  const range   = maxVal - minVal || 1;
-  const mapY    = (v: number) => PAD + INNER_H - ((v - minVal) / range) * INNER_H;
+  const mapY    = (v: number) => mapYValue(v, yDomain);
 
   const yGrid   = Array.from({ length: Y_TICK_COUNT }, (_, i) =>
     PAD + (i / (Y_TICK_COUNT - 1)) * INNER_H,
   );
 
-  const crosshairX = activeIndex !== null
+  const crosshairX = isValidHoverIndex(activeIndex, n)
     ? PAD + activeIndex * slotW + slotW / 2
     : null;
 
-  const candleStyle = totalSvgW > SVG_W
-    ? { width: totalSvgW, height: '100%' as const }
-    : svgStyle;
-
   return (
-    <Svg style={candleStyle} preserveAspectRatio="none" viewBox={`0 0 ${totalSvgW} ${SVG_H}`}>
+    <Svg style={svgStyle} preserveAspectRatio="none" viewBox={`0 0 ${totalSvgW} ${SVG_H}`}>
       {yGrid.map((svgY, i) => (
         <Line key={i} x1={0} x2={totalSvgW} y1={svgY} y2={svgY}
               stroke={gridStroke} strokeWidth="0.5" strokeDasharray="3 4" />
       ))}
 
       {klines.map((k, i) => {
+        if (!isValidKline(k)) return null;
         const cx      = PAD + i * slotW + slotW / 2;
         const highY   = mapY(k.high);
         const lowY    = mapY(k.low);
         const openY   = mapY(k.open);
         const closeY  = mapY(k.close);
+        if (![cx, highY, lowY, openY, closeY].every(Number.isFinite)) return null;
         const color   = k.close >= k.open ? green : red;
         const bodyTop = Math.min(openY, closeY);
         const bodyH   = Math.max(1.5, Math.abs(closeY - openY));
@@ -319,7 +455,7 @@ function CandleSvg({
         );
       })}
 
-      {crosshairX !== null ? (
+      {crosshairX !== null && Number.isFinite(crosshairX) ? (
         <Line x1={crosshairX} x2={crosshairX} y1={0} y2={SVG_H}
               stroke={crosshairStroke} strokeWidth="1" strokeDasharray="3 3" />
       ) : null}
@@ -328,6 +464,122 @@ function CandleSvg({
 }
 CandleSvg.displayName = 'CandleSvg';
 const MemoCandleSvg = memo(CandleSvg);
+
+// ─── Last price line overlay (viewport-fixed, TradingView-style) ─────────────
+interface LastPriceLineOverlayProps {
+  lineYAnim: Animated.Value;
+  lineOpacityAnim: Animated.Value;
+  width: number;
+  height: number;
+  lineColor: string;
+  pointX: number | null;
+  markerStroke: string;
+}
+
+function LastPriceLineOverlay({
+  lineYAnim,
+  lineOpacityAnim,
+  width,
+  height,
+  lineColor,
+  pointX,
+  markerStroke,
+}: LastPriceLineOverlayProps) {
+  const [lineY, setLineY] = useState(0);
+
+  useEffect(() => {
+    const id = lineYAnim.addListener(({ value }) => setLineY(value));
+    return () => lineYAnim.removeListener(id);
+  }, [lineYAnim]);
+
+  if (width <= 0 || height <= 0) return null;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[lastPriceOverlayStyle, { width, height, opacity: lineOpacityAnim }]}
+    >
+      <Svg width={width} height={height} style={svgStyle}>
+        <Line
+          x1={0}
+          y1={lineY}
+          x2={width}
+          y2={lineY}
+          stroke={lineColor}
+          strokeWidth={1}
+          strokeOpacity={LAST_PRICE_LINE_OPACITY}
+          strokeDasharray="4 4"
+        />
+        {pointX !== null && Number.isFinite(pointX) ? (
+          <>
+            <Circle
+              cx={pointX}
+              cy={lineY}
+              r={5}
+              fill={lineColor}
+              fillOpacity={0.25}
+            />
+            <Circle
+              cx={pointX}
+              cy={lineY}
+              r={3.5}
+              fill={lineColor}
+              stroke={markerStroke}
+              strokeWidth={1.5}
+            />
+          </>
+        ) : null}
+      </Svg>
+    </Animated.View>
+  );
+}
+LastPriceLineOverlay.displayName = 'LastPriceLineOverlay';
+const MemoLastPriceLineOverlay = memo(LastPriceLineOverlay);
+
+const lastPriceOverlayStyle = {
+  position: 'absolute' as const,
+  left: 0,
+  top: 0,
+  zIndex: 2,
+};
+
+interface LastPriceAxisMarkerProps {
+  lineYAnim: Animated.Value;
+  label: string;
+  backgroundColor: string;
+  scaleAnim: Animated.Value;
+  styles: ReturnType<typeof buildMarketCapStyles>;
+}
+
+function LastPriceAxisMarker({
+  lineYAnim,
+  label,
+  backgroundColor,
+  scaleAnim,
+  styles,
+}: LastPriceAxisMarkerProps) {
+  const markerTop = Animated.subtract(lineYAnim, LAST_PRICE_PILL_H / 2);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.lastPriceAxisMarker,
+        {
+          top: markerTop,
+          backgroundColor,
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+    >
+      <Text style={styles.lastPriceAxisMarkerText} numberOfLines={1}>
+        {label}
+      </Text>
+    </Animated.View>
+  );
+}
+LastPriceAxisMarker.displayName = 'LastPriceAxisMarker';
+const MemoLastPriceAxisMarker = memo(LastPriceAxisMarker);
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface MarketCapPlaceholderProps {
@@ -359,16 +611,36 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   const [chartType, setChartType]             = useState<'line' | 'candle'>('line');
   const [hoverIndex, setHoverIndex]           = useState<number | null>(null);
   const [chartPixelWidth, setChartPixelWidth] = useState(SVG_W);
+  const [scrollOffset, setScrollOffset]       = useState(0);
+  const [isAtLiveEdge, setIsAtLiveEdge]         = useState(true);
+
+  const chartScrollRef   = useRef<ScrollView>(null);
+  const scrollOffsetRef  = useRef(0);
+  const chartLayoutWidthRef = useRef(SVG_W);
+  const prevVisibleRangeRef = useRef<string>('');
+  const prevLineDomainRef = useRef<string>('');
+  const prevChartViewSigRef = useRef<string>('');
+  const followLiveRef    = useRef(true);
+  const pointerScreenX   = useRef(0);
+  const lastChartViewRef = useRef<ChartView | null>(null);
+  const rangeKeyRef      = useRef(`${activeRange}|${chartType}`);
 
   const rangeConfig = (chartType === 'candle' ? CANDLE_RANGE_CONFIG : RANGE_CONFIG)[activeRange];
   const { data, hasFetched } = useLiveMarketOverview({
     enabled: liveUpdatesEnabled,
     interval: rangeConfig.interval,
     limit:    rangeConfig.limit,
+    dataMode: chartType === 'candle' ? 'candle' : 'line',
   });
   const klines     = data.klines;
   const isLoading  = !hasFetched;
   const isPositive = data.absoluteChange24h >= 0;
+
+  useJumpCorrelationRender(
+    'MarketCapPlaceholder',
+    { activeRange, chartType, scrollOffset, klinesLen: klines.length, liveUpdatesEnabled },
+    ['scrollOffset', 'hoverIndex', 'isAtLiveEdge']
+  );
 
   // ── Display strings ─────────────────────────────────────────────────────────
   const displayCap = useMemo(() => {
@@ -390,18 +662,99 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
   }, [data.relativeChange24h, data.totalMarketCap]);
 
   // ── Chart geometry ──────────────────────────────────────────────────────────
+  const lineTotalSvgW = useMemo(
+    () => Math.max(SVG_W, (Math.max(klines.length, 2) - 1) * MIN_LINE_POINT_SVG + PAD * 2),
+    [klines.length],
+  );
+
+  const candleTotalSvgW =
+    klines.length > 0 ? PAD * 2 + klines.length * CANDLE_SLOT_SVG : SVG_W;
+  const candleSlotPixelW = chartPixelWidth / CANDLE_VIEWPORT_COUNT;
+  const candleChartTotalPixelW = klines.length * candleSlotPixelW;
+
+  const chartTotalSvgW  = chartType === 'line' ? lineTotalSvgW : candleTotalSvgW;
+  const chartTotalPixelW = chartType === 'line'
+    ? Math.round((lineTotalSvgW / SVG_W) * chartPixelWidth)
+    : Math.round(candleChartTotalPixelW);
+
+  const visibleIndexRange = useMemo(() => {
+    if (chartType === 'candle' && klines.length > 0 && chartPixelWidth > 0) {
+      return computeCandleVisibleRange(scrollOffset, candleSlotPixelW, klines.length);
+    }
+    return computeVisibleIndexRange(
+      scrollOffset,
+      chartPixelWidth,
+      chartTotalPixelW,
+      klines.length,
+    );
+  }, [
+    chartType,
+    scrollOffset,
+    chartPixelWidth,
+    chartTotalPixelW,
+    candleSlotPixelW,
+    klines.length,
+  ]);
+  const { start: visibleStartIndex, end: visibleEndIndex } = visibleIndexRange;
+
+  const visibleRangeKey = `${visibleStartIndex}-${visibleEndIndex}`;
+  if (visibleRangeKey !== prevVisibleRangeRef.current) {
+    prevVisibleRangeRef.current = visibleRangeKey;
+    jumpAuditChartRecalc('MarketCapPlaceholder', 'visibleIndexRange-changed', {
+      scrollOffset,
+      visibleStartIndex,
+      visibleEndIndex,
+      chartType,
+    });
+  }
+
+  const lineYDomain = useMemo(() => {
+    if (klines.length === 0) return null;
+    const values = klines
+      .slice(visibleStartIndex, visibleEndIndex + 1)
+      .map((k) => k.close);
+    return computePaddedYDomain(values);
+  }, [klines, visibleStartIndex, visibleEndIndex]);
+
+  const candleYDomain = useMemo(() => {
+    if (klines.length === 0) return null;
+    const values = klines
+      .slice(visibleStartIndex, visibleEndIndex + 1)
+      .flatMap((k) => [k.low, k.high]);
+    return computePaddedYDomain(values);
+  }, [klines, visibleStartIndex, visibleEndIndex]);
+
+  const lineDomainKey = lineYDomain
+    ? `${lineYDomain.min.toFixed(0)}-${lineYDomain.max.toFixed(0)}`
+    : 'null';
+  const candleDomainKey = candleYDomain
+    ? `${candleYDomain.min.toFixed(0)}-${candleYDomain.max.toFixed(0)}`
+    : 'null';
+  const activeDomainKey = chartType === 'line' ? lineDomainKey : candleDomainKey;
+  if (activeDomainKey !== prevLineDomainRef.current) {
+    prevLineDomainRef.current = activeDomainKey;
+    jumpAuditChartRecalc('MarketCapPlaceholder', 'yDomain-changed', {
+      chartType,
+      domainKey: activeDomainKey,
+      visibleStartIndex,
+      visibleEndIndex,
+    });
+  }
+
   const freshChartView = useMemo<ChartView | null>(() => {
-    if (klines.length < 2) return null;
+    if (klines.length < 2 || !lineYDomain) return null;
 
-    const closes = klines.map((k) => k.close);
-    const min    = Math.min(...closes);
-    const max    = Math.max(...closes);
-    const range  = max - min || 1;
-    const stepX  = INNER_W / Math.max(closes.length - 1, 1);
+    const finiteCloses = klines.map((k) => k.close).filter(Number.isFinite);
+    if (finiteCloses.length < 2) return null;
 
-    const mapY = (v: number) => PAD + INNER_H - ((v - min) / range) * INNER_H;
+    const innerW = lineTotalSvgW - PAD * 2;
+    const stepX  = innerW / Math.max(klines.length - 1, 1);
 
-    const points = closes.map((v, i) => ({ x: PAD + i * stepX, y: mapY(v) }));
+    const points = klines.flatMap((k, i) => {
+      if (!Number.isFinite(k.close)) return [];
+      return [{ x: PAD + i * stepX, y: mapYValue(k.close, lineYDomain) }];
+    });
+    if (points.length < 2) return null;
 
     const linePath = points.reduce(
       (acc, p, i) =>
@@ -415,36 +768,175 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       'Z',
     ].join(' ');
 
-    const xLabels = [
-      0,
-      Math.floor((klines.length - 1) * 0.33),
-      Math.floor((klines.length - 1) * 0.66),
-      klines.length - 1,
-    ].map((i) => formatXLabel(klines[i].openTime, activeRange));
-
+    const { max, range } = lineYDomain;
     const yPriceLevels = Array.from({ length: Y_TICK_COUNT }, (_, i) => {
       const t = i / (Y_TICK_COUNT - 1);
       return { price: max - t * range, svgY: PAD + t * INNER_H };
     });
 
-    return { linePath, areaPath, points, xLabels, yPriceLevels, lastPoint: points[points.length - 1] };
-  }, [klines, activeRange]);
+    return { linePath, areaPath, points, yPriceLevels, lastPoint: points[points.length - 1] };
+  }, [klines, lineTotalSvgW, lineYDomain]);
 
-  // Keep the last valid chartView so the chart never flashes blank during updates.
-  const lastChartViewRef = useRef<ChartView | null>(null);
+  // Drop stale geometry when the user switches range or chart type.
+  const rangeKey = `${activeRange}|${chartType}`;
+  if (rangeKeyRef.current !== rangeKey) {
+    rangeKeyRef.current = rangeKey;
+    lastChartViewRef.current = null;
+  }
+
+  // Keep the last valid chartView so the chart never flashes blank during live updates.
   if (freshChartView) lastChartViewRef.current = freshChartView;
-  const chartView = lastChartViewRef.current;
+  const chartView = freshChartView ?? lastChartViewRef.current;
+
+  const chartViewSig = chartView?.linePath?.slice(0, 32) ?? '';
+  if (chartViewSig && chartViewSig !== prevChartViewSigRef.current) {
+    prevChartViewSigRef.current = chartViewSig;
+    jumpAuditChartRecalc('MarketCapPlaceholder', 'freshChartView-rebuilt', {
+      pathPrefix: chartViewSig,
+      pointCount: chartView?.points.length ?? 0,
+    });
+  }
 
   // ── Hover state ─────────────────────────────────────────────────────────────
-  const activePoint = chartView && hoverIndex !== null ? chartView.points[hoverIndex] : null;
-  const activeKline = hoverIndex !== null ? klines[hoverIndex] : null;
+  const activePoint =
+    chartView && isValidHoverIndex(hoverIndex, chartView.points.length)
+      ? chartView.points[hoverIndex]
+      : null;
+  const activeKline = isValidHoverIndex(hoverIndex, klines.length) ? klines[hoverIndex] : null;
 
-  const candleScrollOffsetRef = useRef(0);
-  const pointerScreenX        = useRef(0);
+  // ── Scroll sizing (line + candle) ───────────────────────────────────────────
+  const trailingPadPx    = Math.round(chartPixelWidth * TRAILING_VIEWPORT_RATIO);
+
+  const lastPointSvgX = useMemo(() => {
+    if (chartType === 'line') {
+      return chartView?.lastPoint.x ?? 0;
+    }
+    if (klines.length === 0) return 0;
+    return PAD + (klines.length - 1) * CANDLE_SLOT_SVG + CANDLE_SLOT_SVG / 2;
+  }, [chartType, chartView, klines.length]);
+
+  const lastPointPixelX = (lastPointSvgX / chartTotalSvgW) * chartTotalPixelW;
+
+  const scrollContentWidth = Math.max(
+    chartTotalPixelW + trailingPadPx,
+    Math.round(lastPointPixelX + trailingPadPx),
+  );
+
+  const needsChartScroll = scrollContentWidth > chartPixelWidth + 1;
+
+  const computeLiveScrollOffset = useCallback(() => {
+    if (chartPixelWidth <= 0) return 0;
+    if (chartType === 'candle') {
+      if (klines.length <= CANDLE_VIEWPORT_COUNT) return 0;
+      return Math.max(0, (klines.length - CANDLE_VIEWPORT_COUNT) * candleSlotPixelW);
+    }
+    return Math.max(0, lastPointPixelX - chartPixelWidth * LIVE_POINT_VIEWPORT_RATIO);
+  }, [chartPixelWidth, lastPointPixelX, chartType, klines.length, candleSlotPixelW]);
+
+  const scrollToLive = useCallback((animated = true) => {
+    const offset = computeLiveScrollOffset();
+    followLiveRef.current = true;
+    setIsAtLiveEdge(true);
+    jumpAuditProgrammaticScroll(
+      'MarketCapPlaceholder',
+      animated ? 'scrollToLive-animated' : 'scrollToLive-instant',
+      offset,
+      scrollOffsetRef.current,
+      { animated }
+    );
+    scrollOffsetRef.current = offset;
+    setScrollOffset(offset);
+    chartScrollRef.current?.scrollTo({ x: offset, animated });
+  }, [computeLiveScrollOffset]);
+
+  // Reset scroll + follow state when range or chart type changes.
+  useLayoutEffect(() => {
+    followLiveRef.current = true;
+    setIsAtLiveEdge(true);
+    jumpAuditProgrammaticScroll(
+      'MarketCapPlaceholder',
+      'range-or-type-reset',
+      0,
+      scrollOffsetRef.current,
+      { activeRange, chartType }
+    );
+    scrollOffsetRef.current = 0;
+    setScrollOffset(0);
+    chartScrollRef.current?.scrollTo({ x: 0, animated: false });
+  }, [activeRange, chartType]);
+
+  // Auto-scroll to live edge while following
+  const latestClose = klines.length > 0 ? klines[klines.length - 1].close : 0;
+  useEffect(() => {
+    if (!followLiveRef.current) return;
+    if (chartType === 'line' && !chartView) return;
+    if (chartType === 'candle' && (klines.length === 0 || !candleYDomain)) return;
+    const offset = computeLiveScrollOffset();
+    jumpAuditProgrammaticScroll(
+      'MarketCapPlaceholder',
+      'live-follow-effect',
+      offset,
+      scrollOffsetRef.current,
+      { latestClose, followLive: followLiveRef.current }
+    );
+    scrollOffsetRef.current = offset;
+    setScrollOffset(offset);
+    chartScrollRef.current?.scrollTo({ x: offset, animated: false });
+  }, [
+    latestClose,
+    klines.length,
+    chartPixelWidth,
+    scrollContentWidth,
+    chartType,
+    activeRange,
+    chartView,
+    candleYDomain,
+    computeLiveScrollOffset,
+  ]);
+
+  const handleChartScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offset = e.nativeEvent.contentOffset.x;
+      jumpAuditScroll('MarketCapPlaceholder', 'onScroll', e.nativeEvent, {
+        scrollOffsetStateBefore: scrollOffsetRef.current,
+      });
+      scrollOffsetRef.current = offset;
+      setScrollOffset(offset);
+
+      const liveOffset = computeLiveScrollOffset();
+      const atLive = Math.abs(offset - liveOffset) <= LIVE_EDGE_THRESHOLD_PX;
+      followLiveRef.current = atLive;
+      setIsAtLiveEdge(atLive);
+    },
+    [computeLiveScrollOffset],
+  );
+
+  const handleChartPointer = useCallback(
+    (contentX: number | null, viewportX: number | null) => {
+      if (contentX === null) return;
+      if (viewportX !== null && Number.isFinite(viewportX)) {
+        pointerScreenX.current = viewportX;
+      }
+      if (chartType === 'line') {
+        if (!chartView) return;
+        const ratio  = Math.max(0, Math.min(1, contentX / Math.max(1, chartTotalPixelW)));
+        const maxIdx = chartView.points.length - 1;
+        const nextIndex = Math.max(0, Math.min(maxIdx, Math.round(ratio * maxIdx)));
+        setHoverIndex(Number.isInteger(nextIndex) ? nextIndex : null);
+        return;
+      }
+      if (!klines.length) return;
+      const idx = Math.floor(contentX / Math.max(1, candleSlotPixelW));
+      const nextIndex = Math.max(0, Math.min(klines.length - 1, idx));
+      setHoverIndex(Number.isInteger(nextIndex) ? nextIndex : null);
+    },
+    [chartType, chartView, chartTotalPixelW, candleSlotPixelW, klines.length],
+  );
 
   const hoverLabelPos = useMemo(() => {
     if (!activePoint) return null;
-    const px = (activePoint.x / SVG_W) * chartPixelWidth;
+    const pointPxContent = (activePoint.x / lineTotalSvgW) * chartTotalPixelW;
+    const px = pointPxContent - scrollOffset;
     const py = (activePoint.y / SVG_H) * chartAreaHeight;
     const w  = 90;
     return {
@@ -452,7 +944,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       top:  Math.max(py - 32, 4),
       width: w,
     };
-  }, [activePoint, chartPixelWidth, chartAreaHeight]);
+  }, [activePoint, lineTotalSvgW, chartTotalPixelW, scrollOffset, chartPixelWidth, chartAreaHeight]);
 
   const candleHoverPos = useMemo(() => {
     if (hoverIndex === null || klines.length === 0) return null;
@@ -462,7 +954,7 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
       top: 4,
       width: w,
     };
-  }, [hoverIndex, klines.length, chartPixelWidth]);
+  }, [hoverIndex, klines.length, chartPixelWidth, scrollOffset]);
 
   const yLabelPositions = useMemo(() => {
     if (!chartView) return [];
@@ -472,46 +964,163 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
     }));
   }, [chartView, chartAreaHeight]);
 
-  const handlePointer = useCallback((xPx: number) => {
-    if (!chartView) return;
-    const ratio  = Math.max(0, Math.min(1, xPx / Math.max(1, chartPixelWidth)));
-    const maxIdx = chartView.points.length - 1;
-    setHoverIndex(Math.max(0, Math.min(maxIdx, Math.round(ratio * maxIdx))));
-  }, [chartView, chartPixelWidth]);
-
-  // ── Candle scroll & sizing ──────────────────────────────────────────────────
-  const candleTotalSvgW = Math.max(SVG_W, klines.length * MIN_CANDLE_SLOT_SVG);
-  const candleTotalPixelW = Math.round((candleTotalSvgW / SVG_W) * chartPixelWidth);
-  const needsCandleScroll = candleTotalSvgW > SVG_W;
-
-  const handleCandlePointer = useCallback((locationX: number) => {
-    if (!klines.length) return;
-    pointerScreenX.current = locationX;
-    const totalX = locationX + candleScrollOffsetRef.current;
-    const idx    = Math.round((totalX / Math.max(1, candleTotalPixelW)) * (klines.length - 1));
-    setHoverIndex(Math.max(0, Math.min(klines.length - 1, idx)));
-  }, [klines.length, candleTotalPixelW]);
-
+  // ── Candle y-axis / x-axis labels ───────────────────────────────────────────
   const candleYLabelPositions = useMemo(() => {
-    if (klines.length === 0) return [];
-    const minVal = Math.min(...klines.map(k => k.low));
-    const maxVal = Math.max(...klines.map(k => k.high));
-    const range  = maxVal - minVal || 1;
+    if (!candleYDomain) return [];
+    const { min, max, range } = candleYDomain;
     return Array.from({ length: Y_TICK_COUNT }, (_, i) => {
       const t = i / (Y_TICK_COUNT - 1);
       return {
-        price: maxVal - t * range,
+        price: max - t * range,
         top:   Math.max(0, (PAD + t * INNER_H) / SVG_H * chartAreaHeight - 8),
       };
     });
-  }, [klines, chartAreaHeight]);
+  }, [candleYDomain, chartAreaHeight]);
 
-  const candleXLabels = useMemo(() => {
+  const viewportXLabels = useMemo(() => {
     if (klines.length === 0) return [];
-    const n = klines.length;
-    return [0, Math.floor(n * 0.33), Math.floor(n * 0.66), n - 1]
-      .map(i => formatXLabel(klines[i].openTime, activeRange));
-  }, [klines, activeRange]);
+    const indices = computeViewportXLabelIndices(visibleStartIndex, visibleEndIndex);
+    const labels: string[] = [];
+    for (const i of indices) {
+      const label = formatXLabel(klines[i].openTime, activeRange);
+      if (labels.length === 0 || labels[labels.length - 1] !== label) {
+        labels.push(label);
+      }
+    }
+    return labels;
+  }, [klines, visibleStartIndex, visibleEndIndex, activeRange]);
+
+  const activeYDomain = chartType === 'line' ? lineYDomain : candleYDomain;
+
+  const lastVisibleAnchor = useMemo<LastVisibleAnchor | null>(() => {
+    if (!activeYDomain || klines.length === 0) return null;
+    if (visibleEndIndex < 0 || visibleEndIndex >= klines.length) return null;
+
+    const kline = klines[visibleEndIndex];
+    if (!Number.isFinite(kline.close)) return null;
+
+    const svgY = mapYValue(kline.close, activeYDomain);
+    return {
+      index: visibleEndIndex,
+      price: kline.close,
+      pixelY: (svgY / SVG_H) * chartAreaHeight,
+    };
+  }, [activeYDomain, klines, visibleEndIndex, chartAreaHeight]);
+
+  const lastVisiblePointViewportX = useMemo(() => {
+    if (!lastVisibleAnchor || chartPixelWidth <= 0) return null;
+
+    let contentX: number;
+    if (chartType === 'line' && chartView) {
+      const pt = chartView.points[lastVisibleAnchor.index];
+      if (!pt) return null;
+      contentX = (pt.x / lineTotalSvgW) * chartTotalPixelW;
+    } else if (chartType === 'candle' && klines.length > 0) {
+      contentX = lastVisibleAnchor.index * candleSlotPixelW + candleSlotPixelW / 2;
+    } else {
+      return null;
+    }
+
+    const viewportX = contentX - scrollOffset;
+    if (viewportX < -6 || viewportX > chartPixelWidth + 6) return null;
+    return viewportX;
+  }, [
+    lastVisibleAnchor,
+    chartPixelWidth,
+    chartType,
+    chartView,
+    lineTotalSvgW,
+    chartTotalPixelW,
+    candleSlotPixelW,
+    klines.length,
+    scrollOffset,
+  ]);
+
+  const canRenderChart =
+    chartType === 'line' ? !!chartView : klines.length > 0 && !!candleYDomain;
+
+  const lineYAnim = useRef(new Animated.Value(0)).current;
+  const lineOpacityAnim = useRef(new Animated.Value(LAST_PRICE_LINE_OPACITY)).current;
+  const pillScaleAnim = useRef(new Animated.Value(1)).current;
+  const prevVisiblePriceRef = useRef<number | null>(null);
+  const [priceDirection, setPriceDirection] = useState<PriceDirection>('neutral');
+
+  useEffect(() => {
+    if (!lastVisibleAnchor) return;
+    Animated.timing(lineYAnim, {
+      toValue: lastVisibleAnchor.pixelY,
+      duration: LAST_PRICE_ANIM_MS,
+      useNativeDriver: false,
+    }).start();
+  }, [lastVisibleAnchor, lineYAnim]);
+
+  useEffect(() => {
+    if (!lastVisibleAnchor) return;
+
+    const prev = prevVisiblePriceRef.current;
+    if (prev !== null && prev !== lastVisibleAnchor.price) {
+      setPriceDirection(
+        lastVisibleAnchor.price > prev
+          ? 'up'
+          : lastVisibleAnchor.price < prev
+            ? 'down'
+            : 'neutral',
+      );
+      Animated.sequence([
+        Animated.timing(pillScaleAnim, {
+          toValue: 1.08,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        Animated.spring(pillScaleAnim, {
+          toValue: 1,
+          friction: 6,
+          tension: 180,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+
+    prevVisiblePriceRef.current = lastVisibleAnchor.price;
+  }, [lastVisibleAnchor, pillScaleAnim]);
+
+  useEffect(() => {
+    const breathe = Animated.loop(
+      Animated.sequence([
+        Animated.timing(lineOpacityAnim, {
+          toValue: 0.84,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(lineOpacityAnim, {
+          toValue: 0.6,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    breathe.start();
+    return () => breathe.stop();
+  }, [lineOpacityAnim]);
+
+  useLayoutEffect(() => {
+    prevVisiblePriceRef.current = null;
+    setPriceDirection('neutral');
+    pillScaleAnim.setValue(1);
+  }, [activeRange, chartType, pillScaleAnim]);
+
+  const lastPriceLabel = lastVisibleAnchor
+    ? formatLastPriceLabel(lastVisibleAnchor.price, priceDirection)
+    : '';
+
+  const lastPriceMarkerBg = useMemo(() => {
+    if (priceDirection === 'up') return chartColors.green;
+    if (priceDirection === 'down') return chartColors.red;
+    return chartColors.line;
+  }, [priceDirection, chartColors.green, chartColors.red, chartColors.line]);
+
+  const showLastPriceMarker =
+    lastVisibleAnchor !== null && hoverIndex === null && !isLoading;
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -600,6 +1209,15 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                 {fmtMarketShort(price)}
               </Text>
             ))}
+            {showLastPriceMarker ? (
+              <MemoLastPriceAxisMarker
+                lineYAnim={lineYAnim}
+                label={lastPriceLabel}
+                backgroundColor={lastPriceMarkerBg}
+                scaleAnim={pillScaleAnim}
+                styles={styles}
+              />
+            ) : null}
           </View>
 
           {/* SVG + interaction area */}
@@ -607,54 +1225,134 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
             style={[styles.chartWrapper, { height: chartAreaHeight }]}
             onLayout={(e) => {
               const w = e.nativeEvent.layout.width;
-              if (w > 0) setChartPixelWidth(w);
+              const h = e.nativeEvent.layout.height;
+              if (w > 0) {
+                jumpAuditLayout(
+                  'MarketCapPlaceholder',
+                  'chartWrapper-onLayout',
+                  { width: chartLayoutWidthRef.current, height: chartAreaHeight },
+                  { width: w, height: h }
+                );
+                chartLayoutWidthRef.current = w;
+                setChartPixelWidth(w);
+              }
             }}
           >
-            {isLoading && !chartView ? (
+            {isLoading && !canRenderChart ? (
               <View style={[styles.chartSkeleton, { height: chartAreaHeight }]} />
-            ) : chartView ? (
+            ) : canRenderChart ? (
               <>
-                {chartType === 'line' ? (
-                  <MemoChartSvg
-                    view={chartView}
-                    gradientId={gradientId}
-                    isDark={isDark}
-                    lineColor={chartColors.line}
-                    activePoint={activePoint}
-                    crosshairStroke={chartCrosshairStroke}
-                    markerStroke={chartMarkerStroke}
-                    gridStroke={chartGridStroke}
-                  />
-                ) : needsCandleScroll ? (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    scrollEventThrottle={16}
-                    style={{ height: chartAreaHeight }}
-                    contentContainerStyle={{ width: candleTotalPixelW }}
-                    onScroll={(e) => { candleScrollOffsetRef.current = e.nativeEvent.contentOffset.x; }}
-                  >
-                    <MemoCandleSvg
-                      klines={klines}
-                      green={chartColors.green}
-                      red={chartColors.red}
-                      gridStroke={chartGridStroke}
-                      activeIndex={hoverIndex}
-                      crosshairStroke={chartCrosshairStroke}
-                      totalSvgW={candleTotalSvgW}
+                <ScrollView
+                  ref={chartScrollRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  scrollEventThrottle={16}
+                  scrollEnabled={needsChartScroll}
+                  style={{ height: chartAreaHeight }}
+                  contentContainerStyle={{ width: scrollContentWidth }}
+                  onScroll={handleChartScroll}
+                  onScrollBeginDrag={(e) =>
+                    jumpAuditScroll('MarketCapPlaceholder', 'onScrollBeginDrag', e.nativeEvent)
+                  }
+                  onScrollEndDrag={(e) =>
+                    jumpAuditScroll('MarketCapPlaceholder', 'onScrollEndDrag', e.nativeEvent)
+                  }
+                  onMomentumScrollBegin={(e) =>
+                    jumpAuditScroll('MarketCapPlaceholder', 'onMomentumScrollBegin', e.nativeEvent)
+                  }
+                  onMomentumScrollEnd={(e) =>
+                    jumpAuditScroll('MarketCapPlaceholder', 'onMomentumScrollEnd', e.nativeEvent)
+                  }
+                  onContentSizeChange={(w) => {
+                    jumpAuditLayout(
+                      'MarketCapPlaceholder',
+                      'chart-contentSizeChange',
+                      null,
+                      { width: w, height: chartAreaHeight },
+                      { followLive: followLiveRef.current }
+                    );
+                    if (followLiveRef.current) scrollToLive(false);
+                  }}
+                >
+                  <View style={{ width: scrollContentWidth, height: chartAreaHeight }}>
+                    <View style={{ width: chartTotalPixelW, height: chartAreaHeight }}>
+                      {chartType === 'line' && chartView ? (
+                        <MemoChartSvg
+                          view={chartView}
+                          totalSvgW={lineTotalSvgW}
+                          gradientId={gradientId}
+                          isDark={isDark}
+                          lineColor={chartColors.line}
+                          activePoint={activePoint}
+                          crosshairStroke={chartCrosshairStroke}
+                          markerStroke={chartMarkerStroke}
+                          gridStroke={chartGridStroke}
+                        />
+                      ) : candleYDomain ? (
+                        <MemoCandleSvg
+                          klines={klines}
+                          yDomain={candleYDomain}
+                          green={chartColors.green}
+                          red={chartColors.red}
+                          gridStroke={chartGridStroke}
+                          activeIndex={hoverIndex}
+                          crosshairStroke={chartCrosshairStroke}
+                          totalSvgW={candleTotalSvgW}
+                        />
+                      ) : null}
+                    </View>
+
+                    {/* Pointer interaction — inside scroll content so horizontal swipes scroll */}
+                    <View
+                      style={[
+                        styles.interactionLayer,
+                        { height: chartAreaHeight, width: scrollContentWidth },
+                      ]}
+                      onTouchStart={(e) => {
+                        const contentX = sanitizePointerX(e.nativeEvent.locationX);
+                        const viewportX =
+                          contentX !== null ? contentX - scrollOffsetRef.current : null;
+                        handleChartPointer(contentX, viewportX);
+                      }}
+                      onTouchEnd={() => setHoverIndex(null)}
+                      {...(Platform.OS === 'web'
+                        ? {
+                            onMouseMove: (e: any) => {
+                              const ne = e.nativeEvent;
+                              const contentX = sanitizePointerX(ne.locationX ?? ne.offsetX);
+                              const viewportX =
+                                contentX !== null ? contentX - scrollOffsetRef.current : null;
+                              handleChartPointer(contentX, viewportX);
+                            },
+                            onMouseLeave: () => setHoverIndex(null),
+                          }
+                        : {})}
                     />
-                  </ScrollView>
-                ) : (
-                  <MemoCandleSvg
-                    klines={klines}
-                    green={chartColors.green}
-                    red={chartColors.red}
-                    gridStroke={chartGridStroke}
-                    activeIndex={hoverIndex}
-                    crosshairStroke={chartCrosshairStroke}
-                    totalSvgW={candleTotalSvgW}
+                  </View>
+                </ScrollView>
+
+                {showLastPriceMarker ? (
+                  <MemoLastPriceLineOverlay
+                    lineYAnim={lineYAnim}
+                    lineOpacityAnim={lineOpacityAnim}
+                    width={chartPixelWidth}
+                    height={chartAreaHeight}
+                    lineColor={chartColors.line}
+                    pointX={lastVisiblePointViewportX}
+                    markerStroke={chartMarkerStroke}
                   />
-                )}
+                ) : null}
+
+                {/* Return to live — shown when user scrolls away from the latest point */}
+                {needsChartScroll && !isAtLiveEdge ? (
+                  <TouchableOpacity
+                    style={styles.returnToLiveBtn}
+                    onPress={() => scrollToLive(true)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.returnToLiveText}>{t('marketCap.returnToLive')}</Text>
+                  </TouchableOpacity>
+                ) : null}
 
                 {/* Hover label — close price for line, OHLC for candle */}
                 {chartType === 'line' && activeKline && hoverLabelPos ? (
@@ -702,23 +1400,9 @@ export const MarketCapPlaceholder: React.FC<MarketCapPlaceholderProps> = ({
                   </View>
                 ) : null}
 
-                {/* Touch / hover interaction layer */}
-                <View
-                  style={[styles.interactionLayer, { height: chartAreaHeight }]}
-                  onStartShouldSetResponder={() => true}
-                  onResponderGrant={(e: any) => chartType === 'candle' ? handleCandlePointer(e.nativeEvent.locationX) : handlePointer(e.nativeEvent.locationX)}
-                  onResponderMove={(e: any) => chartType === 'candle' ? handleCandlePointer(e.nativeEvent.locationX) : handlePointer(e.nativeEvent.locationX)}
-                  onResponderRelease={() => setHoverIndex(null)}
-                  onResponderTerminate={() => setHoverIndex(null)}
-                  {...({
-                    onMouseMove: (e: any) => chartType === 'candle' ? handleCandlePointer(e.nativeEvent.locationX) : handlePointer(e.nativeEvent.locationX),
-                    onMouseLeave: () => setHoverIndex(null),
-                  } as object)}
-                />
-
-                {/* X-axis time labels */}
+                {/* X-axis time labels — reflect the currently visible window */}
                 <View style={styles.xAxisLabels}>
-                  {(chartType === 'candle' ? candleXLabels : chartView.xLabels).map((label, i) => (
+                  {viewportXLabels.map((label, i) => (
                     <Text key={i} style={styles.xLabel}>{label}</Text>
                   ))}
                 </View>

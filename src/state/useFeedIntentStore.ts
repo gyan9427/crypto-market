@@ -11,15 +11,18 @@ type SearchEntry = { symbol: string; at: number };
 type PersistedPayload = {
   searches: SearchEntry[];
   readIds: string[];
+  dwellBuckets?: Record<string, number>;
 };
 
 type FeedIntentState = {
   recentSearchSymbols: string[];
   recentReadArticleIds: string[];
+  dwellTimeBuckets: Record<string, number>;
   hydrated: boolean;
   hydrate: () => Promise<void>;
   recordSearchCoin: (symbol: string) => void;
   recordArticleRead: (articleId: string) => void;
+  recordArticleDwell: (articleId: string, seconds: number) => void;
   clearAll: () => Promise<void>;
 };
 
@@ -46,6 +49,7 @@ async function loadPersisted(): Promise<PersistedPayload> {
     return {
       searches: pruneSearches(parsed.searches ?? []),
       readIds: (parsed.readIds ?? []).slice(0, MAX_READ_IDS),
+      dwellBuckets: parsed.dwellBuckets ?? {},
     };
   } catch {
     return { searches: [], readIds: [] };
@@ -72,6 +76,7 @@ function schedulePersist(getState: () => FeedIntentState): void {
         at: Date.now(),
       })),
       readIds: s.recentReadArticleIds,
+      dwellBuckets: s.dwellTimeBuckets,
     };
     void savePersisted(payload);
   }, 400);
@@ -80,6 +85,7 @@ function schedulePersist(getState: () => FeedIntentState): void {
 export const useFeedIntentStore = create<FeedIntentState>((set, get) => ({
   recentSearchSymbols: [],
   recentReadArticleIds: [],
+  dwellTimeBuckets: {},
   hydrated: false,
 
   hydrate: async () => {
@@ -87,6 +93,7 @@ export const useFeedIntentStore = create<FeedIntentState>((set, get) => ({
     set({
       recentSearchSymbols: data.searches.map((e) => e.symbol),
       recentReadArticleIds: data.readIds,
+      dwellTimeBuckets: data.dwellBuckets ?? {},
       hydrated: true,
     });
   },
@@ -109,8 +116,17 @@ export const useFeedIntentStore = create<FeedIntentState>((set, get) => ({
     schedulePersist(get);
   },
 
+  recordArticleDwell: (articleId: string, seconds: number) => {
+    const id = articleId.trim();
+    if (!id || seconds <= 0) return;
+    const bucket = seconds < 30 ? 'skim' : seconds < 120 ? 'read' : 'deep';
+    const prev = get().dwellTimeBuckets;
+    set({ dwellTimeBuckets: { ...prev, [bucket]: (prev[bucket] ?? 0) + 1 } });
+    schedulePersist(get);
+  },
+
   clearAll: async () => {
-    set({ recentSearchSymbols: [], recentReadArticleIds: [] });
+    set({ recentSearchSymbols: [], recentReadArticleIds: [], dwellTimeBuckets: {} });
     await AsyncStorage.removeItem(STORAGE_KEY);
   },
 }));

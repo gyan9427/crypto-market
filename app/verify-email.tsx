@@ -18,6 +18,7 @@ import { PrimaryButton } from '@/src/components/auth/PrimaryButton';
 import { OtpInput } from '@/src/components/auth/OtpInput';
 import { getAuthPaletteFromTokens } from '@/src/design-system/theme/authPaletteFromTokens';
 import { useAuthStore } from '@/src/state/useAuthStore';
+import { resolvePostAuthHref } from '@/src/state/usePendingShareStore';
 import {
   getVerificationStatus,
   resendVerification,
@@ -53,7 +54,7 @@ export default function VerifyEmailScreen() {
     try {
       const status = await getVerificationStatus();
       if (status.emailVerified) {
-        router.replace('/(tabs)' as never);
+        router.replace(resolvePostAuthHref(true) as never);
         return;
       }
       setCooldown(status.cooldownSecondsRemaining ?? 0);
@@ -91,7 +92,7 @@ export default function VerifyEmailScreen() {
       setUser(result.user);
       setSuccess(t('auth.verification.success'));
       AccessibilityInfo.announceForAccessibility(t('auth.verification.success'));
-      router.replace('/(tabs)' as never);
+      router.replace(resolvePostAuthHref(result.user.emailVerified === true) as never);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t('auth.verification.invalid');
       if (msg.includes('expired')) {
@@ -112,8 +113,12 @@ export default function VerifyEmailScreen() {
     try {
       setResendLoading(true);
       setError(null);
-      await resendVerification();
-      setSuccess(t('auth.verification.resent'));
+      const result = await resendVerification();
+      setSuccess(
+        result.emailDeliveryStatus === 'queued'
+          ? t('auth.verification.resent')
+          : 'Verification email queued is unavailable in this environment'
+      );
       setCooldown(60);
       AccessibilityInfo.announceForAccessibility(t('auth.verification.resent'));
     } catch (err: unknown) {

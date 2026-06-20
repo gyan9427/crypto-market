@@ -120,6 +120,20 @@ export type FeedPriorityScore = {
   breakdown: CoinContextScoreBreakdown;
 };
 
+export interface NewsSourceInfo {
+  sourceKey: string;
+  name: string;
+  domain: string;
+  logoUrl: string | null;
+  trustCategory: 'verified' | 'trusted' | 'community' | 'unknown';
+}
+
+export interface NewsShareMeta {
+  shareUrl: string;
+  publisherUrl: string;
+  ogImageUrl?: string | null;
+}
+
 export interface NewsItem {
   id: string;
   title: string;
@@ -128,6 +142,8 @@ export interface NewsItem {
   subtitle?: string;
   imageUrl?: string;
   source: string;
+  sourceInfo?: NewsSourceInfo;
+  shareMeta?: NewsShareMeta;
   sourceUrl?: string;
   author?: string;
   publishedAt: Date;

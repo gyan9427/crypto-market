@@ -12,6 +12,47 @@ export function trackArticleOpened(newsId: string): void {
   trackEvent({ featureKey: 'news_feed', eventType: 'article_opened', metadata: { newsId } });
 }
 
+export function trackSourceViewed(
+  newsId: string,
+  sourceKey: string,
+  surface: 'card' | 'featured' | 'detail' | 'search'
+): void {
+  if (!sourceKey) return;
+  trackEvent({ featureKey: 'news_feed', eventType: 'source_viewed', metadata: { newsId, sourceKey, surface } });
+}
+
+export function trackSourceClicked(
+  newsId: string,
+  sourceKey: string,
+  surface: 'card' | 'detail',
+  destination: 'source_url' | 'in_app_browser' = 'in_app_browser'
+): void {
+  if (!sourceKey) return;
+  trackEvent({ featureKey: 'news_feed', eventType: 'source_clicked', metadata: { newsId, sourceKey, surface, destination } });
+}
+
+export function trackSourceShared(
+  newsId: string,
+  sourceKey: string,
+  shareChannel?: 'native_sheet' | 'clipboard' | 'web_share'
+): void {
+  if (!sourceKey) return;
+  trackEvent({ featureKey: 'news_feed', eventType: 'source_shared', metadata: { newsId, sourceKey, ...(shareChannel ? { shareChannel } : {}) } });
+}
+
+export function trackNotificationOpened(payload: {
+  notificationId: string;
+  category: string;
+  type: string;
+  source: 'push' | 'inbox';
+}): void {
+  trackEvent({
+    featureKey: 'notifications',
+    eventType: 'notification_opened',
+    metadata: payload,
+  });
+}
+
 export function trackAuthEvent(
   eventType:
     | 'login_attempt'

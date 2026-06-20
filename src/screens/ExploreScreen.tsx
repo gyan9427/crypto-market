@@ -9,6 +9,7 @@ import {
   Animated as RNAnimated,
   Easing,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import Reanimated from 'react-native-reanimated';
 import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
@@ -20,21 +21,61 @@ import { TrendingCoinCard } from '../components/TrendingCoinCard';
 import { TrendingCoinCardSkeleton } from '../components/TrendingCoinCardSkeleton';
 import { ServiceUnavailableState } from '../components/ServiceUnavailableState';
 import { useAppStore } from '../state/useAppStore';
-import { fetchActiveCoinsPage, fetchMarketSnapshot, enrichTrendingCoinsWithSnapshot } from '../services/api';
+import { fetchActiveCoinsPage, fetchMarketSnapshot } from '../services/api';
 import { ExploreCategory, TrendingCoin } from '../types';
 import { usePollingEffect } from '../hooks/usePollingEffect';
 import { navigateToCoin } from '../navigation/coinNavigation';
-import { LivePriceQuote, useMarketPriceStream, useSparklineHistory, seedPriceHistory } from '../hooks/useMarketPriceStream';
+import {
+  LivePriceQuote,
+  useMarketPriceStream,
+  useSparklineHistory,
+  useSparklineRevision,
+  useSparklineBaselineReady,
+  prefetchSparklineBaselines,
+  ensureSparklineBaseline,
+} from '../hooks/useMarketPriceStream';
+import { isSparklineBaselineReady } from '../hooks/sparklineHistoryHub';
 import { useAppTheme } from '@/src/theme/ThemeProvider';
 import type { ThemeTokens } from '@/src/theme/theme';
+import {
+  isExploreMemoOptimizationsEnabled,
+  isExploreStableLoadLifecycleEnabled,
+} from '../config/exploreFeatureFlags';
+import { applyMetadataCoins } from '../utils/exploreCoinUpdates';
+import { coinScalarsEqual } from '../utils/reconcileTrendingCoins';
+import { useExploreRenderAttribution } from '../utils/exploreRenderAttribution';
+import { jumpAuditScroll } from '@/src/diagnostics/jumpCorrelationAudit';
+import { useJumpCorrelationRender } from '@/src/diagnostics/useJumpCorrelationRender';
 
 const GRAPH_ANIM_MS = 280;
+const COIN_ROW_HEIGHT = 56;
+const SKELETON_ROWS = Array(5).fill(null);
 
 const CATEGORY_LABELS: Record<ExploreCategory, string> = {
   trending: 'Trending',
   top: 'Top',
   analysis: 'Analysis',
 };
+
+type LoadPhase = 'idle' | 'initial' | 'category' | 'refresh';
+
+function resolveFetchCategory(category: ExploreCategory): 'trending' | 'top' {
+  return category === 'analysis' ? 'trending' : category;
+}
+
+function sparklineRefs(coins: TrendingCoin[]) {
+  return coins.map((c) => ({ symbol: c.symbol, price: c.price }));
+}
+
+function areExploreCoinRowPropsEqual(
+  prev: { coin: TrendingCoin; isFocused: boolean; onPress: (coinId: string) => void },
+  next: { coin: TrendingCoin; isFocused: boolean; onPress: (coinId: string) => void }
+): boolean {
+  if (prev.isFocused !== next.isFocused) return false;
+  if (prev.onPress !== next.onPress) return false;
+  if (!coinScalarsEqual(prev.coin, next.coin)) return false;
+  return true;
+}
 
 const ExploreCoinRow = React.memo(function ExploreCoinRow({
   coin,
@@ -45,32 +86,67 @@ const ExploreCoinRow = React.memo(function ExploreCoinRow({
   isFocused: boolean;
   onPress: (coinId: string) => void;
 }) {
+  const rowProps = useMemo(() => ({ coin, isFocused, onPress }), [coin, isFocused, onPress]);
+  useExploreRenderAttribution('ExploreCoinRow', rowProps, {
+    coinId: coin.id,
+    memoCompare: areExploreCoinRowPropsEqual,
+  });
+
   const { quotes } = useMarketPriceStream([coin.symbol], { enabled: isFocused });
   const liveQuote: LivePriceQuote | undefined = quotes[coin.symbol.toUpperCase()];
-  const liveTicks = useSparklineHistory(coin.symbol);
+  const sparklineData = useSparklineHistory(coin.symbol);
+  const sparklineRevision = useSparklineRevision(coin.symbol);
+  const baselineReady = useSparklineBaselineReady(coin.symbol);
 
-  // Merge snapshot baseline with live ticks so the sparkline shows real movement.
-  // Keep last 40 snapshot points as context, then append all accumulated live ticks.
-  const enrichedCoin = useMemo(() => {
-    if (liveTicks.length < 2) return coin;
-    const base = coin.sparklineData;
-    const combined = base && base.length >= 2
-      ? [...base.slice(-40), ...liveTicks]
-      : liveTicks;
-    return { ...coin, sparklineData: combined };
-  }, [coin, liveTicks]);
-
-  // Seed history with snapshot closes so the sparkline is populated from the first render.
   useEffect(() => {
-    if (coin.sparklineData && coin.sparklineData.length >= 2) {
-      seedPriceHistory(coin.symbol, coin.sparklineData);
-    }
-  }, [coin.symbol, coin.sparklineData]);
+    if (baselineReady) return;
+    let cancelled = false;
+    void ensureSparklineBaseline(coin.symbol, coin.price).then(() => {
+      if (cancelled) return;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [coin.symbol, coin.price, baselineReady]);
 
-  return <TrendingCoinCard coin={enrichedCoin} liveQuote={liveQuote} onPress={onPress} />;
-});
+  if (!baselineReady) {
+    return <TrendingCoinCardSkeleton />;
+  }
+
+  return (
+    <TrendingCoinCard
+      coin={coin}
+      sparklineData={sparklineData}
+      sparklineRevision={sparklineRevision}
+      liveQuote={liveQuote}
+      onPress={onPress}
+    />
+  );
+}, areExploreCoinRowPropsEqual);
 
 ExploreCoinRow.displayName = 'ExploreCoinRow';
+
+const ExploreListFooter = React.memo(function ExploreListFooter({
+  loading,
+  color,
+}: {
+  loading: boolean;
+  color: string;
+}) {
+  if (!loading) return null;
+  return (
+    <View style={footerStyles.loader}>
+      <ActivityIndicator size="small" color={color} />
+    </View>
+  );
+});
+
+const footerStyles = StyleSheet.create({
+  loader: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+});
 
 export const ExploreScreen: React.FC = () => {
   const router = useRouter();
@@ -78,11 +154,16 @@ export const ExploreScreen: React.FC = () => {
   const { tokens } = useAppTheme();
   const S = useMemo(() => buildExploreStyles(tokens), [tokens]);
   const collapsibleScrollHandlers = useCollapsibleNavHeaderScrollHandlers();
+  const stableLifecycle = isExploreStableLoadLifecycleEnabled();
+  const memoOpts = isExploreMemoOptimizationsEnabled();
+
+  useExploreRenderAttribution('ExploreScreen', { isFocused, stableLifecycle });
 
   useEffect(() => {
     if (isFocused) setPerformanceScreen('Explore');
   }, [isFocused]);
 
+  const [loadPhase, setLoadPhase] = useState<LoadPhase>('initial');
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,10 +172,24 @@ export const ExploreScreen: React.FC = () => {
   const [marketGraphExpanded, setMarketGraphExpanded] = useState(true);
   const [measuredGraphHeight, setMeasuredGraphHeight] = useState(0);
   const graphHeightAnim = useRef(new RNAnimated.Value(0)).current;
+
+  useJumpCorrelationRender('ExploreScreen', {
+    isFocused,
+    loadPhase,
+    coinsLen: coins.length,
+    marketGraphExpanded,
+  });
+
   const graphMeasureReadyRef = useRef(false);
   const recordedGraphFullHeightRef = useRef(0);
   const lastSyncedGraphHeightRef = useRef(0);
   const skipToggleEffectOnceRef = useRef(false);
+  const categoryGenerationRef = useRef(0);
+  const skipCategoryLoadRef = useRef(true);
+
+  const showSkeleton = stableLifecycle
+    ? loadPhase === 'initial' && coins.length === 0
+    : loading && coins.length === 0;
 
   const expandedGraphTargetHeight = useCallback(() => {
     const recorded = recordedGraphFullHeightRef.current;
@@ -107,58 +202,120 @@ export const ExploreScreen: React.FC = () => {
 
   const categories: ExploreCategory[] = ['trending', 'top'];
 
-  const loadInitialPage = useCallback(async () => {
+  const fetchPage = useCallback(async (cat: 'trending' | 'top') => {
+    return Promise.all([
+      fetchActiveCoinsPage(undefined, 20, cat),
+      fetchMarketSnapshot().catch(() => null),
+    ]);
+  }, []);
+
+  const loadFirstPage = useCallback(async () => {
+    try {
+      if (stableLifecycle) {
+        setLoadPhase('initial');
+      } else {
+        setLoading(true);
+        setCoins([]);
+      }
+      setError(null);
+      setNextCursor(undefined);
+      const cat = resolveFetchCategory(exploreCategory);
+      const [{ coins: pageCoins, nextCursor: cursor }, snapshot] = await fetchPage(cat);
+      if (snapshot) setMarketSnapshot(snapshot);
+      setCoins((prev) => applyMetadataCoins(prev, pageCoins, 'replace'));
+      setNextCursor(cursor);
+      void prefetchSparklineBaselines(sparklineRefs(pageCoins));
+    } catch (err: any) {
+      setError(err.message || 'Failed to load data');
+      console.error('Error loading explore data:', err);
+    } finally {
+      if (stableLifecycle) {
+        setLoadPhase('idle');
+      } else {
+        setLoading(false);
+      }
+    }
+  }, [exploreCategory, fetchPage, setMarketSnapshot, stableLifecycle]);
+
+  const loadCategoryPage = useCallback(async () => {
+    const generation = ++categoryGenerationRef.current;
+    try {
+      setLoadPhase('category');
+      setError(null);
+      setNextCursor(undefined);
+      const cat = resolveFetchCategory(exploreCategory);
+      const [{ coins: pageCoins, nextCursor: cursor }, snapshot] = await fetchPage(cat);
+      if (generation !== categoryGenerationRef.current) return;
+      if (snapshot) setMarketSnapshot(snapshot);
+      setCoins((prev) => applyMetadataCoins(prev, pageCoins, 'replace'));
+      setNextCursor(cursor);
+      void prefetchSparklineBaselines(sparklineRefs(pageCoins));
+    } catch (err: any) {
+      if (generation !== categoryGenerationRef.current) return;
+      setError(err.message || 'Failed to load data');
+      console.error('Error loading explore category:', err);
+    } finally {
+      if (generation === categoryGenerationRef.current) {
+        setLoadPhase('idle');
+      }
+    }
+  }, [exploreCategory, fetchPage, setMarketSnapshot]);
+
+  const loadInitialPageLegacy = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       setCoins([]);
       setNextCursor(undefined);
-      const cat = exploreCategory === 'analysis' ? 'trending' : exploreCategory;
-      const [{ coins: pageCoins, nextCursor: cursor }, snapshot] = await Promise.all([
-        fetchActiveCoinsPage(undefined, 20, cat),
-        fetchMarketSnapshot().catch(() => null),
-      ]);
+      const cat = resolveFetchCategory(exploreCategory);
+      const [{ coins: pageCoins, nextCursor: cursor }, snapshot] = await fetchPage(cat);
       if (snapshot) setMarketSnapshot(snapshot);
-      setCoins(enrichTrendingCoinsWithSnapshot(pageCoins, snapshot));
+      setCoins((prev) => applyMetadataCoins(prev, pageCoins, 'replace'));
       setNextCursor(cursor);
+      void prefetchSparklineBaselines(sparklineRefs(pageCoins));
     } catch (err: any) {
       setError(err.message || 'Failed to load data');
       console.error('Error loading explore data:', err);
     } finally {
       setLoading(false);
     }
-  }, [exploreCategory]);
+  }, [exploreCategory, fetchPage, setMarketSnapshot]);
 
-  // Trigger initial load (and reload on category change) without wiping the list
-  // on the periodic background refresh below.
   useEffect(() => {
-    void loadInitialPage();
-  }, [loadInitialPage]);
+    if (stableLifecycle) return;
+    void loadInitialPageLegacy();
+  }, [stableLifecycle, loadInitialPageLegacy]);
 
-  // Silent background refresh — preserves existing sparklineData so sparklines
-  // don't flash blank each cycle, and skips the loading skeleton entirely.
+  useEffect(() => {
+    if (!stableLifecycle) return;
+    void loadFirstPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stableLifecycle]);
+
+  useEffect(() => {
+    if (!stableLifecycle) return;
+    if (skipCategoryLoadRef.current) {
+      skipCategoryLoadRef.current = false;
+      return;
+    }
+    void loadCategoryPage();
+  }, [exploreCategory, loadCategoryPage, stableLifecycle]);
+
   const refreshCoins = useCallback(async () => {
     try {
-      const cat = exploreCategory === 'analysis' ? 'trending' : exploreCategory;
-      const [{ coins: pageCoins, nextCursor: cursor }, snapshot] = await Promise.all([
-        fetchActiveCoinsPage(undefined, 20, cat),
-        fetchMarketSnapshot().catch(() => null),
-      ]);
+      const cat = resolveFetchCategory(exploreCategory);
+      const [{ coins: pageCoins, nextCursor: cursor }, snapshot] = await fetchPage(cat);
       if (snapshot) setMarketSnapshot(snapshot);
-      const enriched = enrichTrendingCoinsWithSnapshot(pageCoins, snapshot);
-      setCoins((prev) => {
-        if (prev.length === 0) return enriched;
-        const sparklineMap = new Map(prev.map((c) => [c.id, c.sparklineData]));
-        return enriched.map((c) => ({
-          ...c,
-          sparklineData: c.sparklineData ?? sparklineMap.get(c.id),
-        }));
-      });
+      const needsBaseline = pageCoins.filter((c) => !isSparklineBaselineReady(c.symbol));
+      if (needsBaseline.length > 0) {
+        void prefetchSparklineBaselines(sparklineRefs(needsBaseline));
+      }
+      setCoins((prev) => applyMetadataCoins(prev, pageCoins, 'replace'));
       setNextCursor(cursor);
     } catch {
       // Silent — transient network blips shouldn't interrupt the visible list
     }
-  }, [exploreCategory]);
+  }, [exploreCategory, fetchPage, setMarketSnapshot]);
 
   usePollingEffect(
     refreshCoins,
@@ -170,24 +327,60 @@ export const ExploreScreen: React.FC = () => {
     if (loadingMore || nextCursor === null || nextCursor === undefined) return;
     try {
       setLoadingMore(true);
-      const cat = exploreCategory === 'analysis' ? 'trending' : exploreCategory;
-      const { coins: pageCoins, nextCursor: cursor } = await fetchActiveCoinsPage(
-        nextCursor,
-        20,
-        cat
-      );
-      setCoins((prev) => [...prev, ...pageCoins]);
+      const cat = resolveFetchCategory(exploreCategory);
+      const [{ coins: pageCoins, nextCursor: cursor }, snapshot] = await Promise.all([
+        fetchActiveCoinsPage(nextCursor, 20, cat),
+        fetchMarketSnapshot().catch(() => null),
+      ]);
+      if (snapshot) setMarketSnapshot(snapshot);
+      setCoins((prev) => applyMetadataCoins(prev, pageCoins, 'append'));
       setNextCursor(cursor);
+      void prefetchSparklineBaselines(sparklineRefs(pageCoins));
     } catch (err: any) {
       console.error('Error loading more:', err);
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, nextCursor, exploreCategory]);
+  }, [loadingMore, nextCursor, exploreCategory, setMarketSnapshot]);
 
-  const handleCoinPress = (coinId: string) => {
-    navigateToCoin(router, coinId, 'market');
-  };
+  const handleCoinPress = useCallback(
+    (coinId: string) => {
+      navigateToCoin(router, coinId, 'market');
+    },
+    [router]
+  );
+
+  const keyExtractor = useCallback(
+    (item: TrendingCoin | null, index: number) => item?.id || `skeleton-${index}`,
+    []
+  );
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: TrendingCoin | null; index: number }) => {
+      if (showSkeleton) {
+        return <TrendingCoinCardSkeleton key={`skeleton-${index}`} />;
+      }
+      return <ExploreCoinRow coin={item!} isFocused={isFocused} onPress={handleCoinPress} />;
+    },
+    [showSkeleton, isFocused, handleCoinPress]
+  );
+
+  const getItemLayout = useMemo(
+    () =>
+      memoOpts
+        ? (_data: ArrayLike<TrendingCoin | null> | null | undefined, index: number) => ({
+            length: COIN_ROW_HEIGHT,
+            offset: COIN_ROW_HEIGHT * index,
+            index,
+          })
+        : undefined,
+    [memoOpts]
+  );
+
+  const listFooter = useMemo(
+    () => <ExploreListFooter loading={loadingMore} color={tokens.colors.primary[400]} />,
+    [loadingMore, tokens.colors.primary]
+  );
 
   const onMarketGraphLayout = (e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
@@ -244,17 +437,8 @@ export const ExploreScreen: React.FC = () => {
       ? { height: graphHeightAnim, overflow: 'hidden' as const }
       : { alignSelf: 'stretch' as const };
 
-  // IMPORTANT: build this as a React element (not a component function) and
-  // pass the element to FlatList.ListHeaderComponent. VirtualizedList wraps
-  // a function/component prop as `<ListHeaderComponent />`, so passing an
-  // inline arrow function recreates the component type on every parent
-  // render and unmounts + remounts the entire header subtree — which would
-  // reset `MarketCapPlaceholder`'s internal state to zeros each cycle and
-  // cause the Market Overview values to flicker $X → $0 → $X. Passing an
-  // element lets React reconcile the tree in place and preserve child state.
   const headerElement = (
     <View style={S.headerSection}>
-      {/* Market overview toggle + collapsible chart */}
       <TouchableOpacity
         style={S.graphToggleRow}
         onPress={toggleGraph}
@@ -276,7 +460,6 @@ export const ExploreScreen: React.FC = () => {
         </View>
       </RNAnimated.View>
 
-      {/* Category tabs — same pattern as TradingScreen range tabs */}
       <View style={S.categoryRow}>
         {categories.map((cat) => (
           <TouchableOpacity
@@ -299,17 +482,18 @@ export const ExploreScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Coins list label */}
       <Text style={S.listLabel}>
         {CATEGORY_LABELS[exploreCategory]} Coins
       </Text>
     </View>
   );
 
+  const retryLoad = stableLifecycle ? loadFirstPage : loadInitialPageLegacy;
+
   if (error && coins.length === 0) {
     return (
       <View style={S.root}>
-        <ServiceUnavailableState onRetry={loadInitialPage} />
+        <ServiceUnavailableState onRetry={retryLoad} />
       </View>
     );
   }
@@ -317,28 +501,20 @@ export const ExploreScreen: React.FC = () => {
   return (
     <View style={S.root}>
       <Reanimated.FlatList
-        data={loading && coins.length === 0 ? Array(5).fill(null) : coins}
-        keyExtractor={(item, index) => item?.id || `skeleton-${index}`}
+        data={showSkeleton ? SKELETON_ROWS : coins}
+        keyExtractor={keyExtractor}
         ListHeaderComponent={headerElement}
         {...collapsibleScrollHandlers}
-        renderItem={({ item, index }) => {
-          if (loading && coins.length === 0) {
-            return <TrendingCoinCardSkeleton key={`skeleton-${index}`} />;
-          }
-          return <ExploreCoinRow coin={item} isFocused={isFocused} onPress={handleCoinPress} />;
-        }}
+        renderItem={renderItem}
+        getItemLayout={getItemLayout}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          loadingMore ? (
-            <View style={S.footerLoader}>
-              <ActivityIndicator size="small" color={tokens.colors.primary[400]} />
-            </View>
-          ) : null
-        }
+        ListFooterComponent={listFooter}
         contentContainerStyle={S.listContent}
         initialNumToRender={10}
         maxToRenderPerBatch={5}
+        windowSize={memoOpts ? 7 : 21}
+        removeClippedSubviews={memoOpts && Platform.OS === 'android'}
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[]}
       />
@@ -355,7 +531,6 @@ function buildExploreStyles(tokens: ThemeTokens) {
     backgroundColor: tokens.bg,
   },
 
-  // Header chrome
   headerSection: {
     backgroundColor: tokens.bg,
   },
@@ -375,7 +550,6 @@ function buildExploreStyles(tokens: ThemeTokens) {
   },
   graphClip: {},
 
-  // Category tabs — mirrors TradingScreen range tabs
   categoryRow: {
     flexDirection: 'row',
     gap: 4,
@@ -401,7 +575,6 @@ function buildExploreStyles(tokens: ThemeTokens) {
     color: tokens.colors.primary[400],
   },
 
-  // Error banner
   errorBanner: {
     backgroundColor: tokens.isDark ? tokens.colors.error[100] : tokens.colors.error[50],
     marginHorizontal: 16,
@@ -416,7 +589,6 @@ function buildExploreStyles(tokens: ThemeTokens) {
     fontSize: 12,
   },
 
-  // List section label
   listLabel: {
     fontSize: 13,
     fontWeight: '600',
@@ -428,10 +600,6 @@ function buildExploreStyles(tokens: ThemeTokens) {
 
   listContent: {
     paddingBottom: 96,
-  },
-  footerLoader: {
-    paddingVertical: 16,
-    alignItems: 'center',
   },
   });
 }

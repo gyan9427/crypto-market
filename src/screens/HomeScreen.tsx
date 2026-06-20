@@ -11,11 +11,16 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type ViewToken,
+  type FlatList,
 } from 'react-native';
-import Animated from 'react-native-reanimated';
-import { useCollapsibleNavHeaderScrollHandlers } from '@/src/hooks/useCollapsibleNavHeader';
+import Animated, { runOnUI } from 'react-native-reanimated';
+import {
+  useCollapsibleNavHeader,
+  useCollapsibleNavHeaderScrollHandlers,
+} from '@/src/hooks/useCollapsibleNavHeader';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { Users, Compass } from 'lucide-react-native';
 import { SegmentToggle } from '../components/SegmentToggle';
 import { NewsCard } from '../components/NewsCard';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
@@ -35,6 +40,11 @@ import { useAppTheme } from '@/src/theme/ThemeProvider';
 import { buildAppWsUrl } from '@/src/config/wsBaseUrl';
 import { shareNewsById } from '../utils/share';
 import { navigateToCoin } from '../navigation/coinNavigation';
+import {
+  jumpAuditScroll,
+  jumpAuditVirtualization,
+} from '@/src/diagnostics/jumpCorrelationAudit';
+import { useJumpCorrelationRender } from '@/src/diagnostics/useJumpCorrelationRender';
 
 /** After this many article cards, insert the Featured carousel (sixth vertical block). */
 const FEATURE_INSERT_AFTER = 5;
@@ -100,6 +110,7 @@ export const HomeScreen: React.FC = () => {
   const [commentingNewsId, setCommentingNewsId] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [feedScrollEnabled, setFeedScrollEnabled] = useState(true);
 
   const feedFilter = useAppStore((state) => state.feedFilter);
   const setFeedFilter = useAppStore((state) => state.setFeedFilter);
@@ -123,6 +134,9 @@ export const HomeScreen: React.FC = () => {
   const loadMoreRef = useRef<() => Promise<void>>(async () => {});
   const tryFillShortListRef = useRef<() => void>(() => {});
   const feedRowCountRef = useRef(0);
+  const carouselInteractionActiveRef = useRef(false);
+  const feedListRef = useRef<FlatList<FeedRow>>(null);
+  const { headerScrollFrozen } = useCollapsibleNavHeader();
   const showFeedLoading = loading || feedPending;
 
   useEffect(() => {
@@ -468,6 +482,30 @@ export const HomeScreen: React.FC = () => {
     [openNewsDetailById]
   );
 
+  const handleFeaturedScrollInteraction = useCallback(
+    (active: boolean) => {
+      if (active === carouselInteractionActiveRef.current) return;
+      carouselInteractionActiveRef.current = active;
+
+      jumpAuditScroll(
+        'FeaturedCarousel',
+        active ? 'interaction-active' : 'interaction-inactive',
+        { contentOffset: { x: 0, y: 0 } },
+        { feedScrollEnabledNext: !active, headerFrozen: active ? 1 : 0 }
+      );
+
+      runOnUI((frozen: number) => {
+        'worklet';
+        headerScrollFrozen.value = frozen;
+      })(active ? 1 : 0);
+
+      const scrollEnabled = !active;
+      feedListRef.current?.setNativeProps({ scrollEnabled });
+      setFeedScrollEnabled(scrollEnabled);
+    },
+    [headerScrollFrozen]
+  );
+
   const handleCloseDetail = useCallback(() => {
     setIsDetailVisible(false);
     setSelectedNews(null);
@@ -500,8 +538,35 @@ export const HomeScreen: React.FC = () => {
     feedRowCountRef.current = feedRows.length;
   }, [feedRows.length]);
 
+  useJumpCorrelationRender(
+    'HomeScreen',
+    { feedFilter, feedRowsLen: feedRows.length, feedScrollEnabled, newsLen: newsData.length },
+    ['feedScrollEnabled', 'loadingMore', 'refreshing']
+  );
+
+  const viewableKeysRef = useRef<Set<string>>(new Set());
+
   const handleViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const nextKeys = new Set<string>();
+      for (const token of viewableItems) {
+        const key =
+          token.key ??
+          (token.item && typeof token.item === 'object' && 'id' in token.item
+            ? String((token.item as NewsItem).id)
+            : `idx-${token.index ?? '?'}`);
+        nextKeys.add(key);
+        if (!viewableKeysRef.current.has(key)) {
+          jumpAuditVirtualization('HomeScreen', 'mount', key, token.index ?? -1);
+        }
+      }
+      for (const key of viewableKeysRef.current) {
+        if (!nextKeys.has(key)) {
+          jumpAuditVirtualization('HomeScreen', 'unmount', key, -1);
+        }
+      }
+      viewableKeysRef.current = nextKeys;
+
       if (!viewableItems.length || feedRowCountRef.current === 0) return;
       const maxIndex = Math.max(
         ...viewableItems.map((item) => (item.index == null ? -1 : item.index))
@@ -513,11 +578,18 @@ export const HomeScreen: React.FC = () => {
     []
   );
 
+  const feedIcons = useMemo(() => [
+    <Users size={14} color={feedFilter === 'following' ? tokens.colors.primary[tokens.isDark ? 400 : 600] : tokens.textMuted} strokeWidth={2} />,
+    <Compass size={14} color={feedFilter === 'explore' ? tokens.colors.primary[tokens.isDark ? 400 : 600] : tokens.textMuted} strokeWidth={2} />,
+  ], [feedFilter, tokens]);
+
   const listHeaderComponent = useMemo(
     () => (
       <>
         <SegmentToggle
           options={[t('feed.following'), t('feed.explore')]}
+          subtitles={[t('feed.followingSubtitle'), t('feed.exploreSubtitle')]}
+          icons={feedIcons}
           selectedIndex={feedFilter === 'following' ? 0 : 1}
           onSelect={handleSegmentChange}
         />
@@ -541,9 +613,13 @@ export const HomeScreen: React.FC = () => {
       }
       if (isFeaturedRow(item)) {
         return featuredNews.length === 0 ? (
-          <FeaturedCarouselSkeleton />
+          <FeaturedCarouselSkeleton onScrollInteractionChange={handleFeaturedScrollInteraction} />
         ) : (
-          <FeaturedCarousel items={displayFeatured} onItemPress={handleFeaturedNewsPress} />
+          <FeaturedCarousel
+            items={displayFeatured}
+            onItemPress={handleFeaturedNewsPress}
+            onScrollInteractionChange={handleFeaturedScrollInteraction}
+          />
         );
       }
       return (
@@ -563,6 +639,7 @@ export const HomeScreen: React.FC = () => {
       newsData.length,
       displayFeatured,
       handleFeaturedNewsPress,
+      handleFeaturedScrollInteraction,
       handleReact,
       handleComment,
       handleShare,
@@ -589,11 +666,14 @@ export const HomeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <Animated.FlatList
+        ref={feedListRef}
         style={styles.list}
         data={feedRows}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         ListHeaderComponent={listHeaderComponent}
+        scrollEnabled={feedScrollEnabled}
+        canCancelContentTouches={false}
         {...collapsibleScrollHandlers}
         onLayout={handleListLayout}
         onContentSizeChange={handleContentSizeChange}

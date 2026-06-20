@@ -7,7 +7,7 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
   return StyleSheet.create({
   container: {
     backgroundColor: tokens.surface,
-    borderRadius: semantic.cardRadius,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: tokens.border,
     marginHorizontal: spacing.md,
@@ -129,6 +129,12 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     alignItems: 'center',
     gap: spacing.sm,
   },
+  cardTopBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexShrink: 0,
+  },
   cardTopBarSymbol: {
     fontSize: typography.fontSizes.sm,
     fontFamily: typography.fontFamilies.sansSemiBold,
@@ -136,6 +142,7 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     color: tokens.text,
     textTransform: 'uppercase',
     letterSpacing: typography.letterSpacing.caption,
+    flexShrink: 0,
   },
   heroOuter: {
     width: '100%',
@@ -169,27 +176,38 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     color: tokens.isDark ? c.primary[700] : c.primary[200],
   },
   followButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.button,
-    backgroundColor: c.primary[500],
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 5,
+    backgroundColor: tokens.isDark
+      ? 'rgba(168,85,247,0.15)'
+      : 'rgba(168,85,247,0.10)',
     borderWidth: 1,
-    borderColor: c.primary[500],
+    borderColor: tokens.isDark
+      ? 'rgba(168,85,247,0.35)'
+      : 'rgba(168,85,247,0.30)',
     flexShrink: 0,
+    gap: 3,
   },
   followButtonFollowing: {
-    backgroundColor: tokens.surface,
-    borderColor: tokens.borderStrong,
+    backgroundColor: tokens.isDark
+      ? 'rgba(168,85,247,0.15)'
+      : 'rgba(168,85,247,0.10)',
+    borderColor: tokens.isDark
+      ? 'rgba(168,85,247,0.35)'
+      : 'rgba(168,85,247,0.30)',
   },
   followText: {
     fontSize: typography.fontSizes.xs,
     fontWeight: typography.fontWeights.semibold,
     fontFamily: typography.fontFamilies.sansSemiBold,
-    color: c.white,
+    color: tokens.isDark ? c.primary[400] : c.primary[700],
     letterSpacing: typography.letterSpacing.button,
   },
   followTextFollowing: {
-    color: tokens.text,
+    color: tokens.isDark ? c.primary[400] : c.primary[700],
   },
   content: {
     padding: spacing.md,
@@ -253,14 +271,19 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     color: tokens.isDark ? c.primary[400] : c.primary[700],
     letterSpacing: typography.letterSpacing.button,
   },
+  footerDivider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    backgroundColor: tokens.borderSubtle,
+    marginHorizontal: spacing.md,
+  },
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
-    gap: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: tokens.borderSubtle,
   },
@@ -271,19 +294,24 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginRight: spacing.sm,
-    backgroundColor: tokens.isDark
-      ? 'rgba(168,85,247,0.12)'
-      : 'rgba(168,85,247,0.08)',
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: tokens.isDark
-      ? 'rgba(168,85,247,0.25)'
-      : 'rgba(168,85,247,0.20)',
     gap: 4,
+  },
+  primaryCtaTextWrap: {
+    flexDirection: 'column',
+  },
+  primaryCtaLabel: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
+    fontFamily: typography.fontFamilies.sansSemiBold,
+    color: c.primary[tokens.isDark ? 400 : 500],
+    letterSpacing: typography.letterSpacing.button,
+  },
+  primaryCtaSubLabel: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.regular,
+    fontFamily: typography.fontFamilies.sans,
+    color: tokens.textMuted,
+    letterSpacing: typography.letterSpacing.caption,
   },
   primaryCtaText: {
     fontSize: typography.fontSizes.base,
@@ -293,11 +321,13 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     letterSpacing: typography.letterSpacing.button,
   },
   openSiteTouchable: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
+  },
+  openSiteTextWrap: {
+    flexDirection: 'column',
   },
   openSiteText: {
     fontSize: typography.fontSizes.sm,
@@ -306,10 +336,33 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
     color: c.primary[tokens.isDark ? 400 : 500],
     letterSpacing: typography.letterSpacing.button,
   },
+  openSiteSourceName: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.regular,
+    fontFamily: typography.fontFamilies.sans,
+    color: tokens.textMuted,
+    letterSpacing: typography.letterSpacing.caption,
+  },
+  tagsActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  tagsActionsRowTags: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  tagsActionsRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexShrink: 0,
+  },
   actionsRow: {
     flexDirection: 'row',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
+    paddingTop: spacing.xs,
     alignItems: 'center',
   },
   actionButton: {
@@ -332,6 +385,103 @@ export function buildNewsCardStyles(tokens: ThemeTokens) {
   },
   spacer: {
     flex: 1,
+  },
+
+  // ── "Because you follow" banner ─────────────────────────────────────────
+  followBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    backgroundColor: tokens.isDark
+      ? 'rgba(168,85,247,0.12)'
+      : 'rgba(168,85,247,0.07)',
+    gap: 6,
+  },
+  followBannerText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamilies.sansMedium,
+    fontWeight: typography.fontWeights.medium,
+    color: tokens.isDark ? c.primary[400] : c.primary[700],
+  },
+
+  // ── Source meta inside topbar ────────────────────────────────────────────
+  cardTopBarSource: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamilies.sans,
+    color: tokens.textMuted,
+    flex: 1,
+    minWidth: 0,
+  },
+
+  // ── AI Summary row ───────────────────────────────────────────────────────
+  aiSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.borderSubtle,
+  },
+  aiSummaryText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamilies.sansMedium,
+    fontWeight: typography.fontWeights.medium,
+    color: tokens.isDark ? c.primary[400] : c.primary[600],
+  },
+  aiSummaryDot: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamilies.sans,
+    color: tokens.textMuted,
+  },
+  aiSummaryReadTime: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamilies.sans,
+    color: tokens.textMuted,
+  },
+
+  // ── Save count avatars ───────────────────────────────────────────────────
+  savedAvatarsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  savedAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: tokens.isDark ? c.neutral[700] : c.neutral[300],
+    borderWidth: 1.5,
+    borderColor: tokens.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: -6,
+  },
+  savedAvatarFirst: {
+    marginLeft: 0,
+  },
+  savedAvatarText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: tokens.isDark ? c.neutral[200] : c.neutral[600],
+  },
+  savedCountText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamilies.sansMedium,
+    color: tokens.textMuted,
+    marginLeft: spacing.xs,
+    fontWeight: typography.fontWeights.medium,
+  },
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  shareText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamilies.sansMedium,
+    fontWeight: typography.fontWeights.medium,
+    color: tokens.textMuted,
   },
 });
 }

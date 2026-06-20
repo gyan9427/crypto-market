@@ -8,10 +8,8 @@ vi.mock('@/src/services/api', () => ({
   getCurrentUser: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock('@/src/state/useAuthStore', () => ({
-  useAuthStore: {
-    getState: vi.fn(() => ({ isAuthenticated: true })),
-  },
+vi.mock('@/src/services/authSession', () => ({
+  getIsAuthenticated: vi.fn(() => true),
 }));
 
 vi.mock('@/src/state/useAppStore', () => ({

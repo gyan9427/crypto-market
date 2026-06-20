@@ -15,7 +15,6 @@ import {
   ReactionType,
   ThemePreference,
 } from '../types';
-import { getWishlist } from '../services/api';
 import { useAuthStore } from './useAuthStore';
 
 const THEME_STORAGE_KEY = '@crypto_app_theme_preference';
@@ -228,6 +227,7 @@ export const useAppStore = create<AppState>((set, get) => {
       }
 
       try {
+        const { getWishlist } = await import('../services/api');
         const wishlist = await getWishlist();
         set({
           followingCoins: wishlist.map((coin) => coin.id),

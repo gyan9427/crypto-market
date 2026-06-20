@@ -190,7 +190,9 @@
   },
   "feed": {
     "following": "Following",
-    "explore": "Explore"
+    "explore": "Explore",
+    "followingSubtitle": "News from coins you follow",
+    "exploreSubtitle": "Discover what's trending"
   },
   "errors": {
     "failedToLoadNews": "Failed to load news",
@@ -272,7 +274,8 @@
   },
   "marketCap": {
     "today": "TODAY",
-    "noActiveTrend": "No active market trend"
+    "noActiveTrend": "No active market trend",
+    "returnToLive": "Return to Live"
   },
   "home": {
     "noResults": "No results found"
@@ -303,6 +306,30 @@
   "portfolio": {
     "headerAccount": "Account",
     "accountWithAddress": "Account {{address}}",
+    "entirePortfolio": "Entire Portfolio",
+    "sectionWallet": "Wallet",
+    "sectionExchange": "Exchange",
+    "allWallets": "All wallets",
+    "allExchanges": "All exchanges",
+    "manageAccounts": "Add or manage accounts",
+    "singleScope24hUnavailable": "24h change unavailable for this view",
+    "piScopeLimitedHint": "Portfolio-wide intelligence · select Entire Portfolio for full analysis",
+    "growthTitle": "Portfolio growth",
+    "growthPeriod24h": "24h",
+    "growthPeriod1W": "1W",
+    "growthPeriod1M": "1M",
+    "growthPeriod1Y": "1Y",
+    "growthPeriodAll": "All",
+    "compositionTitle": "Portfolio Composition",
+    "compositionOther": "Other",
+    "compositionTopHint": "{{symbol}} leads at {{pct}} of {{total}}",
+    "compositionLoading": "Loading holdings…",
+    "compositionEmpty": "No composition data for this view yet.",
+    "compositionTotal": "Total value",
+    "compositionBreakdown": "Asset breakdown",
+    "viewComposition": "View Composition",
+    "growthApproximated": "Trend scaled to this account's current share of total portfolio",
+    "growthEmpty": "Growth history will appear after portfolio snapshots are recorded",
     "holdings": "Holdings",
     "addWalletHint": "Add a wallet to see holdings",
     "addSourceHint": "Add a wallet or link an exchange to see holdings",
@@ -368,6 +395,14 @@
     "read": "Read",
     "fullArticle": "Full article",
     "readFullArticle": "Read full article",
+    "readSummary": "Read Summary",
+    "read": "Read Summary",
+    "summary": "Briefed",
+    "sourceArticle": "Source Article",
+    "aiSummary": "AI Summary",
+    "becauseYouFollow": "Because you follow {{symbol}}",
+    "saved": "saved",
+    "share": "Share",
     "byAuthor": "By {{author}}",
     "readNewsTitle": "Read: {{title}}",
     "openArticleTitle": "Open article: {{title}}",

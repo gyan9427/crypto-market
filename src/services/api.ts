@@ -2,14 +2,22 @@ import { Coin, CoinStats, NewsItem, TrendingCoin, User, NewsBoard, Comment, Reac
 import type { MarketSnapshotV2, SnapshotRow } from '../types/marketSnapshot';
 import type { SupportedLanguage } from '@/src/constants/languages';
 import { isSupportedLanguage } from '@/src/constants/languages';
-import { useAuthStore } from '../state/useAuthStore';
+import {
+  getAuthToken,
+  getIsAuthenticated,
+  loginAuthSession,
+  logoutAuthSession,
+  setAuthUser,
+} from '@/src/services/authSession';
 import { getApiLocaleLanguage } from '@/src/services/apiLocale';
-import { resolveApiBaseUrl } from '../config/apiBaseUrl';
+import { API_BASE_URL } from './apiBase';
 import { getAppVersion } from '../config/appVersion';
 import { fetchJsonCached } from './requestCache';
 import { resolveNewsItemCoins } from '../components/news/newsCardUtils';
+import { isExplorePreserveSparklinesEnabled } from '../config/exploreFeatureFlags';
+import { normalizeSparklineArray, preserveSparklineReference } from '../utils/sparklineReference';
 
-export const API_BASE_URL = resolveApiBaseUrl();
+export { API_BASE_URL } from './apiBase';
 
 // Backend response format
 interface ApiResponse<T> {
@@ -24,12 +32,28 @@ interface BackendNewsCategory {
   name: string;
 }
 
+interface BackendNewsSourceInfo {
+  sourceKey: string;
+  name: string;
+  domain: string;
+  logoUrl: string | null;
+  trustCategory: 'verified' | 'trusted' | 'community' | 'unknown';
+}
+
+interface BackendNewsShareMeta {
+  shareUrl: string;
+  publisherUrl: string;
+  ogImageUrl?: string | null;
+}
+
 interface BackendNews {
   id: string;
   title: string;
   summary: string;
   subtitle?: string;
   source: string;
+  sourceInfo?: BackendNewsSourceInfo;
+  shareMeta?: BackendNewsShareMeta;
   url: string;
   sourceUrl?: string;
   image?: string;
@@ -149,7 +173,7 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = useAuthStore.getState().token;
+  const token = getAuthToken();
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -193,7 +217,7 @@ export async function apiRequest<T>(
   if (!response.ok || !data.success) {
     const errMsg = data.error || `HTTP error! status: ${response.status}`;
     if (response.status === 401) {
-      await useAuthStore.getState().logout();
+      await logoutAuthSession();
       const { useAppStore } = await import('../state/useAppStore');
       useAppStore.getState().setFeedFilter('explore');
       throw new Error('Unauthorized. Please login again.');
@@ -217,7 +241,7 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
 
   const relatedCoins: Coin[] = resolveNewsItemCoins(backendNews.relatedCoins || [], coins);
 
-  const sourceUrl = backendNews.sourceUrl || backendNews.url;
+  const sourceUrl = backendNews.sourceUrl || backendNews.shareMeta?.publisherUrl || backendNews.url;
   const description = backendNews.subtitle || backendNews.summary;
 
   const defaultReactions: ReactionCounts = {
@@ -233,6 +257,8 @@ function transformBackendNews(backendNews: BackendNews, coins: Coin[] = []): New
     subtitle: description,
     imageUrl: backendNews.image,
     source: backendNews.source,
+    sourceInfo: backendNews.sourceInfo,
+    shareMeta: backendNews.shareMeta,
     sourceUrl,
     publishedAt,
     coins: relatedCoins,
@@ -321,7 +347,7 @@ export const fetchCoinsByIds = async (coinIds: string[]): Promise<Coin[]> => {
   if (unique.length === 0) return [];
 
   let followingIds: Set<string> = new Set();
-  if (useAuthStore.getState().isAuthenticated) {
+  if (getIsAuthenticated()) {
     const { useAppStore } = await import('../state/useAppStore');
     followingIds = new Set(useAppStore.getState().followingCoins);
   }
@@ -342,7 +368,7 @@ export const fetchNews = async (
   try {
     // Backend `/news/following` requires auth; avoid 401 when logged out or token cleared.
     const resolvedFilter: 'following' | 'explore' =
-      filter === 'following' && !useAuthStore.getState().isAuthenticated ? 'explore' : filter;
+      filter === 'following' && !getIsAuthenticated() ? 'explore' : filter;
 
     const categoryParam =
       categories && categories.length
@@ -368,11 +394,11 @@ export const fetchNews = async (
 /** Close prices for Explore sparkline (≥2 points for SparklineChart). */
 function sparklineValuesFromSnapshotRow(row: SnapshotRow): number[] | undefined {
   if (row.sparkline.encoding === 'closes' && row.sparkline.values.length >= 2) {
-    return row.sparkline.values;
+    return normalizeSparklineArray(row.sparkline.values);
   }
   if (row.sparkline.encoding === 'flat') {
     const v = row.sparkline.value;
-    if (Number.isFinite(v)) return [v, v];
+    if (Number.isFinite(v)) return normalizeSparklineArray([v, v]);
   }
   return undefined;
 }
@@ -382,7 +408,8 @@ function sparklineValuesFromSnapshotRow(row: SnapshotRow): number[] | undefined 
  */
 export function enrichTrendingCoinsWithSnapshot(
   coins: TrendingCoin[],
-  snapshot: MarketSnapshotV2 | null | undefined
+  snapshot: MarketSnapshotV2 | null | undefined,
+  prevSparklines?: Map<string, number[] | undefined>
 ): TrendingCoin[] {
   if (!snapshot) return coins;
   const byId = new Map<string, SnapshotRow>();
@@ -390,11 +417,17 @@ export function enrichTrendingCoinsWithSnapshot(
   for (const row of snapshot.tabs.topGainers) byId.set(row.coinId, row);
   for (const row of snapshot.tabs.topLosers) byId.set(row.coinId, row);
 
+  const preserve = isExplorePreserveSparklinesEnabled();
+
   return coins.map((c) => {
     const row = byId.get(c.id);
     if (!row) return c;
-    const sparklineData = sparklineValuesFromSnapshotRow(row);
-    if (!sparklineData) return c;
+    const rawSparkline = sparklineValuesFromSnapshotRow(row);
+    if (!rawSparkline) return c;
+    const sparklineData = preserve
+      ? preserveSparklineReference(prevSparklines?.get(c.id), rawSparkline)
+      : rawSparkline;
+    if (sparklineData === c.sparklineData) return c;
     return { ...c, sparklineData };
   });
 }
@@ -530,7 +563,7 @@ export async function completeCoinOnboarding(coinIds: string[]): Promise<User> {
     body: JSON.stringify({ coinIds }),
   });
   const user = transformBackendUser(response.user);
-  useAuthStore.getState().setUser(user);
+  setAuthUser(user);
   return user;
 }
 
@@ -547,7 +580,7 @@ export const fetchCoinDetails = async (coinId: string): Promise<Coin> => {
     const response = await apiRequest<{ coin: BackendCoin }>(`/coins/${coinId}`);
 
     let isFollowing = false;
-    if (useAuthStore.getState().isAuthenticated) {
+    if (getIsAuthenticated()) {
       const { useAppStore } = await import('../state/useAppStore');
       isFollowing = useAppStore.getState().followingCoins.includes(coinId);
     }
@@ -961,7 +994,7 @@ export const login = async (email: string, password: string): Promise<{ user: Us
     });
 
     const user = transformBackendUser(response.user);
-    await useAuthStore.getState().login(response.token, user);
+    await loginAuthSession(response.token, user);
 
     return { user, token: response.token };
   } catch (error: any) {
@@ -984,7 +1017,7 @@ export const signup = async (
     });
 
     const user = transformBackendUser(response.user);
-    await useAuthStore.getState().login(response.token, user);
+    await loginAuthSession(response.token, user);
 
     return { user, token: response.token };
   } catch (error: any) {
@@ -1006,8 +1039,8 @@ export const verifyEmail = async (
   return { user, token: response.token };
 };
 
-export const resendVerification = async (): Promise<{ message: string }> => {
-  return apiRequest<{ message: string }>('/auth/resend-verification', {
+export const resendVerification = async (): Promise<{ message: string; emailDeliveryStatus: 'queued' | 'skipped' }> => {
+  return apiRequest<{ message: string; emailDeliveryStatus: 'queued' | 'skipped' }>('/auth/resend-verification', {
     method: 'POST',
     body: JSON.stringify({}),
   });
@@ -1037,7 +1070,7 @@ export const loginWithGoogle = async (
     });
 
     const user = transformBackendUser(response.user);
-    await useAuthStore.getState().login(response.token, user);
+    await loginAuthSession(response.token, user);
 
     return { user, token: response.token };
   } catch (error: any) {
@@ -1106,7 +1139,7 @@ export const getCurrentUser = async (): Promise<User> => {
     try {
       const response = await apiRequest<{ user: BackendUser }>('/auth/me');
       const user = transformBackendUser(response.user);
-      useAuthStore.getState().setUser(user);
+      setAuthUser(user);
       return user;
     } catch (error: any) {
       throw new Error(`Failed to get current user: ${error.message}`);
@@ -1220,6 +1253,28 @@ export interface MarketTrendResponse {
   constituents: number;
 }
 
+export interface MarketTrendOHLCPoint {
+  openTime: string | Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+export interface MarketTrendOHLCResponse {
+  points: MarketTrendOHLCPoint[];
+  latestValue: number;
+  absoluteChange24h: number;
+  relativeChange24h: number;
+  range: {
+    interval: KlineInterval;
+    from: string | Date;
+    to: string | Date;
+    limit: number;
+  };
+  constituents: number;
+}
+
 /** Maps coin symbol (e.g. BTC) to Binance trading pair (e.g. BTCUSDT) */
 export function toChartSymbol(symbol: string): string {
   const s = (symbol || '').trim().toUpperCase();
@@ -1293,6 +1348,61 @@ export const fetchMarketTrend = async (
       value: Number(point?.value),
     }))
     .filter((point: MarketTrendPoint) => Number.isFinite(point.value) && point.value > 0 && Boolean(point.openTime));
+
+  const range = data.range as Record<string, unknown> | undefined;
+
+  return {
+    points,
+    latestValue: Number.isFinite(Number(data?.latestValue)) ? Number(data.latestValue) : 0,
+    absoluteChange24h: Number.isFinite(Number(data?.absoluteChange24h)) ? Number(data.absoluteChange24h) : 0,
+    relativeChange24h: Number.isFinite(Number(data?.relativeChange24h)) ? Number(data.relativeChange24h) : 0,
+    range: {
+      interval,
+      from:
+        typeof range?.from === 'string' || range?.from instanceof Date
+          ? range.from
+          : '',
+      to:
+        typeof range?.to === 'string' || range?.to instanceof Date
+          ? range.to
+          : '',
+      limit:
+        range != null && Number.isFinite(Number(range.limit))
+          ? Number(range.limit)
+          : limit,
+    },
+    constituents: Number.isFinite(Number(data?.constituents)) ? Number(data.constituents) : 0,
+  };
+};
+
+/**
+ * Fetch aggregate market-cap OHLC series for candle view only.
+ * Line view continues to use fetchMarketTrend.
+ */
+export const fetchMarketTrendOHLC = async (
+  interval: KlineInterval = '1m',
+  limit: number = 240,
+  options?: FetchMarketTrendOptions
+): Promise<MarketTrendOHLCResponse> => {
+  const url = `${API_BASE_URL}/charts/market-trend-ohlc?interval=${interval}&limit=${limit}`;
+  const data = (await fetchJsonCached<Record<string, unknown>>(url, {
+    cacheTtlMs: options?.cacheTtlMs ?? 45_000,
+    skipMemoryCache: options?.skipMemoryCache,
+  })) as Record<string, unknown>;
+  const pointsRaw = Array.isArray(data?.points) ? data.points : [];
+  const points = pointsRaw
+    .map((point: any) => ({
+      openTime: point?.openTime,
+      open: Number(point?.open),
+      high: Number(point?.high),
+      low: Number(point?.low),
+      close: Number(point?.close),
+    }))
+    .filter(
+      (point: MarketTrendOHLCPoint) =>
+        [point.open, point.high, point.low, point.close].every((v) => Number.isFinite(v) && v > 0) &&
+        Boolean(point.openTime)
+    );
 
   const range = data.range as Record<string, unknown> | undefined;
 
