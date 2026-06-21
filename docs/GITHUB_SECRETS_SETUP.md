@@ -6,7 +6,7 @@ Configure these in the **crypto-market** GitHub repository before running deploy
 
 | Secret | How to create | Used by |
 |--------|---------------|---------|
-| `EXPO_TOKEN` | https://expo.dev/settings/access-tokens → Create token (`nayft_user`) | EAS build in deploy workflows |
+| `EXPO_TOKEN` | https://expo.dev/settings/access-tokens → Create token (account: `gyan9427`) | EAS build in deploy workflows |
 | `PLAY_STORE_SERVICE_ACCOUNT_JSON` | Full contents of `secrets/play-store-key.json` (see `secrets/README.md`) | Fastlane `upload_to_play_store` |
 
 Only these two secret names are supported in deployment workflows. Do not add aliases.

@@ -9,7 +9,7 @@
 | System | Permission | Notes |
 |--------|------------|-------|
 | GitHub `crypto-market` | Write + Actions | Environment approver for `production-release` |
-| Expo (`nayft_user`) | Project member | `d3f86c59-3e74-49ce-a53a-e6963ec1226b` |
+| Expo (`gyan9427`) | Project owner | `a7872755-4204-424e-878d-636d76c39e88` |
 | Play Console | Internal track release (prod later) | Service account preferred over personal |
 | Sentry (optional) | Project member | Crash monitoring |
 
