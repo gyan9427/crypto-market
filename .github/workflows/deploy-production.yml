@@ -86,10 +86,18 @@ jobs:
         if: env.DEPLOY_SKIPPED != 'true'
         run: |
           set -euo pipefail
+          if bash scripts/check-play-deployed.sh production; then
+            echo "PLAY_UPLOAD_STATUS=PLAY_UPLOAD_SKIPPED_ALREADY_DEPLOYED" >> "$GITHUB_ENV"
+            exit 0
+          fi
           echo "::group::Fastlane upload"
           bundle exec fastlane android deploy_production aab_path:"artifacts/app-production.aab" 2>&1 | tee artifacts/fastlane-upload.log
-          node -e "const fs=require('fs');const log=fs.readFileSync('artifacts/fastlane-upload.log','utf8');if(!log.includes('UPLOAD_COMPLETED')){console.error('UPLOAD_COMPLETED marker missing from Fastlane logs');process.exit(1)}"
-          echo "PLAY_UPLOAD_STATUS=PLAY_UPLOAD_COMPLETED" >> "$GITHUB_ENV"
+          node -e "const fs=require('fs');const log=fs.readFileSync('artifacts/fastlane-upload.log','utf8');if(!/UPLOAD_COMPLETED|UPLOAD_SKIPPED_ALREADY_DEPLOYED/.test(log)){console.error('Upload success marker missing from Fastlane logs');process.exit(1)}"
+          if grep -q 'UPLOAD_SKIPPED_ALREADY_DEPLOYED' artifacts/fastlane-upload.log; then
+            echo "PLAY_UPLOAD_STATUS=PLAY_UPLOAD_SKIPPED_ALREADY_DEPLOYED" >> "$GITHUB_ENV"
+          else
+            echo "PLAY_UPLOAD_STATUS=PLAY_UPLOAD_COMPLETED" >> "$GITHUB_ENV"
+          fi
           echo "::endgroup::"
         env:
           PLAY_STORE_JSON_KEY_PATH: ${{ env.PLAY_STORE_JSON_KEY_PATH }}
