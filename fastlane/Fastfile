@@ -16,6 +16,27 @@ def setup_play_json!
   ENV['PLAY_STORE_JSON_KEY_PATH'] = path
 end
 
+def play_version_already_used_error?(error)
+  message = error.message.to_s
+  message.include?('already been used') || message.match?(/Version code \d+ has already been used/i)
+end
+
+def upload_aab_to_play!(track:, aab_path:)
+  upload_to_play_store(
+    track: track,
+    aab: aab_path,
+    release_status: 'completed',
+    skip_upload_metadata: true,
+    skip_upload_images: true,
+    skip_upload_screenshots: true
+  )
+rescue StandardError => e
+  raise unless play_version_already_used_error?(e)
+
+  UI.important("Play already has this versionCode; skipping upload (#{e.message})")
+  UI.success('UPLOAD_SKIPPED_ALREADY_DEPLOYED')
+end
+
 platform :android do
   before_all do
     setup_play_json!
@@ -37,16 +58,9 @@ platform :android do
     validate_play_credentials!
     aab_path = options[:aab_path] || UI.user_error!('aab_path required for deploy_internal')
     UI.message('UPLOAD_STARTED')
-    upload_to_play_store(
-      track: 'internal',
-      aab: aab_path,
-      release_status: 'completed',
-      skip_upload_metadata: true,
-      skip_upload_images: true,
-      skip_upload_screenshots: true
-    )
+    upload_aab_to_play!(track: 'internal', aab_path: aab_path)
     UI.success('UPLOAD_COMPLETED')
-    UI.success("Uploaded #{aab_path} to Play Internal track")
+    UI.success("Processed #{aab_path} for Play Internal track")
   end
 
   desc 'Upload AAB to Play Production track'
@@ -54,15 +68,8 @@ platform :android do
     validate_play_credentials!
     aab_path = options[:aab_path] || UI.user_error!('aab_path required for deploy_production')
     UI.message('UPLOAD_STARTED')
-    upload_to_play_store(
-      track: 'production',
-      aab: aab_path,
-      release_status: 'completed',
-      skip_upload_metadata: true,
-      skip_upload_images: true,
-      skip_upload_screenshots: true
-    )
+    upload_aab_to_play!(track: 'production', aab_path: aab_path)
     UI.success('UPLOAD_COMPLETED')
-    UI.success("Uploaded #{aab_path} to Play Production track")
+    UI.success("Processed #{aab_path} for Play Production track")
   end
 end
