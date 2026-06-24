@@ -40,7 +40,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-google-signin/google-signin": "^13.1.0",
     "@shopify/react-native-skia": "2.6.2",
-    "@supabase/supabase-js": "^2.58.0",
+    "@supabase/supabase-js": "^2.108.0",
     "@zxcvbn-ts/core": "^3.0.4",
     "@zxcvbn-ts/language-common": "^3.0.4",
     "@zxcvbn-ts/language-en": "^3.0.2",
